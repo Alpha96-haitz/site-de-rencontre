@@ -1,0 +1,24 @@
+# Déploiement Render - https://render.com
+# 1. Créez un compte sur render.com
+# 2. New > Blueprint > Connect ce repo
+# 3. Ajoutez les variables d'environnement ci-dessous
+
+services:
+  - type: web
+    name: meetup-backend
+    runtime: node
+    region: frankfurt  # ou oregon pour USA
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false  # À configurer manuellement
+      - key: JWT_SECRET
+        generateValue: true  # Render génère un secret
+      - key: FRONTEND_URL
+        sync: false  # URL du frontend déployé (ex: https://votre-app.vercel.app)
+      - key: GOOGLE_CLIENT_ID
+        sync: false
