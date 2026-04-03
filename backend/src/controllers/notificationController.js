@@ -27,9 +27,19 @@ export const markAsRead = async (req, res) => {
 // Marquer toutes les notifications comme lues
 export const markAllAsRead = async (req, res) => {
   try {
-    await Notification.updateMany({ recipient: req.user._id }, { read: true });
-    res.json({ message: 'Toutes les notifications marquées comme lues' });
+    if (!req.user?._id) return res.status(401).json({ message: "Non autorisé" });
+    
+    const result = await Notification.updateMany(
+      { recipient: req.user._id, read: false }, 
+      { read: true }
+    );
+    
+    res.json({ 
+      message: 'Toutes les notifications marquées comme lues',
+      modifiedCount: result.modifiedCount 
+    });
   } catch (err) {
+    console.error("Error in markAllAsRead:", err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -37,8 +47,24 @@ export const markAllAsRead = async (req, res) => {
 // Utilitaire pour créer une notification (utilisé en interne)
 export const createNotification = async ({ recipient, sender, type, post, content }) => {
   if (recipient.toString() === sender.toString()) return null;
+  
+  // Générer un contenu par défaut si absent (Style Facebook)
+  let finalContent = content;
+  if (!finalContent) {
+    if (type === 'like') finalContent = "a aimé l'une de vos publications.";
+    if (type === 'comment') finalContent = "a ajouté un commentaire sur votre publication.";
+    if (type === 'follow') finalContent = "a commencé à suivre votre profil.";
+    if (type === 'match') finalContent = "Félicitations ! Vous avez un nouveau match. Envoyez-lui un message !";
+  }
+
   try {
-    return await Notification.create({ recipient, sender, type, post, content });
+    return await Notification.create({ 
+      recipient, 
+      sender, 
+      type, 
+      post, 
+      content: finalContent 
+    });
   } catch (err) {
     console.error('Erreur création notification:', err);
     return null;

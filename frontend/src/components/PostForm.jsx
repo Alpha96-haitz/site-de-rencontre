@@ -32,9 +32,7 @@ export default function PostForm({ onPostCreated }) {
         formData.append('image', image);
       }
 
-      const { data } = await client.post('/posts', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const { data } = await client.post('/posts', formData, { timeout: 60000 });
       
       setDesc('');
       setImage(null);

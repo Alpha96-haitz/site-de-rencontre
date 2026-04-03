@@ -61,7 +61,7 @@ app.use(cookieParser());
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // Plus permissif en développement
+  max: process.env.NODE_ENV === 'production' ? 100 : 5000, // Plus permissif en développement (fix 429)
   message: { message: 'Trop de requêtes, réessayez plus tard.' }
 });
 app.use(limiter);

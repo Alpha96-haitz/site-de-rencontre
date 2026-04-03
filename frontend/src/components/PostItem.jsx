@@ -78,16 +78,16 @@ export default function PostItem({ post: initialPost, onDelete }) {
     <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4 transition-all hover:shadow-md">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <Link to={`/profile/${author?.username || author?._id}`} className="relative">
+          <Link to={`/home/profile/${author?.username || author?._id}`} className="relative">
             <img src={authorPhoto} alt="Author" className="w-11 h-11 rounded-full object-cover border border-slate-100" />
             {author?.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>}
           </Link>
           <div>
-            <Link to={`/profile/${author?.username || author?._id}`} className="font-bold text-slate-800 hover:text-pink-600 transition-colors">
+            <Link to={`/home/profile/${author?.username || author?._id}`} className="font-bold text-slate-800 hover:text-pink-600 transition-colors">
               {author?.firstName} {author?.lastName}
             </Link>
             <p className="text-[11px] font-medium text-slate-400 flex items-center gap-1 uppercase tracking-wider">
-              {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true, locale: fr })}
+              {post.createdAt ? formatDistanceToNow(new Date(post.createdAt), { addSuffix: true, locale: fr }) : "À l'instant"}
             </p>
           </div>
         </div>
@@ -184,7 +184,7 @@ export default function PostItem({ post: initialPost, onDelete }) {
                     <span className="font-bold text-slate-800 text-xs mb-1 block">Utilisateur</span>
                     <p className="text-slate-600 leading-relaxed">{c.text}</p>
                     <span className="text-[10px] text-slate-400 mt-1 block uppercase font-bold tracking-tighter">
-                      {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true, locale: fr })}
+                      {c.createdAt ? formatDistanceToNow(new Date(c.createdAt), { addSuffix: true, locale: fr }) : "À l'instant"}
                     </span>
                   </div>
                 </div>

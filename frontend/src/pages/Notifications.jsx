@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { FiHeart, FiMessageCircle, FiUserPlus, FiCheckCircle, FiBell } from 'react-icons/fi';
+import { Link, useNavigate } from 'react-router-dom';
+import { FiHeart, FiMessageCircle, FiUserPlus, FiCheckCircle, FiBell, FiMoreHorizontal, FiUserCheck, FiChevronLeft } from 'react-icons/fi';
+import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, isToday, isYesterday, isThisWeek, subDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 
 export default function Notifications() {
+  const { user, refreshUser } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,77 +33,146 @@ export default function Notifications() {
     return () => clearTimeout(timer);
   }, []);
 
-  const getIcon = (type) => {
-    switch (type) {
-      case 'like': return <FiHeart className="text-rose-500 fill-current" />;
-      case 'comment': return <FiMessageCircle className="text-pink-500" />;
-      case 'follow': return <FiUserPlus className="text-blue-500" />;
-      case 'match': return <FiCheckCircle className="text-green-500" />;
-      default: return <FiBell className="text-slate-400" />;
+  const handleFollowAction = async (targetId, e) => {
+    e.preventDefault(); e.stopPropagation();
+    try {
+      if (user?.following?.includes(targetId)) {
+        await client.put(`/users/${targetId}/unfollow`);
+        toast.success("Désabonné");
+      } else {
+        await client.put(`/users/${targetId}/follow`);
+        toast.success("Abonné !");
+      }
+      refreshUser();
+    } catch (err) {
+      toast.error("Action impossible");
     }
   };
 
-  if (loading) return <div className="flex justify-center p-12"><div className="w-8 h-8 border-4 border-pink-200 border-t-pink-600 rounded-full animate-spin"></div></div>;
+  const categorizeNotifications = () => {
+    const categories = {
+      today: { title: 'Aujourd’hui', items: [] },
+      yesterday: { title: 'Hier', items: [] },
+      thisWeek: { title: 'Cette semaine', items: [] },
+      earlier: { title: 'Plus tôt', items: [] }
+    };
+
+    notifications.forEach(n => {
+      const date = new Date(n.createdAt);
+      if (isToday(date)) categories.today.items.push(n);
+      else if (isYesterday(date)) categories.yesterday.items.push(n);
+      else if (isThisWeek(date)) categories.thisWeek.items.push(n);
+      else categories.earlier.items.push(n);
+    });
+
+    return Object.values(categories).filter(c => c.items.length > 0);
+  };
+
+  if (loading) return (
+    <div className="flex justify-center p-20 animate-pulse">
+       <div className="w-10 h-10 border-4 border-slate-100 border-t-pink-600 rounded-full animate-spin"></div>
+    </div>
+  );
+
+  const categories = categorizeNotifications();
 
   return (
-    <div className="max-w-xl mx-auto p-4 pb-20">
-      <div className="flex items-center justify-between mb-6 px-2">
-        <h1 className="text-2xl font-black text-slate-800 tracking-tight">Notifications</h1>
-        <button onClick={fetchNotifications} className="text-xs font-black text-pink-600 uppercase tracking-widest hover:underline">Actualiser</button>
+    <div className="max-w-xl mx-auto bg-white min-h-screen md:min-h-[85vh] md:mt-4 md:rounded-3xl md:shadow-xl md:border border-slate-100 overflow-hidden">
+      {/* Instagram-style Header */}
+      <div className="sticky top-0 bg-white/80 backdrop-blur-md z-40 border-b border-slate-50 px-4 h-16 flex items-center justify-between">
+         <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} className="md:hidden p-2 hover:bg-slate-50 rounded-full transition-all">
+               <FiChevronLeft className="text-2xl text-slate-800" />
+            </button>
+            <h1 className="text-[22px] font-black text-slate-900 tracking-tight">Activité</h1>
+         </div>
+         <button onClick={fetchNotifications} className="text-pink-600 font-bold text-sm px-2 py-1 rounded hover:bg-pink-50 transition-colors">Actualiser</button>
       </div>
 
-      <div className="space-y-3">
+      <div className="pb-24">
         {notifications.length === 0 ? (
-          <div className="bg-white p-12 rounded-3xl border border-slate-100 text-center shadow-sm">
-             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 opacity-50">
-               <FiBell className="w-8 h-8 text-slate-300" />
+          <div className="flex flex-col items-center justify-center p-20 text-center animate-in fade-in duration-700">
+             <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 border border-slate-100">
+                <FiBell className="text-4xl text-slate-200" />
              </div>
-             <p className="text-slate-500 font-bold">Pas encore de notifications.</p>
+             <h3 className="text-xl font-black text-slate-800 mb-2">Aucune activité</h3>
+             <p className="text-slate-400 text-sm font-medium leading-relaxed">Les mentions J’aime, les commentaires et les nouveaux abonnés apparaîtront ici.</p>
           </div>
         ) : (
-          notifications.map(n => {
-            const senderPhoto = n.sender?.photos?.find(p => p.isPrimary)?.url || n.sender?.googlePhoto || 'https://placehold.co/150';
-            return (
-              <div 
-                key={n._id} 
-                className={`bg-white p-4 rounded-2xl border-2 transition-all flex gap-4 items-start ${n.read ? 'border-slate-50' : 'border-pink-100 shadow-lg shadow-pink-50 animate-in fade-in slide-in-from-left-2 duration-300'}`}
-              >
-                <div className="relative">
-                  <img src={senderPhoto} alt="" className="w-12 h-12 rounded-full object-cover border border-slate-100" />
-                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-50">
-                    {getIcon(n.type)}
-                  </div>
-                </div>
-                
-                <div className="flex-1">
-                  <div className="flex flex-wrap gap-1 items-baseline">
-                    <Link to={`/home/profile/${n.sender?.username}`} className="font-black text-slate-800 hover:text-pink-600">
-                      {n.sender?.firstName} {n.sender?.lastName}
-                    </Link>
-                    <span className="text-slate-600 text-[14px]">
-                      {n.type === 'like' && "a aimé votre publication."}
-                      {n.type === 'comment' && `a commenté : "${n.content}"`}
-                      {n.type === 'follow' && "s'est abonné à votre profil."}
-                      {n.type === 'match' && "Un nouveau match ! Envoyez un message."}
-                    </span>
-                  </div>
-                  <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 mt-2">
-                    {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: fr })}
-                  </p>
-                </div>
+          categories.map(cat => (
+            <div key={cat.title} className="mb-2">
+               <h2 className="px-6 py-4 text-[15px] font-black text-slate-900 tracking-tight">{cat.title}</h2>
+               <div className="divide-y divide-slate-50">
+                  {cat.items.map(n => {
+                     const senderPhoto = n.sender?.photos?.find(p => p.isPrimary)?.url || n.sender?.googlePhoto || 'https://placehold.co/100';
+                     const isFollowing = user?.following?.includes(n.sender?._id);
+                     const senderName = n.sender?.username || 'Utilisateur';
+                     
+                     return (
+                        <div key={n._id} className={`flex items-center gap-3 px-6 py-4 hover:bg-slate-50/50 transition-colors group cursor-pointer ${!n.read ? 'bg-pink-50/10' : ''}`} onClick={() => n.post ? navigate(`/home/profile/${user.username}`) : navigate(`/home/profile/${n.sender?.username}`)}>
+                           {/* Avatar Group */}
+                           <div className="relative shrink-0">
+                              <img src={senderPhoto} alt="" className="w-[44px] h-[44px] rounded-full object-cover border border-slate-100 shadow-sm" />
+                              {!n.read && <div className="absolute -top-0.5 -right-0.5 w-[14px] h-[14px] bg-pink-600 rounded-full border-2 border-white shadow-sm"></div>}
+                           </div>
 
-                {n.post && (
-                  <Link to={`/home/profile/${user.username}`} className="w-12 h-12 rounded-lg bg-slate-50 overflow-hidden border border-slate-100 flex-shrink-0">
-                    {n.post.image ? (
-                       <img src={n.post.image} alt="" className="w-full h-full object-cover opacity-80" />
-                    ) : (
-                      <div className="p-1 text-[8px] text-slate-400 font-medium truncate">{n.post.desc}</div>
-                    )}
-                  </Link>
-                )}
-              </div>
-            );
-          })
+                           {/* Content Text */}
+                           <div className="flex-1 text-[13px] leading-[18px]">
+                              <span className="font-black text-slate-900 hover:opacity-70 transition-opacity">
+                                 {senderName}
+                              </span>
+                              <span className="text-slate-800 ml-1.5 align-middle">
+                                 {n.content || (
+                                    <>
+                                       {n.type === 'like' && "a aimé votre publication."}
+                                       {n.type === 'comment' && "a commenté votre publication."}
+                                       {n.type === 'follow' && "a commencé à vous suivre."}
+                                       {n.type === 'match' && "Un nouveau match ! Envoyez un message."}
+                                    </>
+                                 )}
+                              </span>
+                              <span className="text-slate-400 ml-2 font-medium">
+                                 {formatDistanceToNow(new Date(n.createdAt), { locale: fr })
+                                   .replace('il y a environ ', '')
+                                   .replace('il y a ', '')
+                                   .replace('minutes', 'm')
+                                   .replace('minute', 'm')
+                                   .replace('heures', 'h')
+                                   .replace('heure', 'h')
+                                   .replace('jours', 'j')
+                                   .replace('jour', 'j')
+                                   .replace('semaines', 's')
+                                   .replace('mois', 'mo')}
+                              </span>
+                           </div>
+
+                           {/* Right Action/Preview */}
+                           <div className="shrink-0 flex items-center justify-end min-w-[44px]">
+                              {n.type === 'follow' ? (
+                                 <button 
+                                    onClick={(e) => handleFollowAction(n.sender?._id, e)}
+                                    className={`px-4 py-1.5 rounded-lg text-[13px] font-black transition-all ${isFollowing ? 'bg-slate-100 text-slate-800 hover:bg-slate-200' : 'bg-pink-600 text-white hover:bg-pink-700 shadow-lg shadow-pink-100'}`}
+                                 >
+                                    {isFollowing ? 'Abonné(e)' : 'S’abonner'}
+                                 </button>
+                              ) : n.post ? (
+                                 <div className="w-[44px] h-[44px] rounded-lg bg-slate-50 overflow-hidden border border-slate-100">
+                                    {n.post.image ? (
+                                       <img src={n.post.image} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                       <div className="p-1 text-[8px] text-slate-400 font-bold overflow-hidden">{n.post.desc}</div>
+                                    )}
+                                 </div>
+                              ) : (
+                                 <FiMoreHorizontal className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              )}
+                           </div>
+                        </div>
+                     );
+                  })}
+               </div>
+            </div>
+          ))
         )}
       </div>
     </div>

@@ -11,7 +11,8 @@ export const getProfile = async (req, res) => {
     const query = req.params.id.match(/^[0-9a-fA-F]{24}$/) ? { _id: req.params.id } : { username: req.params.id };
     const user = await User.findOne(query)
       .select('username profilePicture coverPicture followers following firstName lastName age gender bio photos googlePhoto interests location lastSeen isOnline')
-      .populate('photos');
+      .populate('photos')
+      .populate('followers following', 'firstName lastName photos googlePhoto username');
     if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
     res.json(user);
   } catch (err) {
@@ -38,11 +39,21 @@ export const uploadPhoto = async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'Fichier requis' });
     
     const result = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: 'haitz-rencontre/photos' },
-        (err, res) => err ? reject(err) : resolve(res)
-      );
-      stream.end(req.file.buffer);
+      const timeout = setTimeout(() => {
+        reject(new Error("Cloudinary upload timeout (60s)"));
+      }, 60000);
+
+      const b64 = Buffer.from(req.file.buffer).toString('base64');
+      const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
+
+      cloudinary.uploader.upload(dataURI, { folder: 'haitz-rencontre/photos' }, (uploadErr, uploadRes) => {
+        clearTimeout(timeout);
+        if (uploadErr) {
+          console.error("Cloudinary User Photo Upload Error:", uploadErr);
+          return reject(uploadErr);
+        }
+        resolve(uploadRes);
+      });
     });
 
     const user = await User.findById(req.user._id);
@@ -74,6 +85,26 @@ export const uploadPhoto = async (req, res) => {
     });
   }
 };
+// Upload photo de couverture (Cloudinary)
+export const uploadCover = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'Fichier requis' });
+    
+    const result = await new Promise((resolve, reject) => {
+      const b64 = Buffer.from(req.file.buffer).toString('base64');
+      const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
+      cloudinary.uploader.upload(dataURI, { folder: 'haitz-rencontre/covers' }, (uploadErr, uploadRes) => {
+        if (uploadErr) return reject(uploadErr);
+        resolve(uploadRes);
+      });
+    });
+
+    const user = await User.findByIdAndUpdate(req.user._id, { coverPicture: result.secure_url }, { new: true }).select('-password');
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
 // Supprimer photo
 export const deletePhoto = async (req, res) => {
@@ -95,10 +126,10 @@ export const deletePhoto = async (req, res) => {
 // Recherche avec filtres et texte
 export const search = async (req, res) => {
   try {
-    const { q, ageMin, ageMax, gender, interests, maxDistance, limit = 20, page = 1 } = req.query;
+    const { q, ageMin, ageMax, gender, interests, maxDistance, limit = 100, page = 1 } = req.query;
     const currentUser = req.user._id;
     
-    const query = { _id: { $ne: currentUser }, emailVerified: true, isBanned: false };
+    const query = { _id: { $ne: currentUser }, isBanned: false };
     
     if (q) {
       query.$or = [
@@ -132,15 +163,17 @@ export const search = async (req, res) => {
     
     const skip = (parseInt(page) - 1) * parseInt(limit);
     let users = await User.find(query)
-      .select('firstName lastName age gender bio photos googlePhoto interests')
+      .select('firstName lastName age gender bio photos googlePhoto interests username')
       .limit(parseInt(limit))
       .skip(skip)
       .lean();
     
-    // Exclure les utilisateurs déjà likés/dislikés
+    // Désactivation de l'exclusion des utilisateurs déjà likés/dislikés selon la demande de l'utilisateur
+    /*
     const likes = await Match.find({ likedBy: currentUser }).select('likedUser');
     const likedIds = likes.map(m => m.likedUser.toString());
     users = users.filter(u => !likedIds.includes(u._id.toString()));
+    */
     
     res.json(users);
   } catch (err) {
@@ -151,31 +184,10 @@ export const search = async (req, res) => {
 // Suggestions intelligentes (profil + compatibilité)
 export const getSuggestions = async (req, res) => {
   try {
-    const currentUser = await User.findById(req.user._id);
-    const likedIds = (await Match.find({ likedBy: currentUser._id }).select('likedUser')).map(m => m.likedUser);
-    likedIds.push(currentUser._id);
-    
-    const query = {
-      _id: { $nin: likedIds },
-      emailVerified: true,
-      isBanned: false
-    };
-    
-    if (currentUser.interestedIn?.length && !currentUser.interestedIn.includes('all')) {
-      query.gender = { $in: currentUser.interestedIn };
-    }
-    
-    const ageMin = currentUser.ageRange?.min || 18;
-    const ageMax = currentUser.ageRange?.max || 99;
-    const today = new Date();
-    query.birthDate = {
-      $lte: new Date(today.getFullYear() - ageMin, today.getMonth(), today.getDate()),
-      $gt: new Date(today.getFullYear() - ageMax - 1, today.getMonth(), today.getDate())
-    };
-    
+    const query = { _id: { $ne: req.user._id }, isBanned: false };
     const users = await User.find(query)
-      .select('firstName lastName age gender bio photos googlePhoto interests')
-      .limit(20)
+      .select('firstName lastName age gender bio photos googlePhoto interests username')
+      .limit(100) // On affiche maintenant une large liste d'utilisateurs
       .lean();
     
     res.json(users);
@@ -235,3 +247,24 @@ export const unfollowUser = async (req, res) => {
   }
 };
 
+
+// Supprimer son compte
+export const deleteAccount = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    
+    // Supprimer les photos sur Cloudinary
+    for (const photo of user.photos) {
+      if (photo.publicId) await cloudinary.uploader.destroy(photo.publicId).catch(() => {});
+    }
+    
+    await User.findByIdAndDelete(req.user._id);
+    // On pourrait aussi supprimer ses matchs, ses messages, ses notifications, ses posts...
+    await Match.deleteMany({ users: req.user._id });
+    
+    res.json({ message: 'Compte supprimé avec succès' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

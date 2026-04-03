@@ -9,26 +9,39 @@ export const createPost = async (req, res) => {
     let imageUrl = '';
     
     if (req.file) {
-      const result = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { folder: 'posts' },
-          (err, res) => err ? reject(err) : resolve(res)
-        );
-        stream.end(req.file.buffer);
+      imageUrl = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error("Cloudinary upload timeout (60s)"));
+        }, 60000);
+
+        const b64 = Buffer.from(req.file.buffer).toString('base64');
+        const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
+        
+        cloudinary.uploader.upload(dataURI, { folder: 'posts' }, (uploadErr, uploadRes) => {
+          clearTimeout(timeout);
+          if (uploadErr) {
+            console.error("Cloudinary Post Upload Error:", uploadErr);
+            return reject(uploadErr);
+          }
+          resolve(uploadRes.secure_url);
+        });
       });
-      imageUrl = result.secure_url;
     }
 
+    const postData = { ...req.body };
+    if (typeof postData.image === 'object') delete postData.image;
+
     const newPost = new Post({ 
-      ...req.body, 
+      ...postData, 
       userId: req.user._id,
-      image: imageUrl || req.body.image 
+      image: imageUrl || (typeof req.body.image === 'string' ? req.body.image : '')
     });
 
     const savedPost = await newPost.save();
     res.status(201).json(savedPost);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("Post Creation Error Details:", err);
+    res.status(500).json({ message: err.message, stack: err.stack });
   }
 };
 
@@ -90,7 +103,11 @@ export const commentPost = async (req, res) => {
       text: req.body.text
     };
 
-    await post.updateOne({ $push: { comments: newComment } });
+    post.comments.push(newComment);
+    await post.save();
+    
+    // Récupérer le dernier commentaire ajouté (celui avec l'_id et createdAt générés)
+    const savedComment = post.comments[post.comments.length - 1];
 
     // Notification
     createNotification({
@@ -101,7 +118,7 @@ export const commentPost = async (req, res) => {
       content: req.body.text
     });
 
-    res.json({ message: "Commentaire ajouté", comment: newComment });
+    res.json({ message: "Commentaire ajouté", comment: savedComment });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

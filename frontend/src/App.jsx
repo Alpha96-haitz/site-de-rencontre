@@ -18,6 +18,7 @@ import Notifications from './pages/Notifications';
 import Profile from './pages/Profile';
 import EditProfile from './pages/EditProfile';
 import Admin from './pages/Admin';
+import Search from './pages/Search';
 
 const Protected = ({ children }) => {
   const { user, loading } = useAuth();
@@ -44,6 +45,7 @@ export default function App() {
       <Route path="/home" element={<Protected><Layout /></Protected>}>
         <Route index element={<Home />} />
         <Route path="discover" element={<Discover />} />
+        <Route path="search" element={<Search />} />
         <Route path="matches" element={<Matches />} />
         <Route path="messages" element={<Messages />} />
         <Route path="messages/:matchId" element={<Messages />} />

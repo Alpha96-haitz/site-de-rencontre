@@ -26,7 +26,7 @@ export default function ForgotPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-rose-100 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-        <h1 className="text-2xl font-bold text-center text-pink-600 mb-6">MeetUp</h1>
+        <h1 className="text-2xl font-bold text-center text-pink-600 mb-6">HAITZ</h1>
         {sent ? (
           <p className="text-slate-600 text-center">
             Vérifiez votre boîte mail pour réinitialiser votre mot de passe.

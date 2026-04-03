@@ -1,22 +1,30 @@
 import { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
 import toast from 'react-hot-toast';
 import PostItem from '../components/PostItem';
-import { FiEdit2, FiUserPlus, FiCheck } from 'react-icons/fi';
+import PostForm from '../components/PostForm';
+import ReportModal from '../components/ReportModal';
+import { FiEdit2, FiUserPlus, FiCheck, FiHeart, FiMessageCircle, FiMapPin, FiCamera, FiMoreHorizontal, FiPlus, FiBriefcase, FiHome, FiClock, FiGrid, FiUsers, FiImage, FiVideo, FiFilter, FiStar, FiMail, FiPhone, FiFlag, FiShield } from 'react-icons/fi';
+import MatchModal from '../components/MatchModal';
 
 export default function Profile() {
   const { username } = useParams();
   const { user, refreshUser } = useAuth();
+  const navigate = useNavigate();
   
-  // Déterminer s'il s'agit du propre profil de l'utilisateur connecté
   const isOwnProfile = !username || username === user?.username || username === user?._id;
 
-  // Initialisation avec l'utilisateur local si c'est son propre profil pour éviter le flash de chargement
   const [profile, setProfile] = useState(isOwnProfile ? user : null);
   const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(!isOwnProfile); // Pas de chargement si on a déjà les données locales
+  const [loading, setLoading] = useState(!isOwnProfile);
+  const [activeTab, setActiveTab] = useState('posts'); // 'posts', 'about', 'friends', 'photos'
+  const [showMatchModal, setShowMatchModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [matchData, setMatchData] = useState(null);
+  const [isLiked, setIsLiked] = useState(false);
+  const [hasMatch, setHasMatch] = useState(false);
 
   useEffect(() => {
     refreshUser().catch(() => {});
@@ -24,7 +32,6 @@ export default function Profile() {
 
   useEffect(() => {
     const fetchProfileData = async () => {
-      // Si ce n'est pas notre profil ou si on a besoin d'une mise à jour fraîche
       if (!isOwnProfile) setLoading(true);
       
       try {
@@ -37,6 +44,13 @@ export default function Profile() {
         }
         
         setProfile(profileData);
+
+        // Vérifier si un match mutuel existe pour le chat
+        if (!isOwnProfile && profileData?._id) {
+          const { data: matchCheck } = await client.get(`/matches/status/${profileData._id}`);
+          setHasMatch(matchCheck.isMutual);
+          setIsLiked(matchCheck.hasLiked);
+        }
 
         if (profileData?._id) {
           const { data: postsData } = await client.get(`/posts/profile/${profileData._id}`);
@@ -55,20 +69,19 @@ export default function Profile() {
     }
   }, [username, user?._id, isOwnProfile]);
 
-  const data = profile;
-  
+  const handlePostCreated = (newPost) => {
+    setPosts([newPost, ...posts]);
+  };
+
   const handleFollowToggle = async () => {
-    if (!data) return;
+    if (!profile) return;
     try {
-      if (user?.following?.includes(data._id)) {
-        await client.put(`/users/${data._id}/unfollow`);
-        toast.success("Vous n'êtes plus abonné");
+      if (user?.following?.includes(profile._id)) {
+        await client.put(`/users/${profile._id}/unfollow`);
       } else {
-        await client.put(`/users/${data._id}/follow`);
-        toast.success("Vous êtes maintenant abonné");
+        await client.put(`/users/${profile._id}/follow`);
       }
       refreshUser();
-      
       setProfile(prev => {
         if (!prev) return prev;
         const isCurrentlyFollowing = user?.following?.includes(prev._id);
@@ -82,126 +95,314 @@ export default function Profile() {
     }
   };
 
-  if (loading && !data) {
+  const handleLike = async () => {
+    if (!profile || isLiked || hasMatch) return;
+    try {
+      const { data: res } = await client.post(`/matches/like/${profile._id}`);
+      setIsLiked(true);
+      if (res.isMutual) {
+        setHasMatch(true);
+        setMatchData(res.match);
+        setShowMatchModal(true);
+      } else {
+        toast.success("Like envoyé ! ❤️");
+      }
+    } catch (err) {
+      toast.error("Erreur lors du like");
+    }
+  };
+
+  if (loading && !profile) {
     return (
-      <div className="flex justify-center p-12">
-        <div className="w-12 h-12 border-4 border-pink-200 border-t-pink-600 rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center p-20 text-slate-400 font-black uppercase text-[10px] tracking-widest animate-pulse">
+        Chargement du profil...
       </div>
     );
   }
 
-  if (!data) {
-    return <div className="text-center p-12 text-slate-500 font-medium">Profil introuvable</div>;
-  }
+  if (!profile) return <div className="text-center p-20 text-slate-500 font-black uppercase tracking-widest">Profil introuvable</div>;
 
-  const primaryPhoto = data.photos?.find((p) => p.isPrimary) || data.photos?.[0];
-  const avatarUrl = primaryPhoto?.url || data.googlePhoto || 'https://placehold.co/150';
-  const coverUrl = data.coverPicture || 'https://placehold.co/800x300?text=Couverture';
-  
-  const isFollowing = user?.following?.includes(data._id);
+  const primaryPhoto = profile.photos?.find((p) => p.isPrimary) || profile.photos?.[0];
+  const avatarUrl = primaryPhoto?.url || profile.googlePhoto || 'https://placehold.co/150';
+  const coverUrl = profile.coverPicture || 'https://placehold.co/1200x400?text=Couverture';
+  const isFollowing = user?.following?.includes(profile._id);
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'posts':
+        return (
+          <div className="flex flex-col md:flex-row gap-4">
+             {/* LEFT COLUMN (Intro) */}
+             <div className="w-full md:w-[380px] shrink-0 space-y-4">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                   <h2 className="text-xl font-black text-slate-900 mb-4 tracking-tight">Intro</h2>
+                   <div className="text-center md:text-left mb-6">
+                      <p className="text-[15px] text-slate-700 leading-relaxed mb-4">{profile.bio || "Aucune bio fournie."}</p>
+                      <button onClick={() => isOwnProfile && navigate('/home/profile/edit')} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 py-2 rounded-lg font-bold text-sm transition-all mb-4">Modifier la bio</button>
+                   </div>
+                   <div className="space-y-3">
+                      <div className="flex items-center gap-3 text-slate-700 text-[15px]">
+                         <FiBriefcase className="text-xl text-slate-400" />
+                         <span>Travaille chez <strong className="hover:underline cursor-pointer">Haitz-Social</strong></span>
+                      </div>
+                      {profile.location?.city && (
+                        <div className="flex items-center gap-3 text-slate-700 text-[15px]">
+                           <FiHome className="text-xl text-slate-400" />
+                           <span>Habite à <strong className="hover:underline cursor-pointer">{profile.location.city}</strong></span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 text-slate-700 text-[15px]">
+                         <FiMapPin className="text-xl text-slate-400" />
+                         <span>De <strong className="hover:underline cursor-pointer">Port-au-Prince, Haiti</strong></span>
+                      </div>
+                      <div className="flex items-center gap-3 text-slate-700 text-[15px]">
+                         <FiClock className="text-xl text-slate-400" />
+                         <span>Membre depuis <strong className="hover:underline cursor-pointer">Mars 2026</strong></span>
+                      </div>
+                   </div>
+                   <button onClick={() => isOwnProfile && navigate('/home/profile/edit')} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 py-2 rounded-lg font-bold text-sm transition-all mt-6">Modifier les infos</button>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                   <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-xl font-black text-slate-900 tracking-tight hover:underline cursor-pointer">Photos</h2>
+                      <button onClick={() => setActiveTab('photos')} className="text-pink-600 hover:bg-pink-50 px-2 py-1 rounded text-[15px] font-medium">Toutes les photos</button>
+                   </div>
+                   <div className="grid grid-cols-3 gap-1.5 rounded-xl overflow-hidden">
+                      {profile.photos?.slice(0, 9).map((p, i) => (
+                         <img key={i} src={p.url} alt="" className="aspect-square object-cover w-full hover:opacity-90 cursor-pointer transition-opacity" />
+                      ))}
+                   </div>
+                </div>
+             </div>
+
+             {/* RIGHT COLUMN (Posts) */}
+             <div className="flex-1 space-y-4">
+                {isOwnProfile && (
+                   <PostForm onPostCreated={handlePostCreated} />
+                )}
+                {posts.length === 0 ? (
+                   <div className="bg-white p-12 text-center rounded-xl shadow-sm border border-slate-200">
+                      <FiGrid className="w-16 h-16 text-slate-100 mx-auto mb-4" />
+                      <p className="text-slate-400 font-bold text-lg">Aucune publication à afficher.</p>
+                   </div>
+                ) : (
+                   <div className="space-y-4">
+                      {posts.map(post => <PostItem key={post._id} post={post} />)}
+                   </div>
+                )}
+             </div>
+          </div>
+        );
+      case 'about':
+        return (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="w-full md:w-80 border-r border-slate-100 p-4 font-bold text-slate-600 bg-slate-50/50">
+                <h2 className="text-2xl font-black text-slate-900 mb-6 p-2">À propos</h2>
+                <div className="space-y-1">
+                   {['Vue d’ensemble', 'Emploi et scolarité', 'Lieux de résidence', 'Informations de contact', 'Famille et relations'].map(i => (
+                      <button key={i} className={`w-full text-left p-3 rounded-lg hover:bg-white hover:text-pink-600 transition-all ${i === 'Vue d’ensemble' ? 'bg-white text-pink-600 shadow-sm' : ''}`}>
+                         {i}
+                      </button>
+                   ))}
+                </div>
+             </div>
+             <div className="flex-1 p-8 space-y-8">
+                <section>
+                   <h3 className="text-[17px] font-black text-slate-900 mb-6">Vue d’ensemble</h3>
+                   <div className="space-y-6">
+                      <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400"><FiBriefcase className="text-2xl" /></div>
+                         <p className="text-slate-800 font-medium">Travaille chez <strong className="hover:underline cursor-pointer">Haitz-Social</strong></p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400"><FiHome className="text-2xl" /></div>
+                         <p className="text-slate-800 font-medium">Habite à <strong className="hover:underline cursor-pointer">{profile.location?.city || 'Port-au-Prince'}</strong></p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400"><FiMail className="text-2xl" /></div>
+                         <p className="text-slate-800 font-medium italic opacity-60">L'adresse email est masquée par confidentialité.</p>
+                      </div>
+                   </div>
+                </section>
+                <div className="h-[1px] bg-slate-100"></div>
+                <section>
+                   <h3 className="text-[17px] font-black text-slate-900 mb-6">Bio détaillée</h3>
+                   <p className="text-slate-600 leading-relaxed text-lg">{profile.bio || "Aucune biographie n'a été ajoutée pour le moment."}</p>
+                </section>
+             </div>
+          </div>
+        );
+      case 'friends':
+        return (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="flex items-center justify-between mb-8 px-2 text-center md:text-left">
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Amis ({profile.followers?.length || 0})</h2>
+                <div className="hidden md:flex gap-4">
+                   <button className="text-pink-600 font-bold text-sm hover:underline">Requêtes</button>
+                   <button className="text-pink-600 font-bold text-sm hover:underline">Retrouver des amis</button>
+                </div>
+             </div>
+             {profile.followers?.length === 0 ? (
+                <div className="p-20 text-center text-slate-400 italic">Aucun ami à afficher pour le moment.</div>
+             ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   {profile.followers.map(f => (
+                      <div key={f._id} className="flex items-center gap-4 p-4 border border-slate-100 rounded-xl hover:bg-slate-50 transition-all cursor-pointer group">
+                         <img src={f.photos?.[0]?.url || f.googlePhoto || 'https://placehold.co/100'} alt="" className="w-20 h-20 rounded-lg object-cover" />
+                         <div className="flex-1">
+                            <h4 className="font-black text-slate-800 text-lg group-hover:text-pink-600">{f.firstName} {f.lastName}</h4>
+                            <p className="text-sm text-slate-400 font-bold">12 amis commun</p>
+                         </div>
+                         <button className="bg-slate-100 hover:bg-slate-200 p-2 rounded-lg transition-colors"><FiMoreHorizontal /></button>
+                      </div>
+                   ))}
+                </div>
+             )}
+          </div>
+        );
+      case 'photos':
+        return (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="flex items-center justify-between mb-8 px-2">
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Photos</h2>
+                {isOwnProfile && <button onClick={() => navigate('/home/profile/edit?tab=photos')} className="bg-pink-50 text-pink-600 px-4 py-2 rounded-lg font-black text-sm uppercase tracking-widest transition-all">Ajouter une photo</button>}
+             </div>
+             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {profile.photos?.map((p, i) => (
+                   <div key={i} className="aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm group cursor-pointer border-transparent hover:border-pink-300">
+                      <img src={p.url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                   </div>
+                ))}
+             </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="max-w-4xl mx-auto pb-8 animate-in fade-in duration-500">
-      {/* En-tête Profil (Cover + Info) */}
-      <div className="bg-white rounded-b-3xl shadow-sm border border-slate-100 overflow-hidden mb-6">
-        {/* Cover Photo */}
-        <div className="h-48 md:h-72 w-full bg-slate-200 relative group">
-          <img src={coverUrl} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-        </div>
-
-        {/* Profil Infos */}
-        <div className="px-6 pb-8 relative">
-          <div className="flex flex-col md:flex-row md:items-end justify-between -mt-20 md:-mt-24 sm:gap-4 relative z-10 block mb-6">
-            <div className="flex flex-col md:flex-row items-center md:items-end gap-5">
-              <div className="relative group">
-                <img 
-                  src={avatarUrl} 
-                  alt="Avatar" 
-                  className="w-36 h-36 md:w-44 md:h-44 rounded-full object-cover border-8 border-white shadow-xl bg-white"
-                />
-                {data.isOnline && (
-                  <div className="absolute bottom-4 right-4 w-6 h-6 bg-green-500 border-4 border-white rounded-full"></div>
-                )}
-              </div>
-              <div className="text-center md:text-left md:mb-4">
-                <h1 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight">
-                  {data.firstName} {data.lastName}
-                  {data.age != null && <span className="text-slate-400 font-light ml-2">{data.age}</span>}
-                </h1>
-                <p className="text-pink-600 font-bold text-lg">@{data.username}</p>
-                <div className="flex gap-6 mt-3 text-sm font-bold text-slate-500 justify-center md:justify-start">
-                  <span className="flex flex-col items-center md:items-start">
-                    <span className="text-slate-800 text-lg uppercase tracking-tighter">{data.followers?.length || 0}</span>
-                    <span className="text-[10px] uppercase font-black tracking-widest text-slate-400">Abonnés</span>
-                  </span>
-                  <span className="flex flex-col items-center md:items-start">
-                    <span className="text-slate-800 text-lg uppercase tracking-tighter">{data.following?.length || 0}</span>
-                    <span className="text-[10px] uppercase font-black tracking-widest text-slate-400">Abonnements</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 md:mt-0 md:mb-4 flex justify-center">
-              {isOwnProfile ? (
-                <Link to="/home/profile/edit" className="flex items-center gap-2 bg-slate-900 text-white hover:bg-slate-800 px-8 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-slate-200 active:scale-95">
-                  <FiEdit2 className="w-4 h-4" /> Modifier le profil
-                </Link>
-              ) : (
+    <div className="bg-[#f0f2f5] min-h-screen">
+      <div className="bg-white shadow-sm overflow-hidden pb-4">
+        <div className="max-w-5xl mx-auto px-0 md:px-4">
+           {/* Cover Photo */}
+           <div className="h-[200px] md:h-[350px] w-full relative bg-slate-200 md:rounded-b-xl overflow-hidden">
+             <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
+             <div className="absolute inset-0 bg-black/5"></div>
+             {isOwnProfile && (
                 <button 
-                  onClick={handleFollowToggle}
-                  className={`flex items-center gap-2 px-8 py-3 rounded-2xl font-black transition-all shadow-lg active:scale-95 ${
-                    isFollowing 
-                      ? 'bg-slate-100 text-slate-800 hover:bg-slate-200 shadow-slate-100'
-                      : 'bg-pink-600 text-white hover:bg-pink-700 shadow-pink-100'
-                  }`}
+                  onClick={() => navigate('/home/profile/edit?tab=photos')}
+                  className="absolute bottom-4 right-4 bg-white hover:bg-slate-50 text-slate-800 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-sm transition-all"
                 >
-                  {isFollowing ? <><FiCheck /> Abonné(e)</> : <><FiUserPlus /> S'abonner</>}
+                   <FiCamera className="text-xl" /> <span className="hidden md:inline">Modifier la couverture</span>
                 </button>
-              )}
-            </div>
-          </div>
+             )}
+           </div>
 
-          {/* Bio & Intérêts */}
-          <div className="mt-4 text-center md:text-left bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
-            <h3 className="text-xs uppercase font-black tracking-[0.2em] text-slate-400 mb-2">Bio</h3>
-            <p className="text-slate-700 text-lg leading-relaxed">{data.bio || 'Aucune description fournie.'}</p>
-            {data.interests?.length > 0 && (
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-6">
-                {data.interests.map((interest) => (
-                  <span key={interest} className="px-4 py-1.5 bg-white border border-slate-100 text-slate-600 rounded-xl text-xs font-black shadow-sm uppercase tracking-wide">
-                    {interest}
-                  </span>
-                ))}
+           {/* Profile Header Info */}
+           <div className="px-4 md:px-8 relative mb-2">
+              <div className="flex flex-col md:flex-row items-center md:items-end gap-5 -mt-12 md:-mt-16 sm:gap-4 relative z-10 mb-4 pb-2 border-b border-slate-100">
+                 <div className="relative">
+                    <div className="w-40 h-40 md:w-44 md:h-44 rounded-full border-[5px] border-white shadow-sm overflow-hidden bg-white">
+                       <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                    </div>
+                    {isOwnProfile && (
+                       <button 
+                         onClick={() => navigate('/home/profile/edit?tab=photos')}
+                         className="absolute bottom-3 right-3 bg-slate-100 hover:bg-slate-200 p-2.5 rounded-full text-slate-800 shadow-md border border-white transition-all"
+                       >
+                          <FiCamera className="text-lg" />
+                       </button>
+                    )}
+                 </div>
+                 
+                 <div className="flex-1 text-center md:text-left md:mb-4">
+                    <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight mb-1">
+                       {profile.firstName} {profile.lastName}
+                       {profile.role === 'admin' && <FiShield className="inline ml-2 text-pink-600 text-xl" title="Admin" />}
+                    </h1>
+                    
+                    {/* Statut En Ligne */}
+                    <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+                       <div className={`w-3 h-3 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)] ${profile.isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`}></div>
+                       <span className={`text-[11px] font-black uppercase tracking-widest ${profile.isOnline ? 'text-green-500' : 'text-slate-400'}`}>
+                          {profile.isOnline ? 'en ligne' : 'hors ligne'}
+                       </span>
+                    </div>
+
+                    <p className="text-slate-500 font-bold text-lg mb-1">{profile.followers?.length || 0} abonnés • {profile.following?.length || 0} abonnements</p>
+                 </div>
+
+                 <div className="flex items-center gap-2 mb-4">
+                    {isOwnProfile ? (
+                       <>
+                          <button onClick={() => toast.success("Bientôt disponible !")} className="bg-pink-600 hover:bg-pink-700 text-white px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all">
+                             <FiPlus className="text-xl" /> Story
+                          </button>
+                          <Link to="/home/profile/edit" className="bg-slate-100 hover:bg-slate-200 text-slate-800 px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all">
+                             <FiEdit2 className="text-xl" /> Modifier
+                          </Link>
+                       </>
+                    ) : (
+                       <>
+                          <button onClick={handleLike} className={`px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all ${isLiked ? 'bg-pink-50 text-pink-600' : 'bg-pink-600 text-white hover:bg-pink-700'}`}>
+                             <FiHeart className={`text-xl ${isLiked ? 'fill-current' : ''}`} /> {isLiked ? 'Liké' : 'Liker'}
+                          </button>
+                          <button onClick={handleFollowToggle} className={`px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all ${isFollowing ? 'bg-slate-100 text-slate-800' : 'bg-slate-900 text-white'}`}>
+                             {isFollowing ? <><FiCheck /> Abonné</> : <><FiUserPlus /> S'abonner</>}
+                          </button>
+                          <button 
+                            onClick={() => {
+                              if (hasMatch) {
+                                window.location.href = `/home/messages?user=${profile._id}`;
+                              } else {
+                                toast.error("Vous devez avoir un Match mutuel pour discuter avec ce profil.");
+                              }
+                            }} 
+                            className={`p-2.5 rounded-lg transition-all ${hasMatch ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-slate-50 text-slate-300 cursor-not-allowed'}`}
+                            title={hasMatch ? "Discuter" : "Match requis pour discuter"}
+                          >
+                             <FiMessageCircle className="text-xl" />
+                          </button>
+                          <button onClick={() => setShowReportModal(true)} className="bg-rose-50 hover:bg-rose-100 text-rose-500 p-2.5 rounded-lg transition-colors border border-rose-100" title="Signaler"><FiFlag className="text-xl" /></button>
+                       </>
+                    )}
+                    <button className="bg-slate-100 p-2.5 rounded-lg"><FiMoreHorizontal className="text-xl" /></button>
+                 </div>
               </div>
-            )}
-          </div>
+
+              {/* Tabs Switcher */}
+              <div className="flex gap-2 font-bold text-slate-600 text-[15px] px-2 overflow-x-auto no-scrollbar">
+                 {[
+                   { id: 'posts', label: 'Publications' },
+                   { id: 'about', label: 'À propos' },
+                   { id: 'friends', label: 'Amis' },
+                   { id: 'photos', label: 'Photos' },
+                 ].map(t => (
+                    <button 
+                      key={t.id}
+                      onClick={() => setActiveTab(t.id)}
+                      className={`px-4 py-3 rounded-lg hover:bg-slate-50 transition-all border-b-[3px] border-transparent whitespace-nowrap ${activeTab === t.id ? 'text-pink-600 border-pink-600' : ''}`}
+                    >
+                       {t.label}
+                    </button>
+                 ))}
+                 <button onClick={() => toast.success("Section à venir !")} className="px-4 py-3 rounded-lg hover:bg-slate-50 transition-all border-b-[3px] border-transparent whitespace-nowrap">Vidéos</button>
+                 <button onClick={() => toast.success("Section à venir !")} className="px-4 py-3 rounded-lg hover:bg-slate-50 transition-all border-b-[3px] border-transparent whitespace-nowrap">Cadeaux</button>
+              </div>
+           </div>
         </div>
       </div>
 
-      {/* Publications */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-0">
-        <div className="flex items-center justify-between mb-6 px-2">
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight">Publications</h2>
-          <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{posts.length} Posts</span>
-        </div>
-        
-        {posts.length === 0 ? (
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-12 text-center">
-            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FiEdit2 className="w-6 h-6 text-slate-300" />
-            </div>
-            <p className="text-slate-500 font-bold">Cet utilisateur n'a rien publié pour le moment.</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {posts.map(post => (
-              <PostItem key={post._id} post={post} />
-            ))}
-          </div>
-        )}
+      <div className="max-w-5xl mx-auto px-4 py-4">
+         <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {renderTabContent()}
+         </div>
       </div>
+
+      {showMatchModal && <MatchModal match={matchData} onClose={() => setShowMatchModal(false)} />}
+      {showReportModal && <ReportModal reportedUserId={profile?._id} reportedUserName={profile?.firstName} onClose={() => setShowReportModal(false)} />}
     </div>
   );
 }

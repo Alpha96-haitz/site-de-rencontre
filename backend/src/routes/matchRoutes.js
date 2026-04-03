@@ -13,5 +13,7 @@ router.post('/like/:userId', matchController.like);
 router.post('/dislike/:userId', matchController.dislike);
 router.get('/', matchController.getMatches);
 router.get('/likes-received', matchController.getLikesReceived);
+router.get('/status/:userId', matchController.getMatchStatus);
+router.get('/:matchId', matchController.getMatchById);
 
 export default router;

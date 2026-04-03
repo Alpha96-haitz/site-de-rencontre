@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
 import GoogleLoginButton from '../components/GoogleLoginButton';
 import { FiArrowRight, FiArrowLeft, FiCamera, FiCheck, FiUser, FiMail, FiLock, FiCalendar, FiMapPin } from 'react-icons/fi';
+import logo from '../assets/logo.png';
 
 export default function Signup() {
   const [step, setStep] = useState(1);
@@ -92,12 +93,16 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-rose-100 p-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 transition-all duration-500">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-black bg-gradient-to-r from-pink-500 to-rose-500 bg-clip-text text-transparent mb-2">
-            HAITZ-RENCONTRE
-          </h1>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-rose-100 p-4 font-sans">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 transition-all duration-500 relative overflow-hidden">
+        
+        {/* Back Link */}
+        <Link to="/" className="inline-flex items-center gap-2 text-slate-400 hover:text-pink-600 transition-all font-bold text-xs uppercase tracking-widest mb-8">
+           <FiArrowLeft className="text-lg" /> Retour à l'accueil
+        </Link>
+
+        <div className="text-center mb-6">
+          <img src={logo} alt="HAITZ" className="h-24 md:h-32 object-contain mx-auto mb-2" />
           <div className="flex justify-center gap-2 mb-4">
             {[1, 2, 3, 4].map(s => (
               <div 

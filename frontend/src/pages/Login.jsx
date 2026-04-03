@@ -4,6 +4,9 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import GoogleLoginButton from '../components/GoogleLoginButton';
 
+import { FiArrowLeft, FiShield } from 'react-icons/fi';
+import logo from '../assets/logo.png';
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,10 +42,18 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-rose-100 p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-        <h1 className="text-2xl font-bold text-center text-pink-600 mb-6">MeetUp</h1>
-        <h2 className="text-lg font-semibold text-slate-800 mb-4">Connexion</h2>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-rose-100 p-4 font-sans">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 relative overflow-hidden">
+        
+        {/* Back Link */}
+        <Link to="/" className="inline-flex items-center gap-2 text-slate-400 hover:text-pink-600 transition-all font-bold text-xs uppercase tracking-widest mb-8">
+           <FiArrowLeft className="text-lg" /> Retour à l'accueil
+        </Link>
+
+        <div className="text-center mb-8">
+           <img src={logo} alt="HAITZ" className="h-24 md:h-32 object-contain mx-auto mb-4" />
+           <p className="text-slate-500 font-bold">Connectez-vous à votre compte</p>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>

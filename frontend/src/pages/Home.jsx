@@ -75,10 +75,10 @@ export default function Home() {
       <div className="hidden md:block w-3/12 shrink-0">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sticky top-24">
           <div className="flex flex-col items-center mb-6">
-            <Link to={`/profile/${user?.username}`} className="relative group mb-3">
+            <Link to={`/home/profile/${user?.username}`} className="relative group mb-3">
               <img src={avatarUrl} alt="Profil" className="w-24 h-24 rounded-full object-cover border-4 border-slate-50 group-hover:border-pink-50 transition-colors" />
             </Link>
-            <Link to={`/profile/${user?.username}`}>
+            <Link to={`/home/profile/${user?.username}`}>
               <h2 className="text-xl font-bold text-slate-800 hover:text-pink-600 transition-colors">
                 {user?.firstName} {user?.lastName}
               </h2>
@@ -161,11 +161,16 @@ export default function Home() {
                 const sPhoto = s.photos?.find(p => p.isPrimary)?.url || s.googlePhoto || 'https://placehold.co/150';
                 return (
                   <div key={s._id} className="flex items-center justify-between gap-3">
-                    <Link to={`/profile/${s.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+                    <Link to={`/home/profile/${s.username}`} className="flex items-center gap-3 flex-1 min-w-0">
                       <img src={sPhoto} alt={s.firstName} className="w-10 h-10 rounded-full object-cover border border-slate-100" />
                       <div className="truncate">
                         <p className="text-sm font-bold text-slate-800 truncate">{s.firstName} {s.lastName}</p>
-                        <p className="text-xs text-slate-500">@{s.username}</p>
+                        <div className="flex items-center gap-1">
+                           <div className={`w-1.5 h-1.5 rounded-full ${s.isOnline ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+                           <p className={`text-[10px] font-black uppercase tracking-widest ${s.isOnline ? 'text-green-500' : 'text-slate-400'}`}>
+                              {s.isOnline ? 'en ligne' : 'hors ligne'}
+                           </p>
+                        </div>
                       </div>
                     </Link>
                     <button 
@@ -185,7 +190,7 @@ export default function Home() {
           
           <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-2xl p-4 mt-8 border border-pink-100 shadow-inner">
             <h4 className="font-bold text-pink-800 text-sm mb-1">Passer au Premium ?</h4>
-            <p className="text-[11px] text-pink-600/80 mb-3 leading-relaxed">Multipliez vos rencontres et boostez votre visibilité sur HAITZ-RENCONTRE.</p>
+            <p className="text-[11px] text-pink-600/80 mb-3 leading-relaxed">Multipliez vos rencontres et boostez votre visibilité sur HAITZ.</p>
             <button className="w-full py-2 bg-white text-pink-600 rounded-xl text-xs font-bold hover:shadow-lg transition-shadow border border-pink-200">
               En savoir plus
             </button>

@@ -219,3 +219,17 @@ export const me = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+export const changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user || !(await user.comparePassword(oldPassword))) {
+      return res.status(401).json({ message: 'Ancien mot de passe incorrect' });
+    }
+    user.password = newPassword;
+    await user.save();
+    res.json({ message: 'Mot de passe modifié avec succès' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

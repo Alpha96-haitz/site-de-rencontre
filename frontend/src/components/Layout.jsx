@@ -1,36 +1,57 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
-import { FiHome, FiCompass, FiMessageCircle, FiHeart, FiUser, FiSearch, FiBell, FiLogOut, FiSettings, FiX, FiShield } from 'react-icons/fi';
+import { FiHome, FiCompass, FiMessageCircle, FiHeart, FiUser, FiSearch, FiBell, FiLogOut, FiSettings, FiX, FiShield, FiUserPlus, FiUserCheck } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
+import { getSocket } from '../socket/client';
 import debounce from 'lodash.debounce';
+import logo from '../assets/logo.png';
 
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
-  // Récupérer le nombre de notifications non lues
+  // Récupérer le nombre de notifications et messages non lus
   useEffect(() => {
     const fetchUnread = async () => {
       try {
-        const { data } = await client.get('/notifications');
-        const unread = data.filter(n => !n.read).length;
-        setUnreadCount(unread);
+        const { data: notifs } = await client.get('/notifications');
+        const unreadNotifs = notifs.filter(n => !n.read).length;
+        setUnreadNotificationsCount(unreadNotifs);
+
+        const { data: msgCount } = await client.get('/messages/unread-count');
+        setUnreadMessagesCount(msgCount.count);
       } catch (e) {}
     };
     fetchUnread();
     const interval = setInterval(fetchUnread, 30000); // 30s
     return () => clearInterval(interval);
+  }, []);
+
+  // Écouter les mises à jour de messages non lus via Socket
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    socket.on('message:unread-update', (data) => {
+      setUnreadMessagesCount(data.count);
+    });
+
+    return () => {
+      socket.off('message:unread-update');
+    };
   }, []);
 
   const fetchResults = useCallback(
@@ -65,9 +86,29 @@ export default function Layout() {
   const nav = [
     { to: '/home', icon: FiHome, label: 'Accueil' },
     { to: '/home/discover', icon: FiCompass, label: 'Découvrir' },
+    { to: '/home/search', icon: FiSearch, label: 'Recherche' },
     { to: '/home/matches', icon: FiHeart, label: 'Matchs' },
-    { to: '/home/messages', icon: FiMessageCircle, label: 'Messages' },
+    { to: '/home/messages', icon: FiMessageCircle, label: 'Messages', badge: unreadMessagesCount },
   ];
+
+  const navItem = (item) => (
+    <NavLink
+      key={item.to}
+      to={item.to}
+      className={({ isActive }) =>
+        `p-2.5 rounded-xl transition-all relative ${
+          isActive ? 'text-pink-600 bg-pink-50 shadow-inner' : 'text-slate-500 hover:text-pink-600 hover:bg-slate-50'
+        }`
+      }
+    >
+      <item.icon className="w-5 h-5 md:w-6 md:h-6" />
+      {item.badge > 0 && (
+        <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-pink-600 rounded-full border-2 border-white text-[8px] text-white font-black flex items-center justify-center">
+          {item.badge}
+        </span>
+      )}
+    </NavLink>
+  );
 
   const primaryPhoto = user?.photos?.find((p) => p.isPrimary) || user?.photos?.[0];
   const avatarUrl = primaryPhoto?.url || user?.googlePhoto || 'https://placehold.co/150';
@@ -77,8 +118,8 @@ export default function Layout() {
       <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm w-full">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           
-          <Link to="/home" className="text-xl md:text-2xl font-black bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent truncate select-none hover:opacity-80 transition-opacity">
-            HAITZ-RENCONTRE
+          <Link to="/home" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <img src={logo} alt="HAITZ" className="h-10 md:h-12 w-auto object-contain" />
           </Link>
 
           <div className="hidden md:flex items-center flex-1 max-w-sm mx-6 relative">
@@ -108,18 +149,44 @@ export default function Layout() {
                     {searchResults.map(result => {
                       const resPhoto = result.photos?.find(p => p.isPrimary)?.url || result.googlePhoto || 'https://placehold.co/150';
                       return (
-                        <Link 
-                          key={result._id} 
-                          to={`/home/profile/${result.username}`} 
-                          onClick={() => setSearchTerm('')}
-                          className="flex items-center gap-3 p-3 hover:bg-pink-50/50 transition-colors group"
-                        >
-                          <img src={resPhoto} alt="" className="w-10 h-10 rounded-full object-cover border border-slate-100" />
-                          <div className="min-w-0">
-                            <p className="font-bold text-slate-800 text-sm group-hover:text-pink-600 truncate">{result.firstName} {result.lastName}</p>
-                            <p className="text-xs text-slate-400 font-medium">@{result.username}</p>
-                          </div>
-                        </Link>
+                        <div key={result._id} className="relative group">
+                          <Link 
+                            to={`/home/profile/${result.username}`} 
+                            onClick={() => setSearchTerm('')}
+                            className="flex items-center gap-3 p-3 hover:bg-pink-50/50 transition-colors"
+                          >
+                            <img src={resPhoto} alt="" className="w-10 h-10 rounded-full object-cover border border-slate-100" />
+                            <div className="min-w-0 pr-12">
+                              <p className="font-bold text-slate-800 text-sm group-hover:text-pink-600 truncate">{result.firstName} {result.lastName}</p>
+                              <p className="text-xs text-slate-400 font-medium">@{result.username}</p>
+                            </div>
+                          </Link>
+                          {/* Follow Button */}
+                          {user?._id !== result._id && (
+                            <button 
+                              onClick={async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const isFollowing = user?.following?.includes(result._id);
+                                try {
+                                  if (isFollowing) {
+                                    await client.put(`/users/${result._id}/unfollow`);
+                                    toast.success("Désabonné");
+                                  } else {
+                                    await client.put(`/users/${result._id}/follow`);
+                                    toast.success("Abonné !");
+                                  }
+                                  await refreshUser();
+                                } catch (err) {
+                                  toast.error("Erreur action");
+                                }
+                              }}
+                              className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all ${user?.following?.includes(result._id) ? 'text-slate-400 bg-slate-50' : 'text-pink-600 bg-pink-50 hover:bg-pink-100'}`}
+                            >
+                              {user?.following?.includes(result._id) ? <FiUserCheck className="w-4 h-4" /> : <FiUserPlus className="w-4 h-4" />}
+                            </button>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
@@ -133,26 +200,14 @@ export default function Layout() {
 
           <div className="flex items-center gap-1 md:gap-4">
             <div className="hidden sm:flex items-center gap-1 mr-2">
-              {nav.map(({ to, icon: Icon }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  className={({ isActive }) =>
-                    `p-2.5 rounded-xl transition-all ${
-                      isActive ? 'text-pink-600 bg-pink-50 shadow-inner' : 'text-slate-500 hover:text-pink-600 hover:bg-slate-50'
-                    }`
-                   }
-                >
-                  <Icon className="w-5 h-5 md:w-6 md:h-6" />
-                </NavLink>
-              ))}
+              {nav.map(item => navItem(item))}
             </div>
 
             <Link to="/home/notifications" className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl relative transition-all">
               <FiBell className="w-6 h-6" />
-              {unreadCount > 0 && (
+              {unreadNotificationsCount > 0 && (
                 <span className="absolute top-2 right-2 w-5 h-5 bg-rose-500 rounded-full border-2 border-white text-[10px] text-white font-black flex items-center justify-center">
-                  {unreadCount > 9 ? '9+' : unreadCount}
+                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
                 </span>
               )}
             </Link>
@@ -204,24 +259,27 @@ export default function Layout() {
       </main>
 
       <nav className="sm:hidden fixed bottom-1 left-4 right-4 bg-white/90 backdrop-blur-xl border border-white/20 flex justify-around py-3 px-2 z-40 pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-2xl rounded-[32px]">
-        {nav.map(({ to, icon: Icon, label }) => (
+        {nav.map(({ to, icon: Icon, label, badge }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-1 transition-all ${
+              `flex flex-col items-center gap-1 transition-all relative ${
                 isActive ? 'text-pink-600 scale-110' : 'text-slate-400'
               }`
             }
           >
-            <Icon className="w-6 h-6" />
+            <div className="relative">
+              <Icon className="w-6 h-6" />
+              {badge > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-pink-600 rounded-full border-2 border-white text-[8px] text-white flex items-center justify-center font-black">{badge}</span>}
+            </div>
             <span className="text-[10px] font-black uppercase tracking-tighter">{label}</span>
           </NavLink>
         ))}
         <NavLink to="/home/notifications" className={({ isActive }) => `flex flex-col items-center gap-1 transition-all ${isActive ? 'text-pink-600 scale-110' : 'text-slate-400'}`}>
           <div className="relative">
             <FiBell className="w-6 h-6" />
-            {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border-2 border-white"></span>}
+            {unreadNotificationsCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full border-2 border-white text-[8px] text-white flex items-center justify-center font-black">{unreadNotificationsCount}</span>}
           </div>
           <span className="text-[10px] font-black uppercase tracking-tighter">Alertes</span>
         </NavLink>
