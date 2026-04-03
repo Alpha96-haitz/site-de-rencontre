@@ -1,15 +1,29 @@
 {
   "name": "dating-app",
   "version": "1.0.0",
-  "description": "Application de rencontre moderne full-stack",
+  "description": "Application de rencontre moderne full-stack - Vercel + Render",
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd backend && npm run dev",
     "client": "cd frontend && npm run dev",
-    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+    "setup": "node scripts/setup.js",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd backend && npm run build || true && cd ../frontend && npm run build",
+    "deploy": "bash deploy.sh"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
-  }
+  },
+  "keywords": [
+    "dating",
+    "react",
+    "nodejs",
+    "express",
+    "mongodb",
+    "vercel",
+    "render"
+  ],
+  "author": "You",
+  "license": "MIT"
 }

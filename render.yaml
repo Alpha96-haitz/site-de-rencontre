@@ -1,7 +1,7 @@
 # Déploiement Render - https://render.com
 # 1. Créez un compte sur render.com
 # 2. New > Blueprint > Connect ce repo
-# 3. Ajoutez les variables d'environnement ci-dessous
+# 3. Configurez les variables d'environnement ci-dessous
 
 services:
   - type: web
@@ -11,14 +11,36 @@ services:
     rootDir: backend
     buildCommand: npm install
     startCommand: npm start
-    envVars:
+    autoDeploy: true
+    env:
       - key: NODE_ENV
         value: production
       - key: MONGODB_URI
-        sync: false  # À configurer manuellement
+        sync: false  # À configurer manuellement via Render dashboard
       - key: JWT_SECRET
-        generateValue: true  # Render génère un secret
+        generateValue: true
       - key: FRONTEND_URL
-        sync: false  # URL du frontend déployé (ex: https://votre-app.vercel.app)
+        sync: false  # À configurer: https://votre-app.vercel.app
       - key: GOOGLE_CLIENT_ID
         sync: false
+      - key: PORT
+        value: "5000"
+      - key: USE_MEMORY_DB
+        value: "false"
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        value: "MeetUp <noreply@meetup.app>"
+

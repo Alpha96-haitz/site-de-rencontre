@@ -1,83 +1,197 @@
 # Déploiement en ligne - MeetUp
 
-## Option 1 : Render (Backend) + Vercel (Frontend) — Recommandé
+## Architecture
 
-### Étape 1 : MongoDB Atlas
-
-1. Allez sur [cloud.mongodb.com](https://cloud.mongodb.com)
-2. **Network Access** → **Add IP Address** → **Allow Access from Anywhere** (0.0.0.0/0)
-3. **Database** → **Connect** → **Drivers** → copiez la chaîne de connexion
-4. Remplacez `<password>` par votre mot de passe utilisateur
-
-> Sur un serveur en ligne (Render/Railway), MongoDB Atlas fonctionne car leur réseau n'a pas les restrictions DNS de votre PC.
+- **Frontend**: React + Vite sur **Vercel** (hébergement statique)
+- **Backend**: Node + Express sur **Render** (serveur dynamique + WebSocket)
+- **Base de données**: MongoDB Atlas (cloud)
 
 ---
 
-### Étape 2 : Déployer le Backend sur Render
+## Étape 1 : Setup MongoDB Atlas
 
-1. Poussez votre code sur **GitHub** (créez un repo si besoin)
-2. Allez sur [render.com](https://render.com) → **Sign Up** (gratuit)
-3. **New** → **Web Service**
-4. Connectez votre repo GitHub
-5. Configurez :
-   - **Root Directory** : `backend`
-   - **Build Command** : `npm install`
-   - **Start Command** : `npm start`
-6. **Environment** → Ajoutez :
-   | Variable | Valeur |
-   |----------|--------|
-   | NODE_ENV | production |
-   | MONGODB_URI | `mongodb+srv://user:pass@cluster.mongodb.net/dating-app?...` |
-   | JWT_SECRET | (générez un mot de passe fort) |
-   | FRONTEND_URL | (URL du frontend, ex: https://xxx.vercel.app) |
-7. **Create Web Service**
-8. Notez l'URL : `https://meetup-backend-xxx.onrender.com`
+1. Allez sur [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas)
+2. Créez un compte/projet gratuit
+3. **Create a Cluster** (M0 = gratuit)
+4. Attendez la création (~5-10 min)
+5. **Security > Database Access** : Créez un utilisateur/mot de passe
+6. **Network Access** : Ajoutez `0.0.0.0/0` (accès depuis partout)
+7. **Cluster > Connect** : Copiez la **connection string** `mongodb+srv://...`
 
 ---
 
-### Étape 3 : Déployer le Frontend sur Vercel
+## Étape 2 : Google OAuth (optionnel)
 
-1. Allez sur [vercel.com](https://vercel.com) → **Sign Up**
-2. **Add New** → **Project** → importez votre repo
-3. Configurez :
-   - **Root Directory** : `frontend`
-   - **Framework Preset** : Vite
-4. **Environment Variables** :
-   | Variable | Valeur |
-   |----------|--------|
-   | VITE_API_URL | `https://meetup-backend-xxx.onrender.com/api` |
-   | VITE_GOOGLE_CLIENT_ID | (votre Client ID Google) |
-5. **Deploy**
-6. Notez l'URL : `https://votre-app.vercel.app`
-
----
-
-### Étape 4 : Finaliser la configuration
-
-1. **Render** → votre service → **Environment** → modifiez `FRONTEND_URL` = `https://votre-app.vercel.app`
-2. **Google Cloud Console** → Credentials → ajoutez `https://votre-app.vercel.app` dans les origines autorisées
+1. Allez sur [console.cloud.google.com](https://console.cloud.google.com)
+2. **Créer un projet** `MeetUp`
+3. **APIs & Services > OAuth consent screen** : Configurez
+4. **Credentials > Create OAuth 2.0 Client** : 
+   - Type: **Web application**
+   - **Authorized JavaScript origins**: 
+     - `http://localhost:5173` (dev)
+     - `https://votre-app.vercel.app` (production)
+   - **Authorized redirect URIs**:
+     - `http://localhost:5173/auth/google/callback` (dev)
+     - `https://votre-app.vercel.app/auth/google/callback` (production)
+5. Copiez le **Client ID**
 
 ---
 
-## Option 2 : Railway (Backend + Frontend)
+## Étape 3 : Déployer le Backend sur Render
 
-1. [railway.app](https://railway.app) → **Start a New Project**
-2. **Deploy from GitHub** → sélectionnez le repo
-3. Railway détecte le projet : créez 2 services (backend + frontend)
-4. Variables d'environnement : mêmes que ci-dessus
-5. Pour le frontend : `Root Directory` = frontend, `Build Command` = npm run build, `Start Command` = npm run preview (ou utilisez Vercel pour le frontend)
+1. Commits & Push sur GitHub
+   ```bash
+   git add .
+   git commit -m "Préparer déploiement Vercel + Render"
+   git push origin main
+   ```
+
+2. Va sur [render.com](https://render.com) et connecte ton GitHub
+
+3. **New > Blueprint > Connect Repo**
+   - Sélectionne ce repo
+   - Render va lire `render.yaml` et créer le service
+
+4. **Configure les variables** via Render dashboard:
+   - `MONGODB_URI`: Ta connection string MongoDB Atlas
+   - `JWT_SECRET`: Génère un secret fort (Render le génère automatiquement)
+   - `FRONTEND_URL`: `https://votre-app.vercel.app` (à mettre après Vercel)
+   - `GOOGLE_CLIENT_ID`: Ton ID Google (optionnel)
+
+5. **Deploy** (attends ~5-10 min)
+
+6. **Récupère l'URL** du backend Render: `https://xxx.onrender.com`
 
 ---
 
-## Variables d'environnement requises
+## Étape 4 : Configurer le Backend
 
-### Backend (Render/Railway)
-- `NODE_ENV` = production
-- `MONGODB_URI` = chaîne Atlas complète
-- `JWT_SECRET` = secret fort (min 32 caractères)
-- `FRONTEND_URL` = URL du frontend déployé
-- `GOOGLE_CLIENT_ID` = (optionnel)
+### Variables à ajouter dans Render dashboard (en production):
 
-### Frontend (Vercel)
-- `VITE_API_URL` = https://votre-backend.onrender.com/api
-- `VITE_GOOGLE_CLIENT_ID` = (optionnel)
+```
+FRONTEND_URL = https://votre-app.vercel.app
+MONGODB_URI = mongodb+srv://user:pass@cluster.mongodb.net/dating-app
+JWT_SECRET = votre_secret_jwt_tres_long_et_securise
+NODE_ENV = production
+```
+
+### Cloudinary (pour uploads d'images - optionnel):
+
+1. Inscrivez-vous sur [cloudinary.com](https://cloudinary.com)
+2. Récupérez `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+3. Ajoutez-les dans Render
+
+### Email (pour notifications - optionnel):
+
+Utilisez Gmail + App Password:
+1. Activez **2FA** sur Google Account
+2. Générez une **App Password**: https://myaccount.google.com/apppasswords
+3. Ajoutez dans Render:
+   ```
+   SMTP_HOST = smtp.gmail.com
+   SMTP_PORT = 587
+   SMTP_USER = votre@gmail.com
+   SMTP_PASS = app_password
+   EMAIL_FROM = MeetUp <votre@gmail.com>
+   ```
+
+---
+
+## Étape 5 : Déployer le Frontend sur Vercel
+
+### Via UI Vercel (plus facile):
+
+1. Va sur [vercel.com](https://vercel.com)
+2. Clique **Add New > Project**
+3. **Import Git Repository** : Sélectionne ce repo
+4. **Configure le projet**:
+   - **Root Directory**: `frontend`
+   - **Framework Preset**: `Vite`
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+
+5. **Environment Variables** (ajoute dans **Settings > Environment Variables**):
+   ```
+   VITE_API_URL = https://xxx.onrender.com/api
+   VITE_SOCKET_URL = https://xxx.onrender.com
+   VITE_GOOGLE_CLIENT_ID = ton_client_id_google (optionnel)
+   ```
+
+6. **Deploy**  (attends ~2-3 min)
+
+7. **Récupère l'URL Vercel**: `https://votre-app.vercel.app`
+
+---
+
+## Étape 6 : Finaliser la Configuration
+
+### Mettre à jour le backend Render:
+
+Une fois que Vercel donne l'URL du frontend:
+
+1. Ouvre **Render > Backend Service > Environment**
+2. Ajoute/met à jour:
+   ```
+   FRONTEND_URL = https://votre-app.vercel.app
+   ```
+3. **Manual Deploy** pour redémarrer le backend
+
+### Mettre à jour Google OAuth:
+
+Si tu utilises Google Login:
+1. Ouvre [console.cloud.google.com](https://console.cloud.google.com)
+2. **Credentials > OAuth Client**
+3. Ajoute `https://votre-app.vercel.app` dans **Authorized JavaScript origins**
+
+---
+
+## Étape 7 : Tests Post-Déploiement
+
+Teste sur **https://votre-app.vercel.app**:
+
+- ✅ Page charge correctement
+- ✅ Inscription / Connexion
+- ✅ Appels API (User Profile, Messages, etc.)
+- ✅ WebSocket/notifications temps-réel
+- ✅ Upload d'images (si Cloudinary configuré)
+- ✅ Google Login (si activé)
+
+---
+
+## Dépannage
+
+### Frontend affiche "API Error" ou "Cannot POST /api/..."
+
+→ Vérifie dans **Vercel > Deployment Logs** si `VITE_API_URL` est bien configurée
+
+### Backend retourne erreur CORS
+
+→ Mets à jour `FRONTEND_URL` dans Render et redéploie
+
+### WebSocket ne fonctionne pas
+
+→ Assure-toi que `VITE_SOCKET_URL` = base du backend (sans `/api`, sans `/socket.io`)
+
+### "Email not sent" ou "Cloudinary error"
+
+→ Vérifie les credentials (ne pas pusher `.env` contenant des secrets!)
+
+---
+
+## Fichiers importants
+
+- `.env.example`: Template variables pour local
+- `backend/.env.example`: Variables backend
+- `frontend/.env.example`: Variables frontend  
+- `render.yaml`: Config Render (lecture auto)
+- `frontend/vercel.json`: Config Vercel
+
+---
+
+## Notes de sécurité
+
+⚠️ **Ne JAMAIS pusher `.env`** dans Git (déjà dans `.gitignore`)
+⚠️ **Secrets forts**: `JWT_SECRET` doit être long et aléatoire
+⚠️ **HTTPS obligatoire**: Render & Vercel donnent HTTPS gratuitement
+⚠️ **CORS spécifique**: `FRONTEND_URL` doit correspondre à ton domaine Vercel
+

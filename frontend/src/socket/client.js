@@ -9,7 +9,8 @@ export const getSocket = () => {
   const token = localStorage.getItem('token');
   if (!token) return null;
   if (!socket) {
-    socket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin, {
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+    socket = io(socketUrl, {
       auth: { token },
       path: '/socket.io'
     });
