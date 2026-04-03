@@ -45,6 +45,20 @@ if (process.env.NODE_ENV !== 'production') {
   if (!allowedOrigins.includes('http://localhost:5174')) allowedOrigins.push('http://localhost:5174');
 }
 
+// Ajouter l'URL Vercel en production
+if (process.env.NODE_ENV === 'production') {
+  const vercelUrl = 'https://site-de-rencontre-git-main-barrymamadoualpha124-8325s-projects.vercel.app';
+  if (!allowedOrigins.includes(vercelUrl)) allowedOrigins.push(vercelUrl);
+}
+
+// Configuration CORS pour Express
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
 // Socket.io avec CORS
 const io = new Server(httpServer, {
   cors: { origin: allowedOrigins, credentials: true }
