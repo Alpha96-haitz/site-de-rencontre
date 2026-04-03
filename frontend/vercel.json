@@ -6,9 +6,8 @@
     }
   ],
   "env": {
-    "VITE_API_URL": "@vite_api_url",
-    "VITE_SOCKET_URL": "@vite_socket_url",
-    "VITE_GOOGLE_CLIENT_ID": "@vite_google_client_id"
+    "VITE_API_URL": "https://site-de-rencontre-backend.onrender.com/api",
+    "VITE_SOCKET_URL": "https://site-de-rencontre-backend.onrender.com"
   }
 }
 
