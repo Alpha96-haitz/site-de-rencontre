@@ -4,7 +4,7 @@ import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
-import debounce from 'lodash/debounce';
+import debounce from 'lodash.debounce';
 
 export default function Search() {
   const { user, refreshUser } = useAuth();
