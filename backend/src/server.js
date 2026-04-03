@@ -47,8 +47,14 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Ajouter l'URL Vercel en production
 if (process.env.NODE_ENV === 'production') {
-  const vercelUrl = 'https://site-de-rencontre-git-main-barrymamadoualpha124-8325s-projects.vercel.app';
-  if (!allowedOrigins.includes(vercelUrl)) allowedOrigins.push(vercelUrl);
+  const vercelUrls = [
+    'https://site-de-rencontre-git-main-barrymamadoualpha124-8325s-projects.vercel.app',
+    'https://site-de-rencontre-three.vercel.app',
+    'https://site-de-rencontre-kohl.vercel.app'
+  ];
+  vercelUrls.forEach(url => {
+    if (!allowedOrigins.includes(url)) allowedOrigins.push(url);
+  });
 }
 
 // Configuration CORS pour Express
