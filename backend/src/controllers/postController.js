@@ -155,6 +155,31 @@ export const commentPost = async (req, res) => {
   }
 };
 
+export const updatePost = async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: 'Post non trouve' });
+
+    if (post.userId.toString() !== req.user._id.toString() && req.user.role !== 'root') {
+      return res.status(403).json({ message: 'Action non autorisee' });
+    }
+
+    const updates = {};
+    if (req.body.desc !== undefined) updates.desc = req.body.desc;
+    if (typeof req.body.image === 'string' && req.body.image.trim()) {
+      updates.image = req.body.image.trim();
+    }
+
+    const updated = await Post.findByIdAndUpdate(post._id, updates, { new: true })
+      .populate('userId', 'firstName lastName username photos googlePhoto isOnline');
+
+    clearCacheByPrefix('timeline:');
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const deletePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);

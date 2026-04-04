@@ -1,5 +1,5 @@
 import express from 'express';
-import { createPost, deletePost, likePost, getUserPosts, getTimelinePosts, commentPost } from '../controllers/postController.js';
+import { createPost, deletePost, likePost, getUserPosts, getTimelinePosts, commentPost, updatePost } from '../controllers/postController.js';
 import { protect } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 import { postValidation, commentValidation, handleValidation, idValidation } from '../middleware/validation.js';
@@ -20,6 +20,9 @@ router.put('/:id/like', protect, idValidation('id'), handleValidation, likePost)
 
 // Commenter un post
 router.post('/:id/comment', protect, idValidation('id'), commentValidation, handleValidation, commentPost);
+
+// Modifier un post
+router.put('/:id', protect, idValidation('id'), postValidation, handleValidation, updatePost);
 
 // Supprimer un post
 router.delete('/:id', protect, idValidation('id'), handleValidation, deletePost);

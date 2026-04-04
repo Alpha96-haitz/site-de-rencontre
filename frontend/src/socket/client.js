@@ -5,6 +5,8 @@ import { io } from 'socket.io-client';
 
 let socket = null;
 
+const PROD_SOCKET_FALLBACK = 'https://site-de-rencontre-backend.onrender.com';
+
 const getSocketBaseUrl = () => {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
 
@@ -12,6 +14,9 @@ const getSocketBaseUrl = () => {
   if (apiUrl) {
     try {
       const parsed = new URL(apiUrl);
+      if (import.meta.env.PROD && parsed.hostname === 'localhost') {
+        return PROD_SOCKET_FALLBACK;
+      }
       return `${parsed.protocol}//${parsed.host}`;
     } catch {
       // no-op
@@ -19,7 +24,7 @@ const getSocketBaseUrl = () => {
   }
 
   return import.meta.env.PROD
-    ? 'https://site-de-rencontre-backend.onrender.com'
+    ? PROD_SOCKET_FALLBACK
     : window.location.origin;
 };
 

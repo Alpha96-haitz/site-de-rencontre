@@ -1,5 +1,5 @@
 import { memo, useState, useEffect } from 'react';
-import { FiHeart, FiMessageCircle, FiTrash2, FiMoreHorizontal } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiTrash2, FiMoreHorizontal, FiEdit2 } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
@@ -7,7 +7,7 @@ import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
-function PostItem({ post: initialPost, onDelete, showFollowAction = false }) {
+function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = false }) {
   const { user, refreshUser } = useAuth();
   const [post, setPost] = useState(initialPost);
   const [author, setAuthor] = useState(null);
@@ -15,6 +15,10 @@ function PostItem({ post: initialPost, onDelete, showFollowAction = false }) {
   const [commentText, setCommentText] = useState('');
   const [loadingComment, setLoadingComment] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editDesc, setEditDesc] = useState('');
+  const [editImage, setEditImage] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [followSuccess, setFollowSuccess] = useState(false);
   const [followedLocally, setFollowedLocally] = useState(false);
@@ -50,6 +54,7 @@ function PostItem({ post: initialPost, onDelete, showFollowAction = false }) {
   const currentUserId = getSafeId(user);
   const isOwner = currentUserId && currentUserId === authorId;
   const canDelete = isOwner || user?.role === 'root';
+  const canEdit = isOwner || user?.role === 'root';
   const hasLiked = post.likes?.includes(user?._id);
   const isFollowing = (user?.following || []).some((f) => getSafeId(f) === authorId);
   const showFollowButton = showFollowAction && Boolean(authorId) && !isOwner && !isFollowing && !followedLocally;
@@ -91,6 +96,32 @@ function PostItem({ post: initialPost, onDelete, showFollowAction = false }) {
       if (onDelete) onDelete(post._id);
     } catch (err) {
       toast.error("Erreur lors de la suppression");
+    }
+  };
+
+  const openEdit = () => {
+    setEditDesc(post.desc || '');
+    setEditImage(post.image || '');
+    setIsEditing(true);
+    setShowOptions(false);
+  };
+
+  const handleEditSave = async (e) => {
+    e.preventDefault();
+    const payload = { desc: editDesc };
+    if (editImage.trim()) payload.image = editImage.trim();
+
+    setSavingEdit(true);
+    try {
+      const { data } = await client.put(`/posts/${post._id}`, payload);
+      setPost(data);
+      if (onUpdate) onUpdate(data);
+      setIsEditing(false);
+      toast.success('Publication modifiee');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erreur de modification');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -158,7 +189,15 @@ function PostItem({ post: initialPost, onDelete, showFollowAction = false }) {
               {showOptions && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowOptions(false)}></div>
-                  <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-xl border border-slate-100 z-20 py-1 overflow-hidden">
+                  <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-100 z-20 py-1 overflow-hidden">
+                    {canEdit && (
+                      <button
+                        onClick={openEdit}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                      >
+                        <FiEdit2 className="w-4 h-4" /> Modifier
+                      </button>
+                    )}
                     <button
                       onClick={() => { setShowOptions(false); handleDelete(); }}
                       className="w-full flex items-center gap-2 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 font-medium transition-colors"
@@ -250,6 +289,53 @@ function PostItem({ post: initialPost, onDelete, showFollowAction = false }) {
             )}
           </div>
         </div>
+      )}
+
+      {isEditing && (
+        <>
+          <div className="fixed inset-0 bg-black/20 z-30" onClick={() => !savingEdit && setIsEditing(false)}></div>
+          <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+            <form onSubmit={handleEditSave} className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-100 p-5 space-y-4">
+              <h3 className="text-lg font-black text-slate-900">Modifier la publication</h3>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Texte</label>
+                <textarea
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  rows={4}
+                  className="w-full border border-slate-200 rounded-xl p-3 outline-none focus:ring-2 focus:ring-pink-200"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">URL image (optionnel)</label>
+                <input
+                  type="url"
+                  value={editImage}
+                  onChange={(e) => setEditImage(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl p-3 outline-none focus:ring-2 focus:ring-pink-200"
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold"
+                  disabled={savingEdit}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-pink-600 text-white font-bold disabled:opacity-60"
+                  disabled={savingEdit}
+                >
+                  {savingEdit ? 'Enregistrement...' : 'Sauvegarder'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
       )}
     </div>
   );

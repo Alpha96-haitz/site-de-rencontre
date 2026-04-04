@@ -65,6 +65,7 @@ export const like = async (req, res) => {
     } else {
       // Pas encore de match, on crée le like
       match = await Match.create({
+        users: [currentUser, userId],
         likedBy: currentUser,
         likedUser: userId,
         isMutual: false

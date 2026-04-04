@@ -80,6 +80,10 @@ export default function Profile() {
     setPosts([newPost, ...posts]);
   };
 
+  const handlePostUpdated = (updatedPost) => {
+    setPosts((prev) => prev.map((p) => (p._id === updatedPost._id ? updatedPost : p)));
+  };
+
   const handleFollowToggle = async () => {
     if (!profile) return;
     try {
@@ -226,7 +230,7 @@ export default function Profile() {
                    </div>
                 ) : (
                    <div className="space-y-4">
-                      {posts.map(post => <PostItem key={post._id} post={post} />)}
+                      {posts.map(post => <PostItem key={post._id} post={post} onUpdate={handlePostUpdated} />)}
                    </div>
                 )}
              </div>

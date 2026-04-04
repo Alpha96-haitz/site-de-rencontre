@@ -66,9 +66,11 @@ export default function Messages() {
       const handleMsgUpdate = () => fetchConversations();
       socket.on('message:received', handleMsgUpdate);
       socket.on('message:unread-update', handleMsgUpdate);
+      socket.on('match:new', handleMsgUpdate);
       return () => {
         socket.off('message:received', handleMsgUpdate);
         socket.off('message:unread-update', handleMsgUpdate);
+        socket.off('match:new', handleMsgUpdate);
       };
     }
   }, [socket]);
