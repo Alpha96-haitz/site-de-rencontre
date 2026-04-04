@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/kill-port.js && node --watch src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "make-root": "node scripts/makeRootUser.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -9,7 +9,7 @@ export default function Landing() {
       {/* HEADER */}
       <header className="fixed w-full flex justify-between items-center px-8 py-4 bg-white/90 backdrop-blur-md shadow-sm z-50">
         <Link to="/" className="flex items-center transform hover:scale-105 transition duration-300">
-          <img src={logo} alt="HAITZ" className="h-10 md:h-12 object-contain" />
+          <img src={logo} alt="HAITZ" className="h-16 md:h-20 object-contain" />
         </Link>
         <nav className="hidden md:flex space-x-8 text-gray-600 font-medium">
           <a href="#home" className="hover:text-red-500 transition">Accueil</a>
@@ -49,6 +49,42 @@ export default function Landing() {
             <Link to="/login" className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 px-8 py-4 rounded-full font-bold text-lg transition-all">
               Se connecter
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* À PROPOS */}
+      <section id="about" className="py-24 bg-slate-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-12 lg:grid-cols-2 items-center">
+            <div>
+              <span className="inline-flex items-center px-4 py-2 rounded-full bg-pink-50 text-pink-600 font-black text-[10px] uppercase tracking-[0.2em] mb-4">
+                À propos de HAITZ
+              </span>
+              <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6">La rencontre moderne avec un vrai fil social</h2>
+              <p className="text-lg text-slate-600 leading-relaxed mb-6">
+                HAITZ est conçu pour vous aider à nouer des connexions authentiques. Notre application combine matching intelligent,
+                messagerie instantanée et profil social pour une expérience simple, sûre et engageante.
+              </p>
+              <div className="grid gap-4">
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h3 className="font-bold text-slate-900 mb-2">Profils vérifiés</h3>
+                  <p className="text-sm text-slate-500">Chaque utilisateur peut construire un profil complet, sécurisé et visible selon ses préférences.</p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h3 className="font-bold text-slate-900 mb-2">Interaction fluide</h3>
+                  <p className="text-sm text-slate-500">Rencontrez des personnes compatibles, discutez en direct et suivez les profils qui vous inspirent.</p>
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-4">
+              <div className="rounded-[40px] overflow-hidden shadow-xl h-72 md:h-80">
+                <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=900" alt="Rencontre" className="w-full h-full object-cover" />
+              </div>
+              <div className="rounded-[40px] overflow-hidden shadow-xl h-64 md:h-72">
+                <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=900" alt="Conversation" className="w-full h-full object-cover" />
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -124,7 +160,7 @@ export default function Landing() {
                    <FiMail className="w-8 h-8 text-pink-500" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-2">Par Email</h3>
-                <p className="text-pink-600 font-black tracking-tight underline underline-offset-4">barrymamadoualpha124@gmail.com</p>
+                <p className="text-pink-600 font-black tracking-tight underline underline-offset-4">support@haitz.com</p>
              </a>
 
              <a href="tel:+224621956596" className="group bg-slate-50 hover:bg-white hover:shadow-xl transition-all duration-500 p-8 rounded-[40px] border border-slate-100 flex flex-col items-center">
@@ -132,7 +168,7 @@ export default function Landing() {
                    <FiPhone className="w-8 h-8 text-rose-500" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-2">Par Téléphone</h3>
-                <p className="text-rose-600 font-black tracking-tight underline underline-offset-4">+224 621-95-6596</p>
+                <p className="text-rose-600 font-black tracking-tight underline underline-offset-4">+224 621 95 65 96</p>
              </a>
           </div>
         </div>
@@ -142,13 +178,19 @@ export default function Landing() {
       <footer className="bg-gray-900 text-gray-400 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
           <div className="mb-8 md:mb-0 text-center md:text-left">
-            <img src={logo} alt="HAITZ" className="h-16 md:h-16 object-contain brightness-0 invert mx-auto md:mx-0 mb-4" />
+            <img src={logo} alt="HAITZ" className="h-20 md:h-24 object-contain brightness-0 invert mx-auto md:mx-0 mb-4" />
             <p>La plateforme sociale des rencontres modernes.</p>
           </div>
-          <div className="flex space-x-6 text-sm">
-            <a href="#" className="hover:text-white transition">Conditions d'utilisation</a>
-            <a href="#" className="hover:text-white transition">Confidentialité</a>
-            <a href="#" className="hover:text-white transition">Contact</a>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-3 text-sm">
+            <Link to="/terms" className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-slate-800/90 text-slate-100 hover:bg-slate-700 transition-shadow shadow-sm">
+              Conditions d'utilisation
+            </Link>
+            <Link to="/privacy" className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-slate-800/90 text-slate-100 hover:bg-slate-700 transition-shadow shadow-sm">
+              Confidentialité
+            </Link>
+            <Link to="/contact" className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-slate-800/90 text-slate-100 hover:bg-slate-700 transition-shadow shadow-sm">
+              Contact
+            </Link>
           </div>
         </div>
         <div className="text-center mt-8 text-sm opacity-50">

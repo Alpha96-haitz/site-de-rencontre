@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiHeart, FiMessageCircle, FiUser, FiInfo, FiStar, FiChevronRight } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiUser, FiInfo, FiStar, FiChevronRight, FiFlag } from 'react-icons/fi';
 import client from '../api/client';
+import ReportModal from '../components/ReportModal';
 
 export default function Matches() {
   const [matches, setMatches] = useState([]);
   const [likes, setLikes] = useState([]);
   const [tab, setTab] = useState('matches');
   const [loading, setLoading] = useState(true);
+  const [reportModal, setReportModal] = useState(null); // userId or null
 
   useEffect(() => {
     const fetchData = async () => {
@@ -116,6 +118,13 @@ export default function Matches() {
                          <FiUser className="w-3.5 h-3.5" /> Profil
                        </Link>
                      )}
+                     <button 
+                       onClick={() => setReportModal(userData.id)}
+                       className="bg-rose-500/20 backdrop-blur-md hover:bg-rose-600 text-white border border-rose-400/30 p-2 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all"
+                       title="Signaler"
+                     >
+                       <FiFlag className="w-3.5 h-3.5" />
+                     </button>
                   </div>
                 </div>
 
@@ -150,6 +159,18 @@ export default function Matches() {
                Swiper Maintenant <FiChevronRight />
             </Link>
          </div>
+      )}
+
+      {/* Report Modal */}
+      {reportModal && (
+        <ReportModal 
+          reportedUserId={reportModal}
+          reportedUserName={list.find(item => {
+            const u = item.matchedUser || item.likedBy;
+            return u?._id === reportModal;
+          })?.matchedUser?.firstName || list.find(item => item.likedBy?._id === reportModal)?.likedBy?.firstName}
+          onClose={() => setReportModal(null)}
+        />
       )}
     </div>
   );

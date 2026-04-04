@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiX, FiHeart, FiStar, FiInfo, FiRefreshCw, FiMapPin, FiNavigation, FiRotateCcw, FiChevronLeft, FiChevronRight, FiZap, FiMessageCircle } from 'react-icons/fi';
+import { FiX, FiHeart, FiStar, FiInfo, FiRefreshCw, FiMapPin, FiNavigation, FiRotateCcw, FiChevronLeft, FiChevronRight, FiZap, FiMessageCircle, FiFlag } from 'react-icons/fi';
 import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { Link, useNavigate } from 'react-router-dom';
+import ReportModal from '../components/ReportModal';
 
 export default function Discover() {
   const { user: currentUserData } = useAuth();
@@ -16,6 +17,9 @@ export default function Discover() {
   // États pour le Match Modal (Style Tinder)
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [matchData, setMatchData] = useState(null);
+  
+  // State pour le Report Modal
+  const [showReportModal, setShowReportModal] = useState(false);
   
   const navigate = useNavigate();
 
@@ -205,42 +209,87 @@ export default function Discover() {
       <div className="flex items-center justify-center gap-4 mt-10">
         <button 
           onClick={handleUndo}
-          className="w-12 h-12 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-xl text-[#f1c40f] hover:scale-110 active:scale-90 transition-all disabled:opacity-50"
+          className="w-12 h-12 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-xl text-[#f1c40f] hover:scale-110 active:scale-90 transition-all disabled:opacity-50 hover:bg-[#f1c40f] hover:text-white hover:shadow-[#f1c40f]/30"
+          title="Annuler la dernière action"
         >
           <FiRotateCcw className="w-6 h-6 stroke-[3]" />
         </button>
 
         <button 
           onClick={() => handleAction('dislike')}
-          className="w-16 h-16 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-2xl text-[#f5515d] hover:scale-110 active:scale-95 transition-all disabled:opacity-50"
+          className="w-16 h-16 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-2xl text-[#f5515d] hover:scale-110 active:scale-95 transition-all disabled:opacity-50 hover:bg-[#f5515d] hover:text-white hover:shadow-[#f5515d]/30"
+          title="Pas intéressé"
         >
           <FiX className="w-9 h-9 stroke-[4]" />
         </button>
 
-        <button className="w-12 h-12 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-xl text-[#3498db] hover:scale-110 active:scale-90 transition-all">
+        <button 
+          onClick={() => toast.info("Fonctionnalité Super Like bientôt disponible !")}
+          className="w-12 h-12 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-xl text-[#3498db] hover:scale-110 active:scale-90 transition-all hover:bg-[#3498db] hover:text-white hover:shadow-[#3498db]/30"
+          title="Super Like (Premium)"
+        >
           <FiStar className="w-6 h-6 fill-current" />
         </button>
 
         <button 
           onClick={() => handleAction('like')}
-          className="w-16 h-16 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-2xl text-[#2ecc71] hover:scale-110 active:scale-95 transition-all disabled:opacity-50"
+          className="w-16 h-16 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-2xl text-[#2ecc71] hover:scale-110 active:scale-95 transition-all disabled:opacity-50 hover:bg-[#2ecc71] hover:text-white hover:shadow-[#2ecc71]/30"
+          title="J'aime"
         >
           <FiHeart className="w-9 h-9 fill-current" />
         </button>
 
-        <button className="w-12 h-12 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-xl text-[#9b59b6] hover:scale-110 active:scale-90 transition-all">
+        <button 
+          onClick={() => toast.info("Mode Boost bientôt disponible !")}
+          className="w-12 h-12 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-xl text-[#9b59b6] hover:scale-110 active:scale-90 transition-all hover:bg-[#9b59b6] hover:text-white hover:shadow-[#9b59b6]/30"
+          title="Boost de visibilité (Premium)"
+        >
           <FiZap className="w-6 h-6 fill-current" />
         </button>
       </div>
 
       {currentCard && (
-        <div className="mt-8 text-center flex items-center justify-center gap-4">
-           <button className="text-slate-300 hover:text-slate-500 transition-all"><FiChevronLeft className="w-6 h-6" /></button>
-           <Link to={`/home/profile/${currentCard.username}`} className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2 hover:text-pink-600 transition-colors">
-              <FiInfo className="w-3 h-3" /> Info Profil
+        <div className="mt-8 text-center flex items-center justify-center gap-6">
+           <button 
+             onClick={() => setShowReportModal(true)} 
+             className="w-10 h-10 bg-slate-800/60 backdrop-blur-md border border-slate-600/40 rounded-full flex items-center justify-center text-slate-300 hover:text-rose-400 hover:bg-rose-500/30 hover:border-rose-400/50 transition-all shadow-lg"
+             title="Signaler ce profil"
+           >
+             <FiFlag className="w-5 h-5" />
+           </button>
+           <button 
+             onClick={() => toast.info("Navigation désactivée - Utilisez le swipe !")}
+             className="w-10 h-10 bg-slate-800/40 backdrop-blur-md border border-slate-600/30 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-300 transition-all opacity-50 cursor-not-allowed"
+             title="Navigation désactivée"
+             disabled
+           >
+             <FiChevronLeft className="w-5 h-5" />
+           </button>
+           <Link 
+             to={`/home/profile/${currentCard.username}`} 
+             className="px-6 py-3 bg-slate-800/60 backdrop-blur-md border border-slate-600/40 rounded-full text-slate-200 hover:text-white hover:bg-slate-700/70 hover:border-slate-500/50 transition-all shadow-lg font-bold text-sm flex items-center gap-2"
+             title="Voir le profil complet"
+           >
+             <FiInfo className="w-4 h-4" /> Profil
            </Link>
-           <button className="text-slate-300 hover:text-slate-500 transition-all"><FiChevronRight className="w-6 h-6" /></button>
+           <button 
+             onClick={() => toast.info("Navigation désactivée - Utilisez le swipe !")}
+             className="w-10 h-10 bg-slate-800/40 backdrop-blur-md border border-slate-600/30 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-300 transition-all opacity-50 cursor-not-allowed"
+             title="Navigation désactivée"
+             disabled
+           >
+             <FiChevronRight className="w-5 h-5" />
+           </button>
         </div>
+      )}
+
+      {/* Report Modal */}
+      {showReportModal && currentCard && (
+        <ReportModal 
+          reportedUserId={currentCard._id} 
+          reportedUserName={currentCard.firstName} 
+          onClose={() => setShowReportModal(false)} 
+        />
       )}
 
       {/* Google Font for script text */}

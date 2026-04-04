@@ -1,49 +1,78 @@
 /**
- * Contrôleur d'authentification
+ * Auth controller
  */
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
-import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/email.js';
-import { generateToken } from '../utils/tokenUtils.js';
+import { sendVerificationEmail, sendPasswordResetCodeEmail, isSmtpConfigured } from '../utils/email.js';
+import { generateToken, hashToken } from '../utils/tokenUtils.js';
 
 const generateJWT = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES || '7d' });
+
+const jwtCookieOptions = {
+  httpOnly: true,
+  sameSite: 'lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  secure: process.env.NODE_ENV === 'production'
+};
+
+const getBaseFrontendUrl = (req) => {
+  const envFrontend = process.env.FRONTEND_URL?.split(',')?.[0]?.trim();
+  if (envFrontend) return envFrontend;
+  return req.get('origin') || 'http://localhost:5173';
+};
+
+const generateSixDigitCode = () => String(Math.floor(100000 + Math.random() * 900000));
 
 export const signup = async (req, res) => {
   try {
     const { username, email, password, firstName, lastName, birthDate, gender, location } = req.body;
-    
-    // Vérifier si l'utilisateur existe déjà
+
     const orConditions = [{ email }];
     if (username) orConditions.push({ username });
     const exists = await User.findOne({ $or: orConditions });
-    
+
     if (exists) {
-      if (exists.email === email) return res.status(400).json({ message: 'Email déjà utilisé' });
-      if (username && exists.username === username) return res.status(400).json({ message: 'Nom d\'utilisateur déjà utilisé' });
-      return res.status(400).json({ message: 'L\'utilisateur existe déjà' });
+      if (exists.email === email) return res.status(400).json({ message: 'Email deja utilise' });
+      if (username && exists.username === username) return res.status(400).json({ message: 'Nom utilisateur deja utilise' });
+      return res.status(400).json({ message: 'Utilisateur deja existant' });
     }
+
     const token = generateToken();
     const user = await User.create({
-      username, email, password, firstName, lastName, birthDate, gender, location,
+      username,
+      email,
+      password,
+      firstName,
+      lastName,
+      birthDate,
+      gender,
+      location,
       emailVerificationToken: token,
       emailVerificationExpires: Date.now() + 24 * 60 * 60 * 1000
     });
-    const baseUrl = req.get('origin') || process.env.FRONTEND_URL || 'http://localhost:5173';
+
+    const baseUrl = getBaseFrontendUrl(req);
     try {
       await sendVerificationEmail(email, token, baseUrl);
     } catch (emailErr) {
-      console.warn('Email de vérification non envoyé (SMTP non configuré?) :', emailErr.message);
-      // L'inscription réussit quand même - l'utilisateur peut vérifier plus tard
+      console.warn('Verification email not sent:', emailErr.message);
     }
+
     const jwtToken = generateJWT(user._id);
-    res.cookie('token', jwtToken, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000, secure: process.env.NODE_ENV === 'production' });
+    res.cookie('token', jwtToken, jwtCookieOptions);
     res.status(201).json({
-      user: { id: user._id, email: user.email, firstName: user.firstName, lastName: user.lastName, emailVerified: user.emailVerified },
+      user: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        emailVerified: user.emailVerified
+      },
       token: jwtToken
     });
   } catch (err) {
-    console.error('Erreur signup:', err);
+    console.error('Signup error:', err);
     res.status(500).json({ message: err.message || 'Erreur serveur' });
   }
 };
@@ -52,6 +81,7 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email }).select('+password');
+
     if (!user) {
       return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
     }
@@ -62,11 +92,13 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
     }
     if (user.isBanned) {
-      return res.status(403).json({ message: 'Compte désactivé' });
+      return res.status(403).json({ message: 'Compte desactive' });
     }
+
     await User.findByIdAndUpdate(user._id, { lastSeen: new Date(), isOnline: true });
+
     const jwtToken = generateJWT(user._id);
-    res.cookie('token', jwtToken, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000, secure: process.env.NODE_ENV === 'production' });
+    res.cookie('token', jwtToken, jwtCookieOptions);
     const { password: _, ...userData } = user.toObject();
     res.json({ user: userData, token: jwtToken });
   } catch (err) {
@@ -79,8 +111,8 @@ export const logout = async (req, res) => {
     if (req.user) {
       await User.findByIdAndUpdate(req.user._id, { isOnline: false });
     }
-    res.cookie('token', '', { maxAge: 0 });
-    res.json({ message: 'Déconnexion réussie' });
+    res.cookie('token', '', { maxAge: 0, httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' });
+    res.json({ message: 'Deconnexion reussie' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -93,14 +125,17 @@ export const verifyEmail = async (req, res) => {
       emailVerificationToken: token,
       emailVerificationExpires: { $gt: Date.now() }
     });
+
     if (!user) {
-      return res.status(400).json({ message: 'Token invalide ou expiré' });
+      return res.status(400).json({ message: 'Token invalide ou expire' });
     }
+
     user.emailVerified = true;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
     await user.save();
-    res.json({ message: 'Email vérifié avec succès' });
+
+    res.json({ message: 'Email verifie avec succes' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -109,43 +144,104 @@ export const verifyEmail = async (req, res) => {
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
+    const genericMessage = 'Si l email existe, un code a ete envoye';
+
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.json({ message: 'Si l\'email existe, un lien a été envoyé' }); // Ne pas révéler
+    if (!user || user.googleId) {
+      return res.json({ message: genericMessage });
     }
-    const token = generateToken();
-    user.passwordResetToken = token;
-    user.passwordResetExpires = Date.now() + 60 * 60 * 1000;
+
+    const code = generateSixDigitCode();
+    user.passwordResetToken = hashToken(code);
+    user.passwordResetExpires = Date.now() + 10 * 60 * 1000;
     await user.save();
-    const baseUrl = req.get('origin') || process.env.FRONTEND_URL || 'http://localhost:5173';
+
     try {
-      await sendPasswordResetEmail(email, token, baseUrl);
+      await sendPasswordResetCodeEmail(email, code);
     } catch (emailErr) {
-      console.warn('Email de réinitialisation non envoyé (SMTP non configuré?) :', emailErr.message);
+      console.warn('Reset code email not sent:', emailErr.message);
     }
-    res.json({ message: 'Si l\'email existe, un lien a été envoyé' });
+
+    const response = { message: genericMessage };
+    if (process.env.NODE_ENV !== 'production' && !isSmtpConfigured()) {
+      response.devResetCode = code;
+      console.log('[DEV] Password reset code for', email, ':', code);
+    }
+
+    return res.json(response);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+export const verifyResetCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    const user = await User.findOne({
+      email,
+      passwordResetToken: hashToken(code),
+      passwordResetExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Code invalide ou expire' });
+    }
+
+    const resetToken = generateToken();
+    user.passwordResetToken = hashToken(resetToken);
+    user.passwordResetExpires = Date.now() + 15 * 60 * 1000;
+    await user.save();
+
+    return res.json({ message: 'Code valide', resetToken });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
 };
 
 export const resetPassword = async (req, res) => {
   try {
     const { token, password } = req.body;
+
     const user = await User.findOne({
-      passwordResetToken: token,
+      passwordResetToken: hashToken(token),
       passwordResetExpires: { $gt: Date.now() }
     });
+
     if (!user) {
-      return res.status(400).json({ message: 'Token invalide ou expiré' });
+      return res.status(400).json({ message: 'Session de reinitialisation invalide ou expiree' });
     }
+
     user.password = password;
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     await user.save();
-    res.json({ message: 'Mot de passe réinitialisé' });
+
+    return res.json({ message: 'Mot de passe reinitialise' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+export const validateResetToken = async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(400).json({ message: 'Token requis', valid: false });
+    }
+
+    const user = await User.findOne({
+      passwordResetToken: hashToken(token),
+      passwordResetExpires: { $gt: Date.now() }
+    }).select('_id');
+
+    if (!user) {
+      return res.status(400).json({ message: 'Session invalide ou expiree', valid: false });
+    }
+
+    return res.json({ valid: true });
+  } catch (err) {
+    return res.status(500).json({ message: 'Erreur serveur', valid: false });
   }
 };
 
@@ -156,8 +252,9 @@ export const googleAuth = async (req, res) => {
       return res.status(400).json({ message: 'Token Google requis' });
     }
     if (!process.env.GOOGLE_CLIENT_ID) {
-      return res.status(500).json({ message: 'Google OAuth non configuré (GOOGLE_CLIENT_ID manquant)' });
+      return res.status(500).json({ message: 'Google OAuth non configure (GOOGLE_CLIENT_ID manquant)' });
     }
+
     const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
@@ -176,7 +273,7 @@ export const googleAuth = async (req, res) => {
         if (lastName) user.lastName = lastName;
         await user.save();
       } else if (user.googleId !== googleId) {
-        return res.status(400).json({ message: 'Cet email est déjà utilisé avec un autre compte' });
+        return res.status(400).json({ message: 'Cet email est deja utilise avec un autre compte' });
       }
     } else {
       const baseUsername = email.split('@')[0];
@@ -196,39 +293,45 @@ export const googleAuth = async (req, res) => {
         emailVerified: true
       });
     }
+
     if (user.isBanned) {
-      return res.status(403).json({ message: 'Compte désactivé' });
+      return res.status(403).json({ message: 'Compte desactive' });
     }
+
     await User.findByIdAndUpdate(user._id, { lastSeen: new Date(), isOnline: true });
+
     const jwtToken = generateJWT(user._id);
-    res.cookie('token', jwtToken, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000, secure: process.env.NODE_ENV === 'production' });
+    res.cookie('token', jwtToken, jwtCookieOptions);
     const { password: _, ...userData } = user.toObject();
     res.json({ user: userData, token: jwtToken });
   } catch (err) {
     console.error('Erreur Google auth:', err);
-    res.status(500).json({ message: err.message || 'Erreur d\'authentification Google' });
+    res.status(500).json({ message: err.message || 'Erreur authentification Google' });
   }
 };
 
 export const me = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id)
-      .select('-password -emailVerificationToken -passwordResetToken');
+    const user = await User.findById(req.user._id).select('-password -emailVerificationToken -passwordResetToken');
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 export const changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
     const user = await User.findById(req.user._id).select('+password');
+
     if (!user || !(await user.comparePassword(oldPassword))) {
       return res.status(401).json({ message: 'Ancien mot de passe incorrect' });
     }
+
     user.password = newPassword;
     await user.save();
-    res.json({ message: 'Mot de passe modifié avec succès' });
+
+    res.json({ message: 'Mot de passe modifie avec succes' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

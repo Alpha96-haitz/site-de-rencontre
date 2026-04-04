@@ -10,6 +10,9 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import Landing from './pages/Landing';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import Contact from './pages/Contact';
 import Home from './pages/Home';
 import Discover from './pages/Discover';
 import Matches from './pages/Matches';
@@ -29,7 +32,7 @@ const Protected = ({ children }) => {
 
 const AdminRoute = ({ children }) => {
   const { user } = useAuth();
-  if (user?.role !== 'admin') return <Navigate to="/home" replace />;
+  if (!['admin', 'root'].includes(user?.role)) return <Navigate to="/home" replace />;
   return children;
 };
 
@@ -41,6 +44,9 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/contact" element={<Contact />} />
       <Route path="/" element={<Landing />} />
       <Route path="/home" element={<Protected><Layout /></Protected>}>
         <Route index element={<Home />} />

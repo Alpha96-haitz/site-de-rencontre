@@ -6,7 +6,10 @@ import Match from '../models/Match.js';
 export const getMessages = async (req, res) => {
   try {
     const { matchId } = req.params;
-    
+    if (!mongoose.Types.ObjectId.isValid(matchId)) {
+      return res.status(400).json({ message: 'Match ID invalide' });
+    }
+
     // Vérifier que l'utilisateur fait partie du match ET que c'est mutuel
     const match = await Match.findById(matchId);
     if (!match || !match.users.includes(req.user._id)) {
@@ -44,7 +47,24 @@ export const getConversations = async (req, res) => {
         sender: { $ne: req.user._id },
         'readBy.user': { $ne: req.user._id }
       });
-      return { ...match.toObject(), unreadCount };
+
+      const lastMessage = await Message.findOne({ match: match._id })
+        .select('content sender createdAt image')
+        .sort({ createdAt: -1 })
+        .lean();
+
+      return {
+        ...match.toObject(),
+        unreadCount,
+        lastMessage: lastMessage
+          ? {
+              content: lastMessage.content || '',
+              sender: lastMessage.sender?.toString?.() || null,
+              createdAt: lastMessage.createdAt,
+              hasImage: Boolean(lastMessage.image?.url)
+            }
+          : null
+      };
     }));
 
     res.json(conversations);
@@ -72,6 +92,15 @@ export const getTotalUnreadMessagesCount = async (req, res) => {
 export const markAsRead = async (req, res) => {
   try {
     const { matchId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(matchId)) {
+      return res.status(400).json({ message: 'Match ID invalide' });
+    }
+
+    const match = await Match.findById(matchId);
+    if (!match || !match.users.includes(req.user._id)) {
+      return res.status(403).json({ message: 'Action non autorisée' });
+    }
+
     await Message.updateMany(
       { match: matchId, sender: { $ne: req.user._id }, 'readBy.user': { $ne: req.user._id } },
       { $push: { readBy: { user: req.user._id, readAt: Date.now() } } }
@@ -150,6 +179,9 @@ export const getOrCreateConversation = async (req, res) => {
 export const deleteConversation = async (req, res) => {
   try {
     const { matchId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(matchId)) {
+      return res.status(400).json({ message: 'Match ID invalide' });
+    }
     
     // Vérifier que le match existe et que l'utilisateur en fait partie
     const match = await Match.findById(matchId);

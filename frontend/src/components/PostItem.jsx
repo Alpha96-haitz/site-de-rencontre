@@ -7,14 +7,17 @@ import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
-export default function PostItem({ post: initialPost, onDelete }) {
-  const { user } = useAuth();
+export default function PostItem({ post: initialPost, onDelete, showFollowAction = false }) {
+  const { user, refreshUser } = useAuth();
   const [post, setPost] = useState(initialPost);
   const [author, setAuthor] = useState(null);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [loadingComment, setLoadingComment] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [followSuccess, setFollowSuccess] = useState(false);
+  const [followedLocally, setFollowedLocally] = useState(false);
 
   useEffect(() => {
     // Récupérer les infos de l'auteur
@@ -29,8 +32,23 @@ export default function PostItem({ post: initialPost, onDelete }) {
     }
   }, [post.userId]);
 
-  const isOwner = user?._id === (post.userId?._id || post.userId);
+  const getSafeId = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object') {
+      if (typeof value._id === 'string') return value._id;
+      if (typeof value.id === 'string') return value.id;
+    }
+    return '';
+  };
+
+  const authorId = getSafeId(author) || getSafeId(post.userId);
+  const currentUserId = getSafeId(user);
+  const isOwner = currentUserId && currentUserId === authorId;
+  const canDelete = isOwner || user?.role === 'root';
   const hasLiked = post.likes?.includes(user?._id);
+  const isFollowing = (user?.following || []).some((f) => getSafeId(f) === authorId);
+  const showFollowButton = showFollowAction && Boolean(authorId) && !isOwner && !isFollowing && !followedLocally;
 
   const toggleLike = async () => {
     try {
@@ -72,6 +90,25 @@ export default function PostItem({ post: initialPost, onDelete }) {
     }
   };
 
+  const handleFollowAuthor = async () => {
+    if (!authorId || followLoading) return;
+    setFollowLoading(true);
+    try {
+      await client.put(`/users/${authorId}/follow`);
+      setFollowSuccess(true);
+      refreshUser().catch(() => {});
+      toast.success('Abonne !');
+      setTimeout(() => {
+        setFollowedLocally(true);
+        setFollowSuccess(false);
+      }, 1000);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Erreur lors de l'abonnement");
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
   const authorPhoto = author?.photos?.find(p => p.isPrimary)?.url || author?.googlePhoto || 'https://placehold.co/150';
 
   return (
@@ -92,29 +129,44 @@ export default function PostItem({ post: initialPost, onDelete }) {
           </div>
         </div>
 
-        {isOwner && (
-          <div className="relative">
-            <button 
-              onClick={() => setShowOptions(!showOptions)}
-              className="p-2 text-slate-400 hover:bg-slate-50 rounded-full transition-colors"
+        <div className="flex items-center gap-2">
+          {showFollowButton && (
+            <button
+              onClick={handleFollowAuthor}
+              disabled={followLoading}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider border transition-all disabled:opacity-60 ${
+                followSuccess
+                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                  : 'bg-pink-50 text-pink-600 border-pink-100 hover:bg-pink-100'
+              }`}
             >
-              <FiMoreHorizontal className="w-5 h-5" />
+              {followLoading ? '...' : followSuccess ? 'Suivi' : 'Suivre'}
             </button>
-            {showOptions && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowOptions(false)}></div>
-                <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-xl border border-slate-100 z-20 py-1 overflow-hidden">
-                  <button 
-                    onClick={() => { setShowOptions(false); handleDelete(); }}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 font-medium transition-colors"
-                  >
-                    <FiTrash2 className="w-4 h-4" /> Supprimer
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+          )}
+          {canDelete && (
+            <div className="relative">
+              <button
+                onClick={() => setShowOptions(!showOptions)}
+                className="p-2 text-slate-400 hover:bg-slate-50 rounded-full transition-colors"
+              >
+                <FiMoreHorizontal className="w-5 h-5" />
+              </button>
+              {showOptions && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowOptions(false)}></div>
+                  <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-xl border border-slate-100 z-20 py-1 overflow-hidden">
+                    <button
+                      onClick={() => { setShowOptions(false); handleDelete(); }}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 font-medium transition-colors"
+                    >
+                      <FiTrash2 className="w-4 h-4" /> Supprimer
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mb-4">
@@ -198,3 +250,4 @@ export default function PostItem({ post: initialPost, onDelete }) {
     </div>
   );
 }
+

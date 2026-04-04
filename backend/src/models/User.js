@@ -106,12 +106,30 @@ const userSchema = new mongoose.Schema(
       min: { type: Number, default: 18 },
       max: { type: Number, default: 99 }
     },
+    privacy: {
+      showOnlineStatus: { type: Boolean, default: true },
+      profileVisibility: {
+        type: String,
+        enum: ['public', 'matches', 'private'],
+        default: 'public'
+      },
+      allowMessagesFrom: {
+        type: String,
+        enum: ['everyone', 'matches', 'no-one'],
+        default: 'matches'
+      }
+    },
+    notificationPreferences: {
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true },
+      marketing: { type: Boolean, default: false }
+    },
     lastSeen: { type: Date, default: Date.now },
     isOnline: { type: Boolean, default: false },
     // Admin
     role: {
       type: String,
-      enum: ['user', 'admin'],
+      enum: ['user', 'admin', 'root'],
       default: 'user'
     },
     isBanned: {

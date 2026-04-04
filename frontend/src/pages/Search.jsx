@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiSearch, FiUserPlus, FiUserCheck, FiFilter, FiMapPin } from 'react-icons/fi';
+import { FiSearch, FiUserPlus, FiUserCheck, FiFilter, FiMapPin, FiFlag } from 'react-icons/fi';
 import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import debounce from 'lodash.debounce';
+import ReportModal from '../components/ReportModal';
 
 export default function Search() {
   const { user, refreshUser } = useAuth();
@@ -18,6 +19,7 @@ export default function Search() {
     interests: ''
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [reportModal, setReportModal] = useState(null); // userId or null
 
   const fetchResults = async (query = '', currentFilters = {}) => {
     setLoading(true);
@@ -187,12 +189,21 @@ export default function Search() {
                       <Link to={`/home/profile/${res.username}`} className="text-lg font-black text-slate-800 hover:text-pink-600 transition-colors">{res.firstName}, {res.age}</Link>
                       <p className="text-xs text-slate-400 font-bold tracking-tight">@{res.username}</p>
                     </div>
-                    <button 
-                      onClick={() => toggleFollow(res._id, isFollowing)}
-                      className={`p-2.5 rounded-2xl transition-all ${isFollowing ? 'bg-slate-100 text-slate-600' : 'bg-pink-600 text-white shadow-lg shadow-pink-100 hover:scale-110'}`}
-                    >
-                      {isFollowing ? <FiUserCheck className="w-5 h-5" /> : <FiUserPlus className="w-5 h-5" />}
-                    </button>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => toggleFollow(res._id, isFollowing)}
+                        className={`p-2.5 rounded-2xl transition-all ${isFollowing ? 'bg-slate-100 text-slate-600' : 'bg-pink-600 text-white shadow-lg shadow-pink-100 hover:scale-110'}`}
+                      >
+                        {isFollowing ? <FiUserCheck className="w-5 h-5" /> : <FiUserPlus className="w-5 h-5" />}
+                      </button>
+                      <button 
+                        onClick={() => setReportModal(res._id)}
+                        className="p-2.5 rounded-2xl bg-rose-50 text-rose-500 hover:bg-rose-100 transition-all border border-rose-100"
+                        title="Signaler"
+                      >
+                        <FiFlag className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {res.interests?.slice(0, 3).map(i => (
@@ -212,6 +223,15 @@ export default function Search() {
            <h3 className="text-xl font-bold text-slate-800 mb-2">Aucun résultat</h3>
            <p className="text-slate-500 max-w-xs mx-auto">Essayez d'ajuster vos filtres ou de modifier votre recherche.</p>
         </div>
+      )}
+
+      {/* Report Modal */}
+      {reportModal && (
+        <ReportModal 
+          reportedUserId={reportModal}
+          reportedUserName={results.find(r => r._id === reportModal)?.firstName}
+          onClose={() => setReportModal(null)}
+        />
       )}
     </div>
   );

@@ -1,22 +1,38 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { FiCamera, FiTrash2, FiLock, FiUserX, FiSave, FiArrowLeft, FiMapPin, FiUser, FiImage, FiBriefcase, FiInfo, FiChevronRight, FiPlus } from 'react-icons/fi';
+import { FiBell, FiCamera, FiTrash2, FiLock, FiUserX, FiSave, FiArrowLeft, FiMapPin, FiUser, FiImage, FiBriefcase, FiInfo, FiShield, FiChevronRight, FiPlus, FiMoon, FiSun } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import client from '../api/client';
 
 export default function EditProfile() {
   const { user, refreshUser, logout } = useAuth();
+  const { theme, isDark, setTheme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [coverLoading, setCoverLoading] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState(searchParams.get('tab') || 'general'); // 'general', 'photos', 'security'
+  const [primaryLoadingId, setPrimaryLoadingId] = useState('');
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState(searchParams.get('tab') || 'general'); // 'general', 'photos', 'security', 'notifications'
+  const [notificationSettings, setNotificationSettings] = useState({
+    email: true,
+    push: true,
+    marketing: false,
+  });
+  const [privacySettings, setPrivacySettings] = useState({
+    showOnlineStatus: true,
+    profileVisibility: 'public',
+    allowMessagesFrom: 'matches'
+  });
   
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
+    age: '',
+    gender: 'other',
     bio: '',
     location: { city: '' },
     interests: '',
@@ -34,10 +50,22 @@ export default function EditProfile() {
       setForm({
         firstName: user.firstName || '',
         lastName: user.lastName || '',
+        age: user.age || '',
+        gender: user.gender || 'other',
         bio: user.bio || '',
         location: { city: user.location?.city || '' },
         interests: Array.isArray(user.interests) ? user.interests.join(', ') : '',
         ageRange: user.ageRange || { min: 18, max: 99 }
+      });
+      setNotificationSettings({
+        email: user.notificationPreferences?.email ?? true,
+        push: user.notificationPreferences?.push ?? true,
+        marketing: user.notificationPreferences?.marketing ?? false
+      });
+      setPrivacySettings({
+        showOnlineStatus: user.privacy?.showOnlineStatus ?? true,
+        profileVisibility: user.privacy?.profileVisibility ?? 'public',
+        allowMessagesFrom: user.privacy?.allowMessagesFrom ?? 'matches'
       });
     }
   }, [user]);
@@ -51,6 +79,8 @@ export default function EditProfile() {
         ...f,
         ageRange: { ...f.ageRange, [name === 'ageMin' ? 'min' : 'max']: parseInt(value) || 18 }
       }));
+    } else if (name === 'age') {
+      setForm((f) => ({ ...f, age: value.replace(/[^\d]/g, '') }));
     } else {
       setForm((f) => ({ ...f, [name]: value }));
     }
@@ -64,10 +94,21 @@ export default function EditProfile() {
     e.preventDefault();
     setLoading(true);
     try {
-      await client.put('/users/profile', {
+      const ageValue = parseInt(form.age, 10);
+      const now = new Date();
+      const birthDate = !Number.isNaN(ageValue) && ageValue > 0
+        ? new Date(now.getFullYear() - ageValue, now.getMonth(), now.getDate())
+        : undefined;
+
+      const payload = {
         ...form,
         interests: form.interests.split(',').map((s) => s.trim()).filter(Boolean)
-      });
+      };
+      if (birthDate) {
+        payload.birthDate = birthDate.toISOString();
+      }
+
+      await client.put('/users/profile', payload);
       await refreshUser();
       toast.success('Profil mis à jour');
     } catch (err) {
@@ -122,6 +163,19 @@ export default function EditProfile() {
     }
   };
 
+  const handleSetPrimaryPhoto = async (publicId) => {
+    setPrimaryLoadingId(publicId);
+    try {
+      await client.put(`/users/photos/${publicId}/primary`);
+      await refreshUser();
+      toast.success('Photo de profil mise ?? jour');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erreur lors de la mise ?? jour');
+    } finally {
+      setPrimaryLoadingId('');
+    }
+  };
+
   const handleChangePassword = async (e) => {
     e.preventDefault();
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
@@ -139,6 +193,22 @@ export default function EditProfile() {
       toast.error(err.response?.data?.message || "Erreur");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    setSettingsLoading(true);
+    try {
+      await client.put('/users/profile', {
+        privacy: privacySettings,
+        notificationPreferences: notificationSettings
+      });
+      await refreshUser();
+      toast.success('Préférences sauvegardées');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Impossible de sauvegarder les paramètres');
+    } finally {
+      setSettingsLoading(false);
     }
   };
 
@@ -191,10 +261,14 @@ export default function EditProfile() {
                         { id: 'general', label: 'Profil et informations', icon: FiUser },
                         { id: 'photos', label: 'Photos et couverture', icon: FiImage },
                         { id: 'security', label: 'Mot de passe et sécurité', icon: FiLock },
+                        { id: 'notifications', label: 'Notifications', icon: FiBell },
                     ].map(tab => (
                         <button 
                             key={tab.id}
-                            onClick={() => setActiveSettingsTab(tab.id)}
+                            onClick={() => {
+                              setActiveSettingsTab(tab.id);
+                              navigate(`/home/profile/edit?tab=${tab.id}`);
+                            }}
                             className={`w-full flex items-center justify-between p-3 rounded-lg transition-all font-bold ${activeSettingsTab === tab.id ? 'bg-pink-50 text-pink-600' : 'text-slate-600 hover:bg-slate-50'}`}
                         >
                             <div className="flex items-center gap-3">
@@ -230,6 +304,32 @@ export default function EditProfile() {
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nom</label>
                                     <input name="lastName" value={form.lastName} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all outline-none font-bold text-slate-800" />
                                 </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Age</label>
+                                <input
+                                  type="number"
+                                  min="18"
+                                  max="120"
+                                  name="age"
+                                  value={form.age}
+                                  onChange={handleChange}
+                                  placeholder="Ex: 28"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all outline-none font-bold text-slate-800"
+                                />
+                            </div>
+                                                        <div className="space-y-2">
+                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Genre</label>
+                                <select
+                                  name="gender"
+                                  value={form.gender}
+                                  onChange={handleChange}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all outline-none font-bold text-slate-800"
+                                >
+                                  <option value="male">Homme</option>
+                                  <option value="female">Femme</option>
+                                  <option value="other">Autre</option>
+                                </select>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Bio (Ma présentation)</label>
@@ -288,6 +388,16 @@ export default function EditProfile() {
                                 <div key={photo.publicId} className="relative aspect-square rounded-xl overflow-hidden group border border-slate-100 shadow-sm">
                                     <img src={photo.url} alt="" className="w-full h-full object-cover" />
                                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
+                                        {!photo.isPrimary && (
+                                          <button
+                                            onClick={() => handleSetPrimaryPhoto(photo.publicId)}
+                                            disabled={primaryLoadingId === photo.publicId}
+                                            className="bg-emerald-500 text-white p-2.5 rounded-lg hover:scale-110 active:scale-95 transition-all shadow-lg disabled:opacity-60"
+                                            title="Definir comme photo de profil"
+                                          >
+                                            {primaryLoadingId === photo.publicId ? '...' : <FiUser />}
+                                          </button>
+                                        )}
                                         <button onClick={() => handleDeletePhoto(photo.publicId)} className="bg-rose-500 text-white p-2.5 rounded-lg hover:scale-110 active:scale-95 transition-all shadow-lg"><FiTrash2 /></button>
                                     </div>
                                     {photo.isPrimary && <div className="absolute bottom-2 left-2 bg-pink-600 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-sm">Photo de profil</div>}
@@ -308,27 +418,140 @@ export default function EditProfile() {
                 <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-6">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                         <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-                            <FiLock className="text-amber-500" /> Mot de passe
+                            <FiShield className="text-blue-500" /> Confidentialité et sécurité
                         </h2>
-                        <form onSubmit={handleChangePassword} className="space-y-5">
-                            <div className="space-y-2">
-                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Ancien mot de passe</label>
-                                <input type="password" name="oldPassword" value={passwordForm.oldPassword} onChange={handlePasswordChangeInput} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white transition-all outline-none font-bold" />
+                        <div className="space-y-5">
+                            <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50">
+                                <p className="text-sm font-bold text-slate-900 mb-2">Visibilité de votre profil</p>
+                                <select
+                                  value={privacySettings.profileVisibility}
+                                  onChange={(e) => setPrivacySettings((prev) => ({ ...prev, profileVisibility: e.target.value }))}
+                                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-pink-100 transition-all outline-none"
+                                >
+                                  <option value="public">Public - tout le monde peut voir mon profil</option>
+                                  <option value="matches">Matchs seulement - seuls les matchs peuvent voir mon profil</option>
+                                  <option value="private">Privé - seuls mes abonnements peuvent voir mon profil</option>
+                                </select>
                             </div>
+
+                            <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50">
+                                <p className="text-sm font-bold text-slate-900 mb-2">Statut en ligne</p>
+                                <div className="flex items-center justify-between gap-4">
+                                    <div>
+                                        <p className="font-bold text-slate-800">Afficher mon statut en ligne</p>
+                                        <p className="text-sm text-slate-500">Contrôle si les autres voient si vous êtes connecté.</p>
+                                    </div>
+                                    <button
+                                      onClick={() => setPrivacySettings((prev) => ({ ...prev, showOnlineStatus: !prev.showOnlineStatus }))}
+                                      className={`px-4 py-2 rounded-full font-bold transition-colors ${privacySettings.showOnlineStatus ? 'bg-pink-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
+                                    >
+                                      {privacySettings.showOnlineStatus ? 'Activé' : 'Désactivé'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50">
+                                <p className="text-sm font-bold text-slate-900 mb-2">Messages de nouveaux contacts</p>
+                                <select
+                                  value={privacySettings.allowMessagesFrom}
+                                  onChange={(e) => setPrivacySettings((prev) => ({ ...prev, allowMessagesFrom: e.target.value }))}
+                                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-pink-100 transition-all outline-none"
+                                >
+                                  <option value="everyone">Tout le monde</option>
+                                  <option value="matches">Matchs seulement</option>
+                                  <option value="no-one">Personne</option>
+                                </select>
+                                <p className="text-sm text-slate-500 mt-2">Contrôle qui peut initier une conversation avec vous.</p>
+                            </div>
+
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nouveau</label>
-                                    <input type="password" name="newPassword" value={passwordForm.newPassword} onChange={handlePasswordChangeInput} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white transition-all outline-none font-bold" />
+                              {[
+                                { key: 'email', label: 'Notifications par email', description: 'Reçois des alertes de nouveaux messages et matchs.' },
+                                { key: 'push', label: 'Notifications push', description: 'Alertes instantanées sur votre appareil.' },
+                              ].map(item => (
+                                <div key={item.key} className="p-4 rounded-2xl border border-slate-200 bg-slate-50">
+                                  <p className="font-bold text-slate-900 mb-1">{item.label}</p>
+                                  <p className="text-sm text-slate-500 mb-3">{item.description}</p>
+                                  <button
+                                    onClick={() => setNotificationSettings((prev) => ({
+                                      ...prev,
+                                      [item.key]: !prev[item.key]
+                                    }))}
+                                    className={`px-4 py-2 rounded-full font-bold transition-colors ${notificationSettings[item.key] ? 'bg-pink-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
+                                  >
+                                    {notificationSettings[item.key] ? 'Activé' : 'Désactivé'}
+                                  </button>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Confirmer</label>
-                                    <input type="password" name="confirmPassword" value={passwordForm.confirmPassword} onChange={handlePasswordChangeInput} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white transition-all outline-none font-bold" />
-                                </div>
+                              ))}
                             </div>
-                            <button type="submit" disabled={loading} className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black transition-all shadow-xl active:scale-95">
-                                Modifier le mot de passe
+
+                            <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50">
+                                <p className="text-sm font-bold text-slate-900 mb-2">Apparence</p>
+                                <p className="text-sm text-slate-500 mb-4">Choisissez le mode d'affichage qui vous convient.</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                                  <button
+                                    onClick={() => setTheme('light')}
+                                    className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-colors border ${theme === 'light' ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'}`}
+                                  >
+                                    <FiSun className="w-4 h-4" /> Mode clair
+                                  </button>
+                                  <button
+                                    onClick={() => setTheme('dark')}
+                                    className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-colors border ${theme === 'dark' ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'}`}
+                                  >
+                                    <FiMoon className="w-4 h-4" /> Mode sombre
+                                  </button>
+                                </div>
+                                <button
+                                  onClick={toggleTheme}
+                                  className="w-full px-4 py-2 rounded-xl font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 transition-colors"
+                                >
+                                  Basculer rapidement ({isDark ? 'actuellement sombre' : 'actuellement clair'})
+                                </button>
+                            </div>
+
+                            <button
+                              onClick={handleSaveSettings}
+                              disabled={settingsLoading}
+                              className="w-full py-4 bg-pink-600 text-white rounded-xl font-black hover:bg-pink-700 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                            >
+                              {settingsLoading ? 'Sauvegarde...' : 'Sauvegarder les paramètres'}
                             </button>
-                        </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {activeSettingsTab === 'notifications' && (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-6">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
+                            <FiBell className="text-pink-500" /> Notifications
+                        </h2>
+                        <p className="text-sm text-slate-500 mb-6">Gérez vos préférences de notification pour les messages, les matchs et les mises à jour.</p>
+                        <div className="space-y-4">
+                            {[
+                                { key: 'email', label: 'Recevoir les notifications par email', description: 'Nouvelle activité, messages et alertes.' },
+                                { key: 'push', label: 'Recevoir les notifications push', description: 'Alertes instantanées sur votre appareil.' },
+                                { key: 'marketing', label: 'Offres et recommandations', description: 'Promotions et nouveautés personnalisées.' }
+                            ].map(item => (
+                                <div key={item.key} className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-slate-200 bg-slate-50">
+                                    <div>
+                                        <p className="font-bold text-slate-800">{item.label}</p>
+                                        <p className="text-sm text-slate-500">{item.description}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setNotificationSettings((prev) => ({
+                                          ...prev,
+                                          [item.key]: !prev[item.key]
+                                        }))}
+                                        className={`px-4 py-2 rounded-full font-bold transition-colors ${notificationSettings[item.key] ? 'bg-pink-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
+                                    >
+                                        {notificationSettings[item.key] ? 'Activé' : 'Désactivé'}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}

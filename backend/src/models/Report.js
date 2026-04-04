@@ -17,7 +17,14 @@ const reportSchema = new mongoose.Schema(
     },
     reason: {
       type: String,
-      enum: ['spam', 'harassment', 'inappropriate', 'fake', 'other'],
+      enum: [
+        'Harcèlement ou intimidation',
+        'Discours haineux ou injurieux',
+        'Faux profil ou spam',
+        'Contenu inapproprié ou sexuel',
+        'Incite à la haine ou à la violence',
+        'Autre'
+      ],
       required: true
     },
     description: String,

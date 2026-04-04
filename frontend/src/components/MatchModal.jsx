@@ -8,6 +8,7 @@ export default function MatchModal({ match, onClose }) {
   const otherUser = match.users?.find(u => u._id !== localStorage.getItem('userId')) || match.users?.[0];
   const userPhoto = localStorage.getItem('userPhoto') || 'https://placehold.co/150';
   const otherPhoto = otherUser?.photos?.find(p => p.isPrimary)?.url || otherUser?.googlePhoto || 'https://placehold.co/150';
+  const hasValidTarget = typeof otherUser?._id === 'string' && /^[a-fA-F0-9]{24}$/.test(otherUser._id);
 
   return (
     <AnimatePresence>
@@ -77,8 +78,12 @@ export default function MatchModal({ match, onClose }) {
 
           <div className="space-y-3">
             <button 
-              onClick={() => window.location.href = `/home/messages?user=${otherUser?._id}`}
-              className="w-full py-4 bg-gradient-to-r from-pink-600 to-rose-600 text-white rounded-2xl font-black shadow-lg shadow-pink-900/20 flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95"
+              onClick={() => {
+                if (!hasValidTarget) return;
+                window.location.href = `/home/messages?user=${otherUser._id}`;
+              }}
+              disabled={!hasValidTarget}
+              className="w-full py-4 bg-gradient-to-r from-pink-600 to-rose-600 text-white rounded-2xl font-black shadow-lg shadow-pink-900/20 flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FiMessageCircle className="w-5 h-5" /> Envoyer un message
             </button>

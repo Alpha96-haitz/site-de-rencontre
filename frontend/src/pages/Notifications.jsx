@@ -3,8 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FiHeart, FiMessageCircle, FiUserPlus, FiCheckCircle, FiBell, FiMoreHorizontal, FiUserCheck, FiChevronLeft } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
-import { formatDistanceToNow, isToday, isYesterday, isThisWeek, subDays } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { isToday, isYesterday, isThisWeek } from 'date-fns';
 import toast from 'react-hot-toast';
 
 export default function Notifications() {
@@ -108,43 +107,64 @@ export default function Notifications() {
                      const isFollowing = user?.following?.includes(n.sender?._id);
                      const senderName = n.sender?.username || 'Utilisateur';
                      
+                     // Formatage amélioré du temps
+                     const now = new Date();
+                     const notificationTime = new Date(n.createdAt);
+                     const diffInMinutes = Math.floor((now - notificationTime) / (1000 * 60));
+                     const diffInHours = Math.floor(diffInMinutes / 60);
+                     const diffInDays = Math.floor(diffInHours / 24);
+                     
+                     let timeDisplay = '';
+                     if (diffInMinutes < 1) {
+                        timeDisplay = 'À l\'instant';
+                     } else if (diffInMinutes < 60) {
+                        timeDisplay = `${diffInMinutes}m`;
+                     } else if (diffInHours < 24) {
+                        timeDisplay = `${diffInHours}h`;
+                     } else if (diffInDays === 1) {
+                        timeDisplay = 'Hier';
+                     } else if (diffInDays < 7) {
+                        timeDisplay = `${diffInDays}j`;
+                     } else {
+                        timeDisplay = notificationTime.toLocaleDateString('fr-FR', { 
+                           day: 'numeric', 
+                           month: 'short' 
+                        });
+                     }
+                     
                      return (
-                        <div key={n._id} className={`flex items-center gap-3 px-6 py-4 hover:bg-slate-50/50 transition-colors group cursor-pointer ${!n.read ? 'bg-pink-50/10' : ''}`} onClick={() => n.post ? navigate(`/home/profile/${user.username}`) : navigate(`/home/profile/${n.sender?.username}`)}>
-                           {/* Avatar Group */}
-                           <div className="relative shrink-0">
-                              <img src={senderPhoto} alt="" className="w-[44px] h-[44px] rounded-full object-cover border border-slate-100 shadow-sm" />
-                              {!n.read && <div className="absolute -top-0.5 -right-0.5 w-[14px] h-[14px] bg-pink-600 rounded-full border-2 border-white shadow-sm"></div>}
-                           </div>
+                        <div key={n._id} className={`px-6 py-4 hover:bg-slate-50/50 transition-colors group cursor-pointer ${!n.read ? 'bg-pink-50/10' : ''}`} onClick={() => n.post ? navigate(`/home/profile/${user.username}`) : navigate(`/home/profile/${n.sender?.username}`)}>
+                           <div className="flex items-start gap-3">
+                              {/* Avatar */}
+                              <div className="relative shrink-0">
+                                 <img src={senderPhoto} alt="" className="w-[44px] h-[44px] rounded-full object-cover border border-slate-100 shadow-sm" />
+                                 {!n.read && <div className="absolute -top-0.5 -right-0.5 w-[14px] h-[14px] bg-pink-600 rounded-full border-2 border-white shadow-sm"></div>}
+                              </div>
 
-                           {/* Content Text */}
-                           <div className="flex-1 text-[13px] leading-[18px]">
-                              <span className="font-black text-slate-900 hover:opacity-70 transition-opacity">
-                                 {senderName}
-                              </span>
-                              <span className="text-slate-800 ml-1.5 align-middle">
-                                 {n.content || (
-                                    <>
-                                       {n.type === 'like' && "a aimé votre publication."}
-                                       {n.type === 'comment' && "a commenté votre publication."}
-                                       {n.type === 'follow' && "a commencé à vous suivre."}
-                                       {n.type === 'match' && "Un nouveau match ! Envoyez un message."}
-                                    </>
-                                 )}
-                              </span>
-                              <span className="text-slate-400 ml-2 font-medium">
-                                 {formatDistanceToNow(new Date(n.createdAt), { locale: fr })
-                                   .replace('il y a environ ', '')
-                                   .replace('il y a ', '')
-                                   .replace('minutes', 'm')
-                                   .replace('minute', 'm')
-                                   .replace('heures', 'h')
-                                   .replace('heure', 'h')
-                                   .replace('jours', 'j')
-                                   .replace('jour', 'j')
-                                   .replace('semaines', 's')
-                                   .replace('mois', 'mo')}
-                              </span>
-                           </div>
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                 {/* Nom de l'utilisateur en haut */}
+                                 <div className="flex items-center justify-between mb-1">
+                                    <span className="font-black text-slate-900 hover:opacity-70 transition-opacity text-[15px]">
+                                       {senderName}
+                                    </span>
+                                    <span className="text-slate-400 text-[12px] font-medium ml-2 shrink-0">
+                                       {timeDisplay}
+                                    </span>
+                                 </div>
+                                 
+                                 {/* Détails de la notification en bas */}
+                                 <div className="text-[13px] text-slate-600 leading-[18px] mb-2">
+                                    {n.content || (
+                                       <>
+                                          {n.type === 'like' && "a aimé votre publication"}
+                                          {n.type === 'comment' && "a commenté votre publication"}
+                                          {n.type === 'follow' && "a commencé à vous suivre"}
+                                          {n.type === 'match' && "Un nouveau match ! Envoyez un message"}
+                                       </>
+                                    )}
+                                 </div>
+                              </div>
 
                            {/* Right Action/Preview */}
                            <div className="shrink-0 flex items-center justify-end min-w-[44px]">
@@ -166,6 +186,7 @@ export default function Notifications() {
                               ) : (
                                  <FiMoreHorizontal className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                               )}
+                           </div>
                            </div>
                         </div>
                      );

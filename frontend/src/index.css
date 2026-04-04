@@ -6,4 +6,51 @@
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
   }
+
+  .dark body,
+  body.dark {
+    background-color: #0b1220;
+    color: #e2e8f0;
+  }
 }
+
+/* Global dark mode overrides for existing utility-heavy UI */
+.dark .bg-white { background-color: #111827 !important; }
+.dark .bg-slate-50,
+.dark .bg-slate-50\/30,
+.dark .bg-slate-50\/50,
+.dark .bg-slate-50\/80,
+.dark .bg-slate-100,
+.dark .bg-slate-100\/50,
+.dark .bg-slate-100\/80 { background-color: #1f2937 !important; }
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700 { color: #f1f5f9 !important; }
+.dark .text-slate-600,
+.dark .text-slate-500,
+.dark .text-slate-400,
+.dark .text-slate-300 { color: #94a3b8 !important; }
+.dark .border-slate-50,
+.dark .border-slate-100,
+.dark .border-slate-200 { border-color: #334155 !important; }
+.dark .shadow-sm,
+.dark .shadow-lg,
+.dark .shadow-2xl { box-shadow: 0 6px 24px rgba(2, 6, 23, 0.45) !important; }
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-100:hover,
+.dark .hover\:bg-slate-200:hover { background-color: #334155 !important; }
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #1f2937 !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: #94a3b8 !important; }
+.dark .bg-pink-50 { background-color: rgba(236, 72, 153, 0.16) !important; }
+.dark .border-pink-100,
+.dark .border-pink-200 { border-color: rgba(236, 72, 153, 0.35) !important; }
+.dark .text-pink-600 { color: #f472b6 !important; }
+.dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.12) !important; }
+.dark .text-rose-600 { color: #fb7185 !important; }

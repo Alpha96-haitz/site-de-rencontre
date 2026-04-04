@@ -5,16 +5,19 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import './index.css';
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 const AppWithProviders = () => (
   <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-    <AuthProvider>
-      <App />
-      <Toaster position="top-right" />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <App />
+        <Toaster position="top-right" />
+      </AuthProvider>
+    </ThemeProvider>
   </BrowserRouter>
 );
 

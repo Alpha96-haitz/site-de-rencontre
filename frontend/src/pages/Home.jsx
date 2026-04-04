@@ -13,6 +13,7 @@ export default function Home() {
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
 
   const fetchTimeline = async () => {
     try {
@@ -115,9 +116,39 @@ export default function Home() {
                 <span className="bg-slate-100 px-2 py-0.5 rounded-md text-[10px] group-hover:bg-white">{user?.followers?.length || 0}</span>
               </Link>
             </div>
-            <Link to="/home/profile/edit" className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors font-medium mt-2">
-              <FiSettings className="w-5 h-5" /> Paramètres
-            </Link>
+            <div className="mt-4 p-4 bg-slate-50 rounded-3xl border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-11 h-11 rounded-2xl bg-pink-100 text-pink-600 flex items-center justify-center shadow-sm">
+                  <FiSettings className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900">Paramètres du compte</p>
+                  <p className="text-xs text-slate-500">Choisissez une option et ouvrez les paramètres.</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setShowSettingsMenu((prev) => !prev)}
+                  className="w-full rounded-2xl px-3 py-3 bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors flex items-center justify-between"
+                >
+                  <span>{showSettingsMenu ? 'Cacher les options' : 'Afficher les options'}</span>
+                  <span className={`text-sm font-black transition-transform ${showSettingsMenu ? 'rotate-180' : ''}`}>&#9660;</span>
+                </button>
+                {showSettingsMenu && (
+                  <div className="space-y-2">
+                    <Link to="/home/profile/edit?tab=general" className="block rounded-2xl px-3 py-3 bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors">
+                      Modifier le profil
+                    </Link>
+                    <Link to="/home/profile/edit?tab=security" className="block rounded-2xl px-3 py-3 bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors">
+                      Confidentialité et sécurité
+                    </Link>
+                    <Link to="/home/profile/edit?tab=notifications" className="block rounded-2xl px-3 py-3 bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors">
+                      Notifications
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
           </nav>
         </div>
       </div>
@@ -139,7 +170,7 @@ export default function Home() {
         ) : (
           <div className="space-y-0">
             {posts.map(post => (
-              <PostItem key={post._id} post={post} onDelete={handlePostDeleted} />
+              <PostItem key={post._id} post={post} onDelete={handlePostDeleted} showFollowAction />
             ))}
           </div>
         )}

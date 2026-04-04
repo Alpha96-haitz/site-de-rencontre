@@ -10,7 +10,7 @@ export const getProfile = async (req, res) => {
   try {
     const query = req.params.id.match(/^[0-9a-fA-F]{24}$/) ? { _id: req.params.id } : { username: req.params.id };
     const user = await User.findOne(query)
-      .select('username profilePicture coverPicture followers following firstName lastName age gender bio photos googlePhoto interests location lastSeen isOnline')
+      .select('username profilePicture coverPicture followers following firstName lastName age gender bio photos googlePhoto interests location privacy notificationPreferences lastSeen isOnline createdAt')
       .populate('photos')
       .populate('followers following', 'firstName lastName photos googlePhoto username');
     if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
@@ -23,7 +23,7 @@ export const getProfile = async (req, res) => {
 // Mettre à jour son profil
 export const updateProfile = async (req, res) => {
   try {
-    const allowed = ['username', 'profilePicture', 'coverPicture', 'firstName', 'lastName', 'birthDate', 'gender', 'bio', 'interests', 'interestedIn', 'ageRange', 'location'];
+    const allowed = ['username', 'profilePicture', 'coverPicture', 'firstName', 'lastName', 'birthDate', 'gender', 'bio', 'interests', 'interestedIn', 'ageRange', 'location', 'privacy', 'notificationPreferences'];
     const updates = {};
     allowed.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
     const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true }).select('-password');
@@ -111,13 +111,42 @@ export const deletePhoto = async (req, res) => {
   try {
     const { publicId } = req.params;
     const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'Utilisateur non trouvÃ©' });
+
     user.photos = user.photos.filter(p => p.publicId !== publicId);
     if (user.photos.length && !user.photos.some(p => p.isPrimary)) {
       user.photos[0].isPrimary = true;
     }
+    const primary = user.photos.find(p => p.isPrimary) || user.photos[0];
+    user.profilePicture = primary?.url || '';
     await cloudinary.uploader.destroy(publicId).catch(() => {});
     await user.save();
-    res.json({ photos: user.photos });
+    res.json({ photos: user.photos, profilePicture: user.profilePicture });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Definir une photo comme photo de profil
+export const setPrimaryPhoto = async (req, res) => {
+  try {
+    const { publicId } = req.params;
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'Utilisateur non trouvÃ©' });
+
+    const selected = user.photos.find(p => p.publicId === publicId);
+    if (!selected) {
+      return res.status(404).json({ message: 'Photo introuvable' });
+    }
+
+    user.photos = user.photos.map(photo => ({
+      ...photo.toObject(),
+      isPrimary: photo.publicId === publicId
+    }));
+    user.profilePicture = selected.url;
+
+    await user.save({ validateBeforeSave: false });
+    res.json({ photos: user.photos, profilePicture: user.profilePicture });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

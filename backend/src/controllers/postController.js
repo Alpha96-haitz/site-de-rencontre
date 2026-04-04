@@ -1,7 +1,13 @@
 import Post from '../models/Post.js';
-import User from '../models/User.js';
 import cloudinary from '../config/cloudinary.js';
 import { createNotification } from './notificationController.js';
+
+const escapeHtml = (str) => String(str || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
 
 // Créer un post
 export const createPost = async (req, res) => {
@@ -100,7 +106,7 @@ export const commentPost = async (req, res) => {
 
     const newComment = {
       userId: req.user._id,
-      text: req.body.text
+      text: escapeHtml(req.body.text.trim())
     };
 
     post.comments.push(newComment);
@@ -129,7 +135,7 @@ export const deletePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: "Post non trouvé" });
-    if (post.userId.toString() !== req.user._id.toString()) {
+    if (post.userId.toString() !== req.user._id.toString() && req.user.role !== 'root') {
       return res.status(403).json({ message: "Action non autorisée" });
     }
     await post.deleteOne();

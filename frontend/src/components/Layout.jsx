@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
-import { FiHome, FiCompass, FiMessageCircle, FiHeart, FiUser, FiSearch, FiBell, FiLogOut, FiSettings, FiX, FiShield, FiUserPlus, FiUserCheck } from 'react-icons/fi';
+import { FiHome, FiCompass, FiMessageCircle, FiHeart, FiUser, FiSearch, FiBell, FiLogOut, FiSettings, FiX, FiShield, FiUserPlus, FiUserCheck, FiMoon, FiSun } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import client from '../api/client';
 import { getSocket } from '../socket/client';
 import debounce from 'lodash.debounce';
@@ -10,6 +11,7 @@ import logo from '../assets/logo.png';
 
 export default function Layout() {
   const { user, logout, refreshUser } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -203,6 +205,14 @@ export default function Layout() {
               {nav.map(item => navItem(item))}
             </div>
 
+            <button
+              onClick={toggleTheme}
+              title={isDark ? 'Passer en mode clair' : 'Passer en mode sombre'}
+              className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl transition-all"
+            >
+              {isDark ? <FiSun className="w-6 h-6 text-amber-500" /> : <FiMoon className="w-6 h-6" />}
+            </button>
+
             <Link to="/home/notifications" className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl relative transition-all">
               <FiBell className="w-6 h-6" />
               {unreadNotificationsCount > 0 && (
@@ -232,7 +242,7 @@ export default function Layout() {
                        <Link onClick={() => setShowDropdown(false)} to={`/home/profile/${user?.username}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 rounded-xl text-slate-700 font-bold transition-all">
                         <FiUser className="w-4 h-4 text-pink-500" /> Mon profil
                       </Link>
-                      {user?.role === 'admin' && (
+                      {['admin', 'root'].includes(user?.role) && (
                         <Link onClick={() => setShowDropdown(false)} to="/home/admin" className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 rounded-xl text-slate-700 font-bold transition-all">
                           <FiShield className="w-4 h-4 text-blue-500" /> Panel Admin
                         </Link>
@@ -240,6 +250,16 @@ export default function Layout() {
                       <Link onClick={() => setShowDropdown(false)} to="/home/profile/edit" className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 rounded-xl text-slate-700 font-bold transition-all">
                         <FiSettings className="w-4 h-4 text-slate-400" /> Paramètres
                       </Link>
+                      <button
+                        onClick={() => {
+                          toggleTheme();
+                          setShowDropdown(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 rounded-xl text-slate-700 font-bold transition-all"
+                      >
+                        {isDark ? <FiSun className="w-4 h-4 text-amber-500" /> : <FiMoon className="w-4 h-4 text-indigo-500" />}
+                        {isDark ? 'Mode clair' : 'Mode sombre'}
+                      </button>
                     </div>
                     <div className="border-t border-slate-100 mx-2 mt-2 pt-2 pb-2">
                       <button onClick={() => { setShowDropdown(false); handleLogout(); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-rose-50 rounded-xl text-rose-600 font-black transition-all">

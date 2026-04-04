@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
 import client from '../api/client';
-import { FiUsers, FiUserX, FiShield, FiTrendingUp, FiActivity, FiSearch, FiFlag, FiCheckCircle, FiAlertCircle, FiClock, FiTrash2 } from 'react-icons/fi';
+import { FiUsers, FiUserX, FiShield, FiTrendingUp, FiActivity, FiSearch, FiFlag, FiCheckCircle, FiAlertCircle, FiClock, FiTrash2, FiMail } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 
 export default function Admin() {
+  const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [reports, setReports] = useState([]);
   const [stats, setStats] = useState({ users: 0, online: 0, matches: 0, reports: 0, messages: 0 });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('users'); // 'users', 'reports'
+  const [notificationModal, setNotificationModal] = useState(null); // reportId or null
+  const [notificationMessage, setNotificationMessage] = useState('');
 
   const fetchAdminData = async () => {
     try {
@@ -59,6 +63,36 @@ export default function Admin() {
       fetchAdminData();
     } catch (err) {
       toast.error("Erreur traitement signalement");
+    }
+  };
+
+  const handleSendNotification = async (reportId) => {
+    if (!notificationMessage.trim()) {
+      toast.error("Le message ne peut pas être vide");
+      return;
+    }
+
+    try {
+      await client.post(`/admin/reports/${reportId}/notify`, {
+        message: notificationMessage
+      });
+      toast.success("Notification envoyée à l'utilisateur");
+      setNotificationModal(null);
+      setNotificationMessage('');
+      fetchAdminData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Erreur envoi notification");
+    }
+  };
+
+  const handleDeleteUser = async (id) => {
+    if (!window.confirm("Supprimer definitivement cet utilisateur ?")) return;
+    try {
+      await client.delete(`/admin/users/${id}`);
+      toast.success("Utilisateur supprime");
+      fetchAdminData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Erreur suppression utilisateur");
     }
   };
 
@@ -169,9 +203,16 @@ export default function Admin() {
                           </td>
                           <td className="px-6 py-4 text-xs text-slate-500 font-bold">{new Date(u.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                           <td className="px-6 py-4 text-right">
-                             <button onClick={() => handleBan(u._id, u.isBanned)} className={`p-2.5 rounded-xl transition-all shadow-sm ${u.isBanned ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-rose-50 text-rose-500 hover:bg-rose-100'}`}>
-                                {u.isBanned ? <FiCheckCircle className="w-5 h-5" /> : <FiUserX className="w-5 h-5" />}
-                             </button>
+                             <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => handleBan(u._id, u.isBanned)} className={`p-2.5 rounded-xl transition-all shadow-sm ${u.isBanned ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-rose-50 text-rose-500 hover:bg-rose-100'}`}>
+                                   {u.isBanned ? <FiCheckCircle className="w-5 h-5" /> : <FiUserX className="w-5 h-5" />}
+                                </button>
+                                {user?.role === 'root' && u.role !== 'root' && (
+                                  <button onClick={() => handleDeleteUser(u._id)} className="p-2.5 rounded-xl transition-all shadow-sm bg-slate-100 text-slate-700 hover:bg-slate-200">
+                                     <FiTrash2 className="w-5 h-5" />
+                                  </button>
+                                )}
+                             </div>
                           </td>
                         </tr>
                       ))}
@@ -224,6 +265,9 @@ export default function Admin() {
                           <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-50">
                              <button onClick={() => handleReportAction(r._id, 'dismissed', false)} className="flex items-center justify-center gap-2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">Classer</button>
                              <button onClick={() => handleReportAction(r._id, 'action_taken', true)} className="flex items-center justify-center gap-2 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-rose-100">Bannir</button>
+                             <button onClick={() => setNotificationModal(r._id)} className="col-span-2 flex items-center justify-center gap-2 py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border border-blue-100">
+                               <FiMail className="w-4 h-4" /> Envoyer une notification
+                             </button>
                           </div>
                        </div>
                     ))}
@@ -233,6 +277,43 @@ export default function Admin() {
         )}
 
       </div>
+
+      {/* Notification Modal */}
+      {notificationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 animate-in fade-in scale-in-95">
+            <h3 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2">
+              <FiMail className="text-blue-600 w-5 h-5" /> Envoyer une notification
+            </h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Composez un message pour informer l'utilisateur concernant votre décision.
+            </p>
+            <textarea
+              value={notificationMessage}
+              onChange={(e) => setNotificationMessage(e.target.value)}
+              placeholder="Saisissez votre message ici..."
+              className="w-full p-4 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-50 outline-none mb-4 resize-none h-32 text-sm"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setNotificationModal(null);
+                  setNotificationMessage('');
+                }}
+                className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm uppercase tracking-widest transition-all"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => handleSendNotification(notificationModal)}
+                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm uppercase tracking-widest transition-all shadow-lg shadow-blue-100"
+              >
+                Envoyer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

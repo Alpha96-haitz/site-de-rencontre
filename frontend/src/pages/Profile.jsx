@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import PostItem from '../components/PostItem';
 import PostForm from '../components/PostForm';
 import ReportModal from '../components/ReportModal';
-import { FiEdit2, FiUserPlus, FiCheck, FiHeart, FiMessageCircle, FiMapPin, FiCamera, FiMoreHorizontal, FiPlus, FiBriefcase, FiHome, FiClock, FiGrid, FiUsers, FiImage, FiVideo, FiFilter, FiStar, FiMail, FiPhone, FiFlag, FiShield } from 'react-icons/fi';
+import { FiEdit2, FiUserPlus, FiCheck, FiHeart, FiMessageCircle, FiMapPin, FiCamera, FiMoreHorizontal, FiPlus, FiBriefcase, FiHome, FiClock, FiGrid, FiUsers, FiImage, FiStar, FiMail, FiFlag, FiShield } from 'react-icons/fi';
 import MatchModal from '../components/MatchModal';
 
 export default function Profile() {
@@ -20,6 +20,7 @@ export default function Profile() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(!isOwnProfile);
   const [activeTab, setActiveTab] = useState('posts'); // 'posts', 'about', 'friends', 'photos'
+  const [aboutSection, setAboutSection] = useState('overview'); // overview | personal | interests | account
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [matchData, setMatchData] = useState(null);
@@ -29,6 +30,12 @@ export default function Profile() {
   useEffect(() => {
     refreshUser().catch(() => {});
   }, [refreshUser]);
+
+  useEffect(() => {
+    if (activeTab !== 'about') {
+      setAboutSection('overview');
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -126,38 +133,69 @@ export default function Profile() {
   const avatarUrl = primaryPhoto?.url || profile.googlePhoto || 'https://placehold.co/150';
   const coverUrl = profile.coverPicture || 'https://placehold.co/1200x400?text=Couverture';
   const isFollowing = user?.following?.includes(profile._id);
+  const profileVisibility = profile.privacy?.profileVisibility || 'public';
+  const showOnlineStatus = profile.privacy?.showOnlineStatus ?? true;
+  const canViewProfile = isOwnProfile || profileVisibility === 'public' || (profileVisibility === 'matches' && hasMatch);
+  const profileRestrictedMessage = profileVisibility === 'private'
+    ? 'Ce profil est privé. Seul l’utilisateur peut en voir le contenu.'
+    : 'Ce profil est réservé aux matchs mutuels.';
+
+  const renderRestrictedProfile = () => (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+      <h2 className="text-2xl font-black text-slate-900 mb-3">Profil restreint</h2>
+      <p className="text-slate-500 mb-6">{profileRestrictedMessage}</p>
+      <div className="flex flex-wrap justify-center gap-3">
+        {!isOwnProfile && (
+          <>
+            <button onClick={handleFollowToggle} className={`px-5 py-3 rounded-xl font-bold transition-all ${isFollowing ? 'bg-slate-100 text-slate-800' : 'bg-pink-600 text-white hover:bg-pink-700'}`}>
+              {isFollowing ? 'Abonné' : 'S’abonner'}
+            </button>
+            <button onClick={() => setShowReportModal(true)} className="px-5 py-3 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 font-bold transition-all">
+              Signaler
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
 
   const renderTabContent = () => {
     switch (activeTab) {
       case 'posts':
+        if (!canViewProfile) return renderRestrictedProfile();
         return (
           <div className="flex flex-col md:flex-row gap-4">
-             {/* LEFT COLUMN (Intro) */}
+             {/* LEFT COLUMN (Informations) */}
              <div className="w-full md:w-[380px] shrink-0 space-y-4">
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                   <h2 className="text-xl font-black text-slate-900 mb-4 tracking-tight">Intro</h2>
+                   <h2 className="text-xl font-black text-slate-900 mb-4 tracking-tight">Informations</h2>
                    <div className="text-center md:text-left mb-6">
                       <p className="text-[15px] text-slate-700 leading-relaxed mb-4">{profile.bio || "Aucune bio fournie."}</p>
                       <button onClick={() => isOwnProfile && navigate('/home/profile/edit')} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 py-2 rounded-lg font-bold text-sm transition-all mb-4">Modifier la bio</button>
                    </div>
                    <div className="space-y-3">
                       <div className="flex items-center gap-3 text-slate-700 text-[15px]">
-                         <FiBriefcase className="text-xl text-slate-400" />
-                         <span>Travaille chez <strong className="hover:underline cursor-pointer">Haitz-Social</strong></span>
+                         <FiUsers className="text-xl text-slate-400" />
+                         <span>Genre: <strong>{profile.gender || 'Non renseigne'}</strong></span>
                       </div>
-                      {profile.location?.city && (
-                        <div className="flex items-center gap-3 text-slate-700 text-[15px]">
-                           <FiHome className="text-xl text-slate-400" />
-                           <span>Habite à <strong className="hover:underline cursor-pointer">{profile.location.city}</strong></span>
-                        </div>
-                      )}
                       <div className="flex items-center gap-3 text-slate-700 text-[15px]">
                          <FiMapPin className="text-xl text-slate-400" />
-                         <span>De <strong className="hover:underline cursor-pointer">Port-au-Prince, Haiti</strong></span>
+                         <span>Ville: <strong>{profile.location?.city || 'Non renseignee'}</strong></span>
+                      </div>
+                      <div className="flex items-center gap-3 text-slate-700 text-[15px]">
+                         <FiStar className="text-xl text-slate-400" />
+                         <span>Age: <strong>{profile.age || 'Non renseigne'}</strong></span>
+                      </div>
+                      <div className="flex items-center gap-3 text-slate-700 text-[15px]">
+                         <FiBriefcase className="text-xl text-slate-400" />
+                         <span>Interets: <strong>{profile.interests?.length ? profile.interests.join(', ') : 'Non renseignes'}</strong></span>
                       </div>
                       <div className="flex items-center gap-3 text-slate-700 text-[15px]">
                          <FiClock className="text-xl text-slate-400" />
-                         <span>Membre depuis <strong className="hover:underline cursor-pointer">Mars 2026</strong></span>
+                         <span>
+                           Membre depuis{' '}
+                           <strong>{profile.createdAt ? new Date(profile.createdAt).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) : 'Date inconnue'}</strong>
+                         </span>
                       </div>
                    </div>
                    <button onClick={() => isOwnProfile && navigate('/home/profile/edit')} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 py-2 rounded-lg font-bold text-sm transition-all mt-6">Modifier les infos</button>
@@ -195,45 +233,115 @@ export default function Profile() {
           </div>
         );
       case 'about':
+        if (!canViewProfile) return renderRestrictedProfile();
         return (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="w-full md:w-80 border-r border-slate-100 p-4 font-bold text-slate-600 bg-slate-50/50">
-                <h2 className="text-2xl font-black text-slate-900 mb-6 p-2">À propos</h2>
-                <div className="space-y-1">
-                   {['Vue d’ensemble', 'Emploi et scolarité', 'Lieux de résidence', 'Informations de contact', 'Famille et relations'].map(i => (
-                      <button key={i} className={`w-full text-left p-3 rounded-lg hover:bg-white hover:text-pink-600 transition-all ${i === 'Vue d’ensemble' ? 'bg-white text-pink-600 shadow-sm' : ''}`}>
-                         {i}
-                      </button>
-                   ))}
+            <div className="w-full md:w-80 border-r border-slate-100 p-4 font-bold text-slate-600 bg-slate-50/60">
+              <h2 className="text-2xl font-black text-slate-900 mb-6 p-2">A propos</h2>
+              <div className="space-y-1">
+                {[
+                  { id: 'overview', label: 'Vue d ensemble' },
+                  { id: 'personal', label: 'Informations personnelles' },
+                  { id: 'interests', label: 'Centre d interet' },
+                  { id: 'account', label: 'Compte' }
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setAboutSection(item.id)}
+                    className={`w-full text-left p-3 rounded-lg transition-all ${
+                      aboutSection === item.id
+                        ? 'bg-white text-pink-600 shadow-sm'
+                        : 'hover:bg-white hover:text-pink-600'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 p-8">
+              {aboutSection === 'overview' && (
+                <div className="space-y-6">
+                  <h3 className="text-[17px] font-black text-slate-900">Vue d ensemble</h3>
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex items-center gap-3">
+                      <FiUsers className="text-slate-500" />
+                      <span className="font-semibold text-slate-700">Genre: <strong>{profile.gender || 'Non renseigne'}</strong></span>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex items-center gap-3">
+                      <FiMapPin className="text-slate-500" />
+                      <span className="font-semibold text-slate-700">Ville: <strong>{profile.location?.city || 'Non renseignee'}</strong></span>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex items-center gap-3">
+                      <FiStar className="text-slate-500" />
+                      <span className="font-semibold text-slate-700">Age: <strong>{profile.age || 'Non renseigne'}</strong></span>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex items-center gap-3">
+                      <FiClock className="text-slate-500" />
+                      <span className="font-semibold text-slate-700">Membre depuis: <strong>{profile.createdAt ? new Date(profile.createdAt).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) : 'Date inconnue'}</strong></span>
+                    </div>
+                  </div>
                 </div>
-             </div>
-             <div className="flex-1 p-8 space-y-8">
-                <section>
-                   <h3 className="text-[17px] font-black text-slate-900 mb-6">Vue d’ensemble</h3>
-                   <div className="space-y-6">
-                      <div className="flex items-center gap-4">
-                         <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400"><FiBriefcase className="text-2xl" /></div>
-                         <p className="text-slate-800 font-medium">Travaille chez <strong className="hover:underline cursor-pointer">Haitz-Social</strong></p>
+              )}
+
+              {aboutSection === 'personal' && (
+                <div className="space-y-6">
+                  <h3 className="text-[17px] font-black text-slate-900">Informations personnelles</h3>
+                  <div className="bg-white border border-slate-100 rounded-2xl divide-y divide-slate-100">
+                    <div className="p-4 flex justify-between items-center"><span className="text-slate-500 font-semibold">Prenom</span><span className="text-slate-900 font-bold">{profile.firstName || '-'}</span></div>
+                    <div className="p-4 flex justify-between items-center"><span className="text-slate-500 font-semibold">Nom</span><span className="text-slate-900 font-bold">{profile.lastName || '-'}</span></div>
+                    <div className="p-4 flex justify-between items-center"><span className="text-slate-500 font-semibold">Genre</span><span className="text-slate-900 font-bold">{profile.gender || '-'}</span></div>
+                    <div className="p-4 flex justify-between items-center"><span className="text-slate-500 font-semibold">Age</span><span className="text-slate-900 font-bold">{profile.age || '-'}</span></div>
+                    <div className="p-4 flex justify-between items-center"><span className="text-slate-500 font-semibold">Ville</span><span className="text-slate-900 font-bold">{profile.location?.city || '-'}</span></div>
+                  </div>
+                </div>
+              )}
+
+              {aboutSection === 'interests' && (
+                <div className="space-y-6">
+                  <h3 className="text-[17px] font-black text-slate-900">Centre d interet</h3>
+                  <div className="bg-white border border-slate-100 rounded-2xl p-5">
+                    {profile.interests?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {profile.interests.map((interest, idx) => (
+                          <span key={`${interest}-${idx}`} className="px-3 py-1.5 rounded-full bg-pink-50 text-pink-700 text-sm font-bold border border-pink-100">
+                            {interest}
+                          </span>
+                        ))}
                       </div>
-                      <div className="flex items-center gap-4">
-                         <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400"><FiHome className="text-2xl" /></div>
-                         <p className="text-slate-800 font-medium">Habite à <strong className="hover:underline cursor-pointer">{profile.location?.city || 'Port-au-Prince'}</strong></p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                         <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400"><FiMail className="text-2xl" /></div>
-                         <p className="text-slate-800 font-medium italic opacity-60">L'adresse email est masquée par confidentialité.</p>
-                      </div>
-                   </div>
-                </section>
-                <div className="h-[1px] bg-slate-100"></div>
-                <section>
-                   <h3 className="text-[17px] font-black text-slate-900 mb-6">Bio détaillée</h3>
-                   <p className="text-slate-600 leading-relaxed text-lg">{profile.bio || "Aucune biographie n'a été ajoutée pour le moment."}</p>
-                </section>
-             </div>
+                    ) : (
+                      <p className="text-slate-500 font-medium">Aucun centre d interet renseigne.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {aboutSection === 'account' && (
+                <div className="space-y-6">
+                  <h3 className="text-[17px] font-black text-slate-900">Compte</h3>
+                  <div className="bg-white border border-slate-100 rounded-2xl divide-y divide-slate-100">
+                    <div className="p-4 flex justify-between items-center"><span className="text-slate-500 font-semibold">Nom d utilisateur</span><span className="text-slate-900 font-bold">@{profile.username || '-'}</span></div>
+                    <div className="p-4 flex justify-between items-center"><span className="text-slate-500 font-semibold">Role</span><span className="text-slate-900 font-bold">{profile.role || 'user'}</span></div>
+                    <div className="p-4 flex justify-between items-center"><span className="text-slate-500 font-semibold">Date d inscription</span><span className="text-slate-900 font-bold">{profile.createdAt ? new Date(profile.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</span></div>
+                    <div className="p-4 flex justify-between items-center"><span className="text-slate-500 font-semibold">Email</span><span className="text-slate-900 font-bold">{isOwnProfile ? (user?.email || '-') : 'Masque'}</span></div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-8 pt-5 border-t border-slate-100">
+                <p className="text-slate-600 leading-relaxed text-base">{profile.bio || "Aucune biographie n'a ete ajoutee pour le moment."}</p>
+                {isOwnProfile && (
+                  <button onClick={() => navigate('/home/profile/edit')} className="mt-4 bg-slate-100 hover:bg-slate-200 text-slate-800 px-4 py-2 rounded-lg font-bold text-sm transition-all">
+                    Modifier mon a propos
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         );
       case 'friends':
+        if (!canViewProfile) return renderRestrictedProfile();
         return (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div className="flex items-center justify-between mb-8 px-2 text-center md:text-left">
@@ -262,6 +370,7 @@ export default function Profile() {
           </div>
         );
       case 'photos':
+        if (!canViewProfile) return renderRestrictedProfile();
         return (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div className="flex items-center justify-between mb-8 px-2">
@@ -320,14 +429,14 @@ export default function Profile() {
                  <div className="flex-1 text-center md:text-left md:mb-4">
                     <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight mb-1">
                        {profile.firstName} {profile.lastName}
-                       {profile.role === 'admin' && <FiShield className="inline ml-2 text-pink-600 text-xl" title="Admin" />}
+                       {['admin', 'root'].includes(profile?.role) && <FiShield className="inline ml-2 text-pink-600 text-xl" title={profile?.role === 'root' ? 'Root' : 'Admin'} />}
                     </h1>
                     
                     {/* Statut En Ligne */}
                     <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
-                       <div className={`w-3 h-3 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)] ${profile.isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`}></div>
-                       <span className={`text-[11px] font-black uppercase tracking-widest ${profile.isOnline ? 'text-green-500' : 'text-slate-400'}`}>
-                          {profile.isOnline ? 'en ligne' : 'hors ligne'}
+                       <div className={`w-3 h-3 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)] ${showOnlineStatus ? (profile.isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-400') : 'bg-slate-400'}`}></div>
+                       <span className={`text-[11px] font-black uppercase tracking-widest ${showOnlineStatus ? (profile.isOnline ? 'text-green-500' : 'text-slate-400') : 'text-slate-400'}`}>
+                          {showOnlineStatus ? (profile.isOnline ? 'en ligne' : 'hors ligne') : 'Statut masqué'}
                        </span>
                     </div>
 
@@ -388,7 +497,6 @@ export default function Profile() {
                        {t.label}
                     </button>
                  ))}
-                 <button onClick={() => toast.success("Section à venir !")} className="px-4 py-3 rounded-lg hover:bg-slate-50 transition-all border-b-[3px] border-transparent whitespace-nowrap">Vidéos</button>
                  <button onClick={() => toast.success("Section à venir !")} className="px-4 py-3 rounded-lg hover:bg-slate-50 transition-all border-b-[3px] border-transparent whitespace-nowrap">Cadeaux</button>
               </div>
            </div>
@@ -406,3 +514,4 @@ export default function Profile() {
     </div>
   );
 }
+
