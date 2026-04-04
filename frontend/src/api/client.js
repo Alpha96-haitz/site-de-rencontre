@@ -22,12 +22,8 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
-      localStorage.removeItem('token');
-      if (!window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login';
-      }
-    }
+    // Ne pas deconnecter globalement sur un 401 ponctuel (ex: endpoint secondaire)
+    // La validation de session se fait deja via /auth/me dans AuthContext.
     return Promise.reject(err);
   }
 );
