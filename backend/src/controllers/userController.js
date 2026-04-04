@@ -4,16 +4,22 @@
 import User from '../models/User.js';
 import Match from '../models/Match.js';
 import cloudinary from '../config/cloudinary.js';
+import { getCached, setCached, clearCacheByPrefix } from '../utils/simpleCache.js';
 
 // Obtenir le profil public d'un utilisateur
 export const getProfile = async (req, res) => {
   try {
+    const cacheKey = `profile:${req.params.id}`;
+    const cached = getCached(cacheKey);
+    if (cached) return res.json(cached);
+
     const query = req.params.id.match(/^[0-9a-fA-F]{24}$/) ? { _id: req.params.id } : { username: req.params.id };
     const user = await User.findOne(query)
       .select('username profilePicture coverPicture followers following firstName lastName age gender bio photos googlePhoto interests location privacy notificationPreferences lastSeen isOnline createdAt')
       .populate('photos')
       .populate('followers following', 'firstName lastName photos googlePhoto username');
     if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
+    setCached(cacheKey, user, 30000);
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -27,6 +33,7 @@ export const updateProfile = async (req, res) => {
     const updates = {};
     allowed.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
     const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true }).select('-password');
+    clearCacheByPrefix('profile:');
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -46,7 +53,17 @@ export const uploadPhoto = async (req, res) => {
       const b64 = Buffer.from(req.file.buffer).toString('base64');
       const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
 
-      cloudinary.uploader.upload(dataURI, { folder: 'haitz-rencontre/photos' }, (uploadErr, uploadRes) => {
+      cloudinary.uploader.upload(
+        dataURI,
+        {
+          folder: 'haitz-rencontre/photos',
+          resource_type: 'image',
+          transformation: [
+            { fetch_format: 'auto', quality: 'auto:good' },
+            { width: 1200, crop: 'limit' }
+          ]
+        },
+        (uploadErr, uploadRes) => {
         clearTimeout(timeout);
         if (uploadErr) {
           console.error("Cloudinary User Photo Upload Error:", uploadErr);
@@ -75,6 +92,7 @@ export const uploadPhoto = async (req, res) => {
     
     // Sauvegarder sans forcer la re-validation de tous les champs (évite les erreurs 500 si birthDate ou autre manque)
     await user.save({ validateBeforeSave: false });
+    clearCacheByPrefix('profile:');
     res.json({ photos: user.photos, user });
   } catch (err) {
     console.error("Upload Error Details:", err);
@@ -93,13 +111,21 @@ export const uploadCover = async (req, res) => {
     const result = await new Promise((resolve, reject) => {
       const b64 = Buffer.from(req.file.buffer).toString('base64');
       const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
-      cloudinary.uploader.upload(dataURI, { folder: 'haitz-rencontre/covers' }, (uploadErr, uploadRes) => {
+      cloudinary.uploader.upload(dataURI, {
+        folder: 'haitz-rencontre/covers',
+        resource_type: 'image',
+        transformation: [
+          { fetch_format: 'auto', quality: 'auto:good' },
+          { width: 1600, crop: 'limit' }
+        ]
+      }, (uploadErr, uploadRes) => {
         if (uploadErr) return reject(uploadErr);
         resolve(uploadRes);
       });
     });
 
     const user = await User.findByIdAndUpdate(req.user._id, { coverPicture: result.secure_url }, { new: true }).select('-password');
+    clearCacheByPrefix('profile:');
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -121,6 +147,7 @@ export const deletePhoto = async (req, res) => {
     user.profilePicture = primary?.url || '';
     await cloudinary.uploader.destroy(publicId).catch(() => {});
     await user.save();
+    clearCacheByPrefix('profile:');
     res.json({ photos: user.photos, profilePicture: user.profilePicture });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -146,6 +173,7 @@ export const setPrimaryPhoto = async (req, res) => {
     user.profilePicture = selected.url;
 
     await user.save({ validateBeforeSave: false });
+    clearCacheByPrefix('profile:');
     res.json({ photos: user.photos, profilePicture: user.profilePicture });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -213,10 +241,11 @@ export const search = async (req, res) => {
 // Suggestions intelligentes (profil + compatibilité)
 export const getSuggestions = async (req, res) => {
   try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
     const query = { _id: { $ne: req.user._id }, isBanned: false };
     const users = await User.find(query)
       .select('firstName lastName age gender bio photos googlePhoto interests username')
-      .limit(100) // On affiche maintenant une large liste d'utilisateurs
+      .limit(limit)
       .lean();
     
     res.json(users);
@@ -237,6 +266,7 @@ export const followUser = async (req, res) => {
     if (!user.followers.includes(req.user._id)) {
       await user.updateOne({ $push: { followers: req.user._id } });
       await currentUser.updateOne({ $push: { following: req.params.id } });
+      clearCacheByPrefix('profile:');
       
       // Notification
       const { createNotification } = await import('./notificationController.js');
@@ -267,6 +297,7 @@ export const unfollowUser = async (req, res) => {
     if (user.followers.includes(req.user._id)) {
       await user.updateOne({ $pull: { followers: req.user._id } });
       await currentUser.updateOne({ $pull: { following: req.params.id } });
+      clearCacheByPrefix('profile:');
       res.json({ message: "Vous n'êtes plus abonné à cet utilisateur" });
     } else {
       res.status(403).json({ message: "Vous n'êtes pas abonné à cet utilisateur" });

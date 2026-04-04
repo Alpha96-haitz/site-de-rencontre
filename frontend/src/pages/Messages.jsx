@@ -82,7 +82,7 @@ export default function Messages() {
     const fetchMessages = async () => {
       setLoading(true);
       try {
-        const { data } = await client.get(`/messages/${matchId}`);
+        const { data } = await client.get(`/messages/${matchId}?limit=50&page=1`);
         setMessages(data);
 
         await client.put(`/messages/${matchId}/read`);

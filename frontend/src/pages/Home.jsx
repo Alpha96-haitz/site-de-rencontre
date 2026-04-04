@@ -17,7 +17,7 @@ export default function Home() {
 
   const fetchTimeline = async () => {
     try {
-      const { data } = await client.get('/posts/timeline');
+      const { data } = await client.get('/posts/timeline?limit=30&page=1');
       setPosts(data);
     } catch (err) {
       toast.error('Erreur lors du chargement du fil d\'actualité');
@@ -29,9 +29,9 @@ export default function Home() {
   const fetchSuggestions = async () => {
     setLoadingSuggestions(true);
     try {
-      const { data } = await client.get('/users/suggestions');
+      const { data } = await client.get('/users/suggestions?limit=5');
       // On prend les 5 premières suggestions
-      setSuggestions(data.slice(0, 5));
+      setSuggestions(data);
     } catch (err) {
       console.error("Erreur suggestions:", err);
     } finally {
@@ -45,20 +45,20 @@ export default function Home() {
   }, []);
 
   const handlePostCreated = (newPost) => {
-    setPosts([newPost, ...posts]);
+    setPosts((prev) => [newPost, ...prev]);
   };
 
   const handlePostDeleted = (postId) => {
-    setPosts(posts.filter(p => p._id !== postId));
+    setPosts((prev) => prev.filter((p) => p._id !== postId));
   };
 
   const handleFollow = async (suggestedId) => {
     try {
       await client.put(`/users/${suggestedId}/follow`);
       toast.success("Abonné !");
-      refreshUser();
+      refreshUser().catch(() => {});
       // On retire la suggestion de la liste locale
-      setSuggestions(suggestions.filter(s => s._id !== suggestedId));
+      setSuggestions((prev) => prev.filter((s) => s._id !== suggestedId));
       // Optionnel: rafraîchir le feed pour voir ses posts
       fetchTimeline();
     } catch (err) {
@@ -158,8 +158,21 @@ export default function Home() {
         <PostForm onPostCreated={handlePostCreated} />
 
         {loading ? (
-          <div className="flex justify-center p-8">
-            <div className="w-8 h-8 border-4 border-pink-200 border-t-pink-600 rounded-full animate-spin"></div>
+          <div className="space-y-4 p-2">
+            {[1, 2, 3].map((k) => (
+              <div key={k} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 animate-pulse">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-slate-200" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-1/3 bg-slate-200 rounded" />
+                    <div className="h-2 w-1/4 bg-slate-200 rounded" />
+                  </div>
+                </div>
+                <div className="h-3 w-full bg-slate-200 rounded mb-2" />
+                <div className="h-3 w-5/6 bg-slate-200 rounded mb-4" />
+                <div className="h-48 bg-slate-200 rounded-xl" />
+              </div>
+            ))}
           </div>
         ) : posts.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-8 text-center text-slate-500">
@@ -232,3 +245,5 @@ export default function Home() {
     </div>
   );
 }
+
+

@@ -9,10 +9,15 @@ export const getSocket = () => {
   const token = localStorage.getItem('token');
   if (!token) return null;
   if (!socket) {
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+    const socketUrl =
+      import.meta.env.VITE_SOCKET_URL ||
+      (import.meta.env.PROD ? 'https://site-de-rencontre-backend.onrender.com' : window.location.origin);
+
     socket = io(socketUrl, {
       auth: { token },
-      path: '/socket.io'
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      reconnection: true
     });
   }
   return socket;

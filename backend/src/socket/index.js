@@ -1,17 +1,31 @@
-/**
- * Socket.io - Messagerie temps reel et notifications
- */
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Message from '../models/Message.js';
 import Match from '../models/Match.js';
 
+// userId -> Set(socketId)
 const onlineUsers = new Map();
+
+const addSocketForUser = (userId, socketId) => {
+  const set = onlineUsers.get(userId) || new Set();
+  set.add(socketId);
+  onlineUsers.set(userId, set);
+};
+
+const removeSocketForUser = (userId, socketId) => {
+  const set = onlineUsers.get(userId);
+  if (!set) return;
+  set.delete(socketId);
+  if (set.size === 0) onlineUsers.delete(userId);
+};
+
+const getUserSocketIds = (userId) => Array.from(onlineUsers.get(userId?.toString()) || []);
 
 export const initSocket = (io) => {
   io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace('Bearer ', '');
     if (!token) return next(new Error('Non authentifie'));
+
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findById(decoded.id).select('_id firstName lastName');
@@ -19,14 +33,15 @@ export const initSocket = (io) => {
       socket.userId = user._id.toString();
       socket.user = user;
       next();
-    } catch (e) {
+    } catch {
       next(new Error('Token invalide'));
     }
   });
 
   io.on('connection', async (socket) => {
-    onlineUsers.set(socket.userId, socket.id);
-    await User.findByIdAndUpdate(socket.userId, { isOnline: true, lastSeen: new Date() });
+    addSocketForUser(socket.userId, socket.id);
+
+    await User.findByIdAndUpdate(socket.userId, { isOnline: true, lastSeen: new Date() }).catch(() => {});
     socket.broadcast.emit('user:online', { userId: socket.userId });
 
     socket.on('join:match', (matchId) => {
@@ -38,11 +53,11 @@ export const initSocket = (io) => {
     });
 
     socket.on('message:send', async (data) => {
-      const { matchId, content, image, clientTempId } = data;
+      const { matchId, content, image, clientTempId } = data || {};
       if (!matchId) return;
 
       try {
-        const match = await Match.findById(matchId);
+        const match = await Match.findById(matchId).lean();
         if (!match || !match.isMutual) {
           return socket.emit('message:error', {
             message: 'Le chat est verrouille tant qu il n y a pas de match mutuel.',
@@ -57,32 +72,26 @@ export const initSocket = (io) => {
           image
         });
 
-        await Match.findByIdAndUpdate(matchId, { updatedAt: Date.now() });
+        await Match.findByIdAndUpdate(matchId, { updatedAt: Date.now() }).catch(() => {});
         await message.populate('sender', 'firstName lastName photos');
 
-        const messagePayload = {
+        const payload = {
           ...message.toObject(),
           clientTempId: clientTempId || null
         };
 
-        const recipients = match.users.filter((id) => id.toString() !== socket.userId);
+        const recipients = (match.users || []).map((id) => id.toString()).filter((id) => id !== socket.userId);
 
         for (const recipientId of recipients) {
-          const recipientSocketId = onlineUsers.get(recipientId.toString());
-          if (recipientSocketId) {
-            io.to(recipientSocketId).emit('message:received', messagePayload);
-
-            const unreadCount = await Message.countDocuments({
-              sender: { $ne: recipientId },
-              'readBy.user': { $ne: recipientId },
-              match: { $in: (await Match.find({ users: recipientId }).select('_id')).map((m) => m._id) }
-            });
-
-            io.to(recipientSocketId).emit('message:unread-update', { count: unreadCount });
+          const recipientSocketIds = getUserSocketIds(recipientId);
+          for (const sid of recipientSocketIds) {
+            io.to(sid).emit('message:received', payload);
+            // Delta unread +1: evite un countDocuments couteux a chaque message.
+            io.to(sid).emit('message:unread-update', { delta: 1, matchId });
           }
         }
 
-        io.to(`match:${matchId}`).emit('message:new', messagePayload);
+        io.to(`match:${matchId}`).emit('message:new', payload);
       } catch (err) {
         socket.emit('message:error', {
           message: err.message,
@@ -96,9 +105,11 @@ export const initSocket = (io) => {
     });
 
     socket.on('disconnect', async () => {
-      onlineUsers.delete(socket.userId);
-      await User.findByIdAndUpdate(socket.userId, { isOnline: false, lastSeen: new Date() });
-      socket.broadcast.emit('user:offline', { userId: socket.userId });
+      removeSocketForUser(socket.userId, socket.id);
+      if (!onlineUsers.has(socket.userId)) {
+        await User.findByIdAndUpdate(socket.userId, { isOnline: false, lastSeen: new Date() }).catch(() => {});
+        socket.broadcast.emit('user:offline', { userId: socket.userId });
+      }
     });
   });
 
@@ -106,11 +117,11 @@ export const initSocket = (io) => {
 };
 
 export const notifyMatch = (io, userId, matchData) => {
-  const socketId = onlineUsers.get(userId?.toString());
-  if (socketId) io.to(socketId).emit('match:new', matchData);
+  const ids = getUserSocketIds(userId);
+  for (const sid of ids) io.to(sid).emit('match:new', matchData);
 };
 
 export const notifyLike = (io, userId, likeData) => {
-  const socketId = onlineUsers.get(userId?.toString());
-  if (socketId) io.to(socketId).emit('like:received', likeData);
+  const ids = getUserSocketIds(userId);
+  for (const sid of ids) io.to(sid).emit('like:received', likeData);
 };

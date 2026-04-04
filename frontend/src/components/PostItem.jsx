@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { FiHeart, FiMessageCircle, FiTrash2, FiMoreHorizontal } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -7,7 +7,7 @@ import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
-export default function PostItem({ post: initialPost, onDelete, showFollowAction = false }) {
+function PostItem({ post: initialPost, onDelete, showFollowAction = false }) {
   const { user, refreshUser } = useAuth();
   const [post, setPost] = useState(initialPost);
   const [author, setAuthor] = useState(null);
@@ -19,6 +19,10 @@ export default function PostItem({ post: initialPost, onDelete, showFollowAction
   const [followSuccess, setFollowSuccess] = useState(false);
   const [followedLocally, setFollowedLocally] = useState(false);
 
+
+  useEffect(() => {
+    setPost(initialPost);
+  }, [initialPost]);
   useEffect(() => {
     // Récupérer les infos de l'auteur
     if (post.userId) {
@@ -116,7 +120,7 @@ export default function PostItem({ post: initialPost, onDelete, showFollowAction
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <Link to={`/home/profile/${author?.username || author?._id}`} className="relative">
-            <img src={authorPhoto} alt="Author" className="w-11 h-11 rounded-full object-cover border border-slate-100" />
+            <img src={authorPhoto} alt="Author" loading="lazy" decoding="async" className="w-11 h-11 rounded-full object-cover border border-slate-100" />
             {author?.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>}
           </Link>
           <div>
@@ -173,7 +177,7 @@ export default function PostItem({ post: initialPost, onDelete, showFollowAction
         <p className="text-slate-700 text-[15px] leading-relaxed whitespace-pre-wrap">{post.desc}</p>
         {post.image && (
           <div className="mt-3 rounded-2xl overflow-hidden border border-slate-100 shadow-inner bg-slate-50">
-            <img src={post.image} alt="Post content" className="max-h-[500px] w-full object-contain mx-auto" />
+            <img src={post.image} alt="Post content" loading="lazy" decoding="async" className="max-h-[500px] w-full object-contain mx-auto" />
           </div>
         )}
       </div>
@@ -250,4 +254,6 @@ export default function PostItem({ post: initialPost, onDelete, showFollowAction
     </div>
   );
 }
+
+export default memo(PostItem);
 

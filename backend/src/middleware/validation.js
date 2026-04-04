@@ -17,11 +17,12 @@ export const handleValidation = (req, res, next) => {
 export const signupValidation = [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }).trim(),
-  body('username').optional({ checkFalsy: true }).trim().isLength({ min: 3, max: 32 }).matches(/^[a-zA-Z0-9_]+$/),
+  body('username').trim().notEmpty().isLength({ min: 3, max: 32 }).matches(/^[a-zA-Z0-9_]+$/).withMessage('Le nom d\'utilisateur ne doit contenir que des lettres, chiffres et underscores sans espaces'),
   body('firstName').trim().notEmpty().escape(),
   body('lastName').trim().notEmpty().escape(),
   body('birthDate').isISO8601(),
-  body('gender').isIn(['male', 'female', 'other'])
+  body('gender').notEmpty().isIn(['male', 'female', 'other']),
+  body('location.city').trim().notEmpty().escape().withMessage('La ville est requise')
 ];
 
 export const loginValidation = [

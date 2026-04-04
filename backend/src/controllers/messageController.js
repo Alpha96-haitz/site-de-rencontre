@@ -6,6 +6,9 @@ import Match from '../models/Match.js';
 export const getMessages = async (req, res) => {
   try {
     const { matchId } = req.params;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const skip = (page - 1) * limit;
     if (!mongoose.Types.ObjectId.isValid(matchId)) {
       return res.status(400).json({ message: 'Match ID invalide' });
     }
@@ -22,9 +25,12 @@ export const getMessages = async (req, res) => {
 
     const messages = await Message.find({ match: matchId })
       .populate('sender', 'firstName lastName photos googlePhoto')
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
     
-    res.json(messages);
+    res.json(messages.reverse());
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -41,17 +47,44 @@ export const getConversations = async (req, res) => {
     .sort({ updatedAt: -1 }); // Trié par activité récente
 
     // Ajouter le nombre de messages non lus par match
-    const conversations = await Promise.all(matches.map(async (match) => {
-      const unreadCount = await Message.countDocuments({
-        match: match._id,
-        sender: { $ne: req.user._id },
-        'readBy.user': { $ne: req.user._id }
-      });
+    const matchIds = matches.map((m) => m._id);
 
-      const lastMessage = await Message.findOne({ match: match._id })
-        .select('content sender createdAt image')
-        .sort({ createdAt: -1 })
-        .lean();
+    const [unreadAgg, lastAgg] = await Promise.all([
+      Message.aggregate([
+        {
+          $match: {
+            match: { $in: matchIds },
+            sender: { $ne: req.user._id },
+            'readBy.user': { $ne: req.user._id }
+          }
+        },
+        { $group: { _id: '$match', count: { $sum: 1 } } }
+      ]),
+      Message.aggregate([
+        { $match: { match: { $in: matchIds } } },
+        { $sort: { createdAt: -1 } },
+        {
+          $group: {
+            _id: '$match',
+            lastMessage: {
+              $first: {
+                content: '$content',
+                sender: '$sender',
+                createdAt: '$createdAt',
+                image: '$image'
+              }
+            }
+          }
+        }
+      ])
+    ]);
+
+    const unreadMap = new Map(unreadAgg.map((r) => [r._id.toString(), r.count]));
+    const lastMap = new Map(lastAgg.map((r) => [r._id.toString(), r.lastMessage]));
+
+    const conversations = matches.map((match) => {
+      const unreadCount = unreadMap.get(match._id.toString()) || 0;
+      const lastMessage = lastMap.get(match._id.toString()) || null;
 
       return {
         ...match.toObject(),
@@ -65,8 +98,7 @@ export const getConversations = async (req, res) => {
             }
           : null
       };
-    }));
-
+    });
     res.json(conversations);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -76,11 +108,11 @@ export const getConversations = async (req, res) => {
 // Récupérer le nombre total de messages non lus (tous matchs confondus)
 export const getTotalUnreadMessagesCount = async (req, res) => {
   try {
+    const userMatchIds = (await Match.find({ users: req.user._id }).select('_id').lean()).map((m) => m._id);
     const unreadCount = await Message.countDocuments({
       sender: { $ne: req.user._id },
       'readBy.user': { $ne: req.user._id },
-      // On s'assure que l'utilisateur fait partie du match (conversation)
-      match: { $in: (await Match.find({ users: req.user._id }).select('_id')).map(m => m._id) }
+      match: { $in: userMatchIds }
     });
     res.json({ count: unreadCount });
   } catch (err) {

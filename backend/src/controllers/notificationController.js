@@ -14,6 +14,19 @@ export const getNotifications = async (req, res) => {
   }
 };
 
+// Compteur non lus leger pour la navbar
+export const getUnreadCount = async (req, res) => {
+  try {
+    const count = await Notification.countDocuments({
+      recipient: req.user._id,
+      read: false
+    });
+    res.json({ count });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // Marquer une notification comme lue
 export const markAsRead = async (req, res) => {
   try {

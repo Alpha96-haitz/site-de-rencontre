@@ -26,29 +26,38 @@ export default function Layout() {
   };
 
   // Récupérer le nombre de notifications et messages non lus
+  // Recuperer le nombre de notifications et messages non lus
   useEffect(() => {
+    if (!user?._id) return;
+
     const fetchUnread = async () => {
       try {
-        const { data: notifs } = await client.get('/notifications');
-        const unreadNotifs = notifs.filter(n => !n.read).length;
-        setUnreadNotificationsCount(unreadNotifs);
-
-        const { data: msgCount } = await client.get('/messages/unread-count');
-        setUnreadMessagesCount(msgCount.count);
-      } catch (e) {}
+        const [{ data: notifCount }, { data: msgCount }] = await Promise.all([
+          client.get('/notifications/unread-count'),
+          client.get('/messages/unread-count')
+        ]);
+        setUnreadNotificationsCount(notifCount.count || 0);
+        setUnreadMessagesCount(msgCount.count || 0);
+      } catch (e) {
+        // no-op
+      }
     };
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 30000); // 30s
-    return () => clearInterval(interval);
-  }, []);
 
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60000); // 60s
+    return () => clearInterval(interval);
+  }, [user?._id]);
   // Écouter les mises à jour de messages non lus via Socket
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
 
     socket.on('message:unread-update', (data) => {
-      setUnreadMessagesCount(data.count);
+      if (typeof data?.count === 'number') {
+        setUnreadMessagesCount(data.count);
+      } else if (typeof data?.delta === 'number') {
+        setUnreadMessagesCount((prev) => Math.max(0, prev + data.delta));
+      }
     });
 
     return () => {

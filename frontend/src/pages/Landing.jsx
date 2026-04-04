@@ -28,9 +28,7 @@ export default function Landing() {
       <section id="home" className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 flex items-center justify-center min-h-screen">
         <div className="absolute inset-0 z-0">
           <img 
-            src="https://images.unsplash.com/photo-1511632765486-a01980e01a18?q=80&w=2070&auto=format&fit=crop" 
-            alt="Couple romantique" 
-            className="w-full h-full object-cover"
+            src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=2070&auto=format&fit=crop" alt="Couple romantique" className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/80"></div>
         </div>
@@ -79,10 +77,10 @@ export default function Landing() {
             </div>
             <div className="grid gap-4">
               <div className="rounded-[40px] overflow-hidden shadow-xl h-72 md:h-80">
-                <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=900" alt="Rencontre" className="w-full h-full object-cover" />
+                <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=900" alt="Rencontre" loading="lazy" decoding="async" className="w-full h-full object-cover" />
               </div>
               <div className="rounded-[40px] overflow-hidden shadow-xl h-64 md:h-72">
-                <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=900" alt="Conversation" className="w-full h-full object-cover" />
+                <img src="https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=900" alt="Conversation" loading="lazy" decoding="async" className="w-full h-full object-cover" />
               </div>
             </div>
           </div>
@@ -127,18 +125,18 @@ export default function Landing() {
           <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 mb-16">Ils ont trouvé l'amour sur HAITZ</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <TestimonialCard 
-              name="Sophie & Julien"
-              image="https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?auto=format&fit=crop&q=80&w=2070"
+              name="Aminata"
+              image="https://images.pexels.com/photos/27948344/pexels-photo-27948344.jpeg?auto=compress&cs=tinysrgb&w=1200"
               text="Grâce à HAITZ, j'ai non seulement trouvé mon âme sœur, mais j'ai adoré l'expérience sociale du site !"
             />
             <TestimonialCard 
-              name="Marc & Elena"
-              image="https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&q=80&w=2070"
+              name="Moussa"
+              image="https://images.pexels.com/photos/35920716/pexels-photo-35920716.jpeg?auto=compress&cs=tinysrgb&w=1200"
               text="Le fil d'actualité nous a permis de découvrir la personnalité de l'autre avant même notre premier rendez-vous."
             />
             <TestimonialCard 
-              name="Thomas & Clara"
-              image="https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&q=80&w=2069"
+              name="Nadia"
+              image="https://images.pexels.com/photos/6777917/pexels-photo-6777917.jpeg?auto=compress&cs=tinysrgb&w=1200"
               text="L'application est incroyablement fluide et les profils proposés étaient exactement ce que je recherchais."
             />
           </div>
@@ -217,9 +215,9 @@ function TestimonialCard({ name, image, text }) {
   return (
     <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all">
       <div className="flex items-center mb-4">
-        <img src={image} alt={name} className="w-16 h-16 rounded-full object-cover mr-4 ring-4 ring-red-50" />
+        <img src={image} alt={name} loading="lazy" decoding="async" className="w-16 h-16 rounded-full object-cover mr-4 ring-4 ring-red-50" />
         <div>
-          <h4 className="font-bold text-gray-900">{name}</h4>
+          <h4 className="font-black text-pink-700">{name}</h4>
           <div className="flex text-yellow-400 text-sm">
             {/* Stars */}
             <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
@@ -230,3 +228,6 @@ function TestimonialCard({ name, image, text }) {
     </div>
   );
 }
+
+
+

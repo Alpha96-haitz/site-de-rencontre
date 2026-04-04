@@ -26,9 +26,14 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await client.get('/auth/me');
       setUser(data);
-    } catch {
-      localStorage.removeItem('token');
-      setUser(null);
+    } catch (err) {
+      const status = err?.response?.status;
+
+      // Ne deconnecter automatiquement que si le token est vraiment invalide
+      if (status === 401 || status === 403) {
+        localStorage.removeItem('token');
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }

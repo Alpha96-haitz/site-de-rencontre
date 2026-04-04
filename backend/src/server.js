@@ -9,6 +9,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
 import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
 
@@ -76,6 +77,7 @@ app.set('io', io);
 
 // Sécurité
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(compression());
 app.use(mongoSanitize({ replaceWith: '_' }));
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
@@ -83,8 +85,10 @@ app.use(cookieParser());
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 100 : 5000, // Plus permissif en développement (fix 429)
-  message: { message: 'Trop de requêtes, réessayez plus tard.' }
+  max: process.env.NODE_ENV === 'production' ? Number(process.env.RATE_LIMIT_MAX || 1200) : 5000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Trop de requetes, reessayez plus tard.' }
 });
 app.use(limiter);
 

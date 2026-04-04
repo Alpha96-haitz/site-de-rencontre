@@ -16,7 +16,7 @@ export default function Signup() {
     firstName: '',
     lastName: '',
     birthDate: '',
-    gender: 'other',
+    gender: '',
     city: ''
   });
   const [photo, setPhoto] = useState(null);
@@ -39,10 +39,12 @@ export default function Signup() {
   const nextStep = () => {
     if (step === 1) {
       if (!form.username || !form.email || !form.password) return toast.error('Veuillez remplir tous les champs');
+      if (/\s/.test(form.username)) return toast.error("Le nom d'utilisateur ne doit pas contenir d'espaces");
+      if (form.username.length < 3) return toast.error('Le nom d\'utilisateur doit faire au moins 3 caractères');
       if (form.password.length < 6) return toast.error('Le mot de passe doit faire au moins 6 caractères');
     }
     if (step === 2) {
-      if (!form.firstName || !form.lastName || !form.birthDate || !form.city) return toast.error('Veuillez remplir toutes les informations');
+      if (!form.firstName || !form.lastName || !form.birthDate || !form.city || !form.gender) return toast.error('Veuillez remplir toutes les informations');
     }
     setStep(s => s + 1);
   };
@@ -124,15 +126,15 @@ export default function Signup() {
           <div className="space-y-4 animate-in fade-in slide-in-from-right duration-300">
             <div className="relative">
               <FiUser className="absolute left-3 top-3 text-slate-400" />
-              <input name="username" placeholder="Nom d'utilisateur" value={form.username} onChange={handleChange} className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
+              <input name="username" placeholder="Nom d'utilisateur" value={form.username} onChange={handleChange} required pattern="^[a-zA-Z0-9_]+$" title="Sans espaces, seulement lettres, chiffres et underscores" className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
             </div>
             <div className="relative">
               <FiMail className="absolute left-3 top-3 text-slate-400" />
-              <input name="email" type="email" placeholder="Email" value={form.email} onChange={handleChange} className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
+              <input name="email" type="email" placeholder="Email" value={form.email} onChange={handleChange} required className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
             </div>
             <div className="relative">
               <FiLock className="absolute left-3 top-3 text-slate-400" />
-              <input name="password" type="password" placeholder="Mot de passe" value={form.password} onChange={handleChange} className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
+              <input name="password" type="password" placeholder="Mot de passe" value={form.password} onChange={handleChange} required className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
             </div>
             <button onClick={nextStep} className="w-full py-4 bg-pink-500 text-white rounded-xl font-bold shadow-lg shadow-pink-200 flex items-center justify-center gap-2">
               Suivant <FiArrowRight />
@@ -149,18 +151,19 @@ export default function Signup() {
         {step === 2 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right duration-300">
             <div className="grid grid-cols-2 gap-4">
-              <input name="firstName" placeholder="Prénom" value={form.firstName} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
-              <input name="lastName" placeholder="Nom" value={form.lastName} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
+              <input name="firstName" placeholder="Prénom" value={form.firstName} onChange={handleChange} required className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
+              <input name="lastName" placeholder="Nom" value={form.lastName} onChange={handleChange} required className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
             </div>
             <div className="relative">
               <FiCalendar className="absolute left-3 top-3 text-slate-400" />
-              <input name="birthDate" type="date" value={form.birthDate} onChange={handleChange} className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
+              <input name="birthDate" type="date" value={form.birthDate} onChange={handleChange} required className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
             </div>
             <div className="relative">
               <FiMapPin className="absolute left-3 top-3 text-slate-400" />
-              <input name="city" placeholder="Ville" value={form.city} onChange={handleChange} className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
+              <input name="city" placeholder="Ville" value={form.city} onChange={handleChange} required className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
             </div>
-            <select name="gender" value={form.gender} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none bg-white">
+            <select name="gender" value={form.gender} onChange={handleChange} required className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none bg-white">
+              <option value="">-- Sélectionnez votre genre --</option>
               <option value="male">Homme</option>
               <option value="female">Femme</option>
               <option value="other">Autre</option>
@@ -187,7 +190,7 @@ export default function Signup() {
             <p className="text-slate-500 text-sm">Une photo profil attire plus de regards !</p>
             <div className="flex gap-3">
               <button onClick={prevStep} className="flex-1 py-4 border-2 border-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-50"><FiArrowLeft /> Retour</button>
-              <button onClick={nextStep} className="flex-1 py-4 bg-pink-500 text-white rounded-xl font-bold shadow-lg">{preview ? "Suivant" : "Ignorer"} <FiArrowRight /></button>
+              <button onClick={nextStep} disabled={!preview} className="flex-1 py-4 bg-pink-500 disabled:bg-slate-300 text-white disabled:text-slate-500 rounded-xl font-bold shadow-lg disabled:shadow-none disabled:cursor-not-allowed">{preview ? "Suivant" : "Veuillez ajouter une photo"} <FiArrowRight /></button>
             </div>
           </div>
         )}
