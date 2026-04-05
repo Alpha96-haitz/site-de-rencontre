@@ -189,7 +189,18 @@ export default function Notifications() {
                                  
                                  {/* Détails de la notification en bas */}
                                  <div className="text-[13px] text-slate-600 leading-[18px] mb-2">
-                                    {n.content || (
+                                    {n.content ? (
+                                       <>
+                                          {n.type === 'comment' && (
+                                             <span>
+                                                a commenté: <span className="font-medium italic">"{n.content.length > 50 ? `${n.content.substring(0, 50)}...` : n.content}"</span>
+                                             </span>
+                                          )}
+                                          {n.type === 'like' && "a aimé votre publication"}
+                                          {n.type === 'follow' && "a commencé à vous suivre"}
+                                          {n.type === 'match' && "Un nouveau match ! Envoyez un message"}
+                                       </>
+                                    ) : (
                                        <>
                                           {n.type === 'like' && "a aimé votre publication"}
                                           {n.type === 'comment' && "a commenté votre publication"}

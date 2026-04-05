@@ -273,17 +273,29 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
 
           <div className="space-y-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
             {post.comments?.length > 0 ? (
-              [...post.comments].reverse().map((c, i) => (
-                <div key={i} className="flex gap-2 items-start">
-                  <div className="bg-slate-50 rounded-2xl px-4 py-2.5 text-sm flex-1 border border-slate-100 shadow-sm">
-                    <span className="font-bold text-slate-800 text-xs mb-1 block">Utilisateur</span>
-                    <p className="text-slate-600 leading-relaxed">{c.text}</p>
-                    <span className="text-[10px] text-slate-400 mt-1 block uppercase font-bold tracking-tighter">
-                      {c.createdAt ? formatDistanceToNow(new Date(c.createdAt), { addSuffix: true, locale: fr }) : "À l'instant"}
-                    </span>
+              [...post.comments].reverse().map((c, i) => {
+                const commenter = c.userId;
+                const commenterPhoto = commenter?.photos?.find(p => p.isPrimary)?.url || commenter?.googlePhoto || 'https://placehold.co/100';
+                const commenterName = commenter ? `${commenter.firstName} ${commenter.lastName}` : 'Utilisateur';
+                const commenterUsername = commenter?.username || '';
+                
+                return (
+                  <div key={i} className="flex gap-3 items-start">
+                    <Link to={`/home/profile/${commenterUsername || commenter?._id}`} className="shrink-0">
+                      <img src={commenterPhoto} alt="" className="w-8 h-8 rounded-full object-cover border border-slate-100" />
+                    </Link>
+                    <div className="bg-slate-50 rounded-2xl px-4 py-2.5 text-sm flex-1 border border-slate-100 shadow-sm">
+                      <Link to={`/home/profile/${commenterUsername || commenter?._id}`} className="font-bold text-slate-800 text-xs hover:text-pink-600 transition-colors block">
+                        {commenterName}
+                      </Link>
+                      <p className="text-slate-600 leading-relaxed mt-1">{c.text}</p>
+                      <span className="text-[10px] text-slate-400 mt-1 block uppercase font-bold tracking-tighter">
+                        {c.createdAt ? formatDistanceToNow(new Date(c.createdAt), { addSuffix: true, locale: fr }) : "À l'instant"}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <p className="text-center text-xs text-slate-400 py-2">Soyez le premier à commenter !</p>
             )}

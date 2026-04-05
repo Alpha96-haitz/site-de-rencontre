@@ -67,6 +67,7 @@ export const getTimelinePosts = async (req, res) => {
 
     const posts = await Post.find()
       .populate('userId', 'firstName lastName username photos googlePhoto isOnline')
+      .populate('comments.userId', 'firstName lastName username photos googlePhoto')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -87,6 +88,7 @@ export const getUserPosts = async (req, res) => {
 
     const posts = await Post.find({ userId: req.params.userId })
       .populate('userId', 'firstName lastName username photos googlePhoto isOnline')
+      .populate('comments.userId', 'firstName lastName username photos googlePhoto')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -149,7 +151,10 @@ export const commentPost = async (req, res) => {
       content: req.body.text
     });
 
-    res.json({ message: 'Commentaire ajoute', comment: savedComment });
+    // Populate the user info for the new comment
+    await post.populate('comments.userId', 'firstName lastName username photos googlePhoto');
+
+    res.json({ message: 'Commentaire ajoute', comment: post.comments[post.comments.length - 1] });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
