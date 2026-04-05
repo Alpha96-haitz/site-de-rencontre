@@ -4,8 +4,22 @@
 import axios from 'axios';
 
 const PROD_API_FALLBACK = 'https://site-de-rencontre-backend.onrender.com/api';
-const API_URL =
-  import.meta.env.VITE_API_URL ||
+
+const normalizeApiUrl = (value) => {
+  if (!value) return '';
+  try {
+    const parsed = new URL(value.trim());
+    const isLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(parsed.hostname);
+
+    if (import.meta.env.PROD && isLocal) return PROD_API_FALLBACK;
+    if (import.meta.env.PROD && parsed.protocol === 'http:') parsed.protocol = 'https:';
+    return `${parsed.protocol}//${parsed.host}${parsed.pathname.replace(/\/$/, '')}`;
+  } catch {
+    return '';
+  }
+};
+
+const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL) ||
   (import.meta.env.PROD ? PROD_API_FALLBACK : 'http://localhost:5000/api');
 
 const client = axios.create({

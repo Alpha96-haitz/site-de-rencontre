@@ -43,26 +43,28 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 const httpServer = createServer(app);
 
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',').map(o => o.trim()).filter(Boolean);
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
 if (process.env.NODE_ENV !== 'production') {
   if (!allowedOrigins.includes('http://localhost:5174')) allowedOrigins.push('http://localhost:5174');
 }
 
-// Ajouter l'URL Vercel en production
-if (process.env.NODE_ENV === 'production') {
-  const vercelUrls = [
-    'https://site-de-rencontre-git-main-barrymamadoualpha124-8325s-projects.vercel.app',
-    'https://site-de-rencontre-three.vercel.app',
-    'https://site-de-rencontre-kohl.vercel.app'
-  ];
-  vercelUrls.forEach(url => {
-    if (!allowedOrigins.includes(url)) allowedOrigins.push(url);
-  });
-}
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  if (process.env.NODE_ENV !== 'production' && /^http:\/\/localhost:\d+$/.test(origin)) return true;
+  if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
+  return false;
+};
 
 // Configuration CORS pour Express
 app.use(cors({
-  origin: allowedOrigins,
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    return callback(new Error('Origin not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -70,7 +72,15 @@ app.use(cors({
 
 // Socket.io avec CORS
 const io = new Server(httpServer, {
-  cors: { origin: allowedOrigins, credentials: true }
+  cors: {
+    origin(origin, callback) {
+      if (isAllowedOrigin(origin)) return callback(null, true);
+      return callback(new Error('Origin not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST']
+  },
+  transports: ['websocket', 'polling']
 });
 initSocket(io);
 app.set('io', io);
