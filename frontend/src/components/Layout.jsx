@@ -52,6 +52,12 @@ export default function Layout() {
     const socket = getSocket();
     if (!socket) return;
 
+    socket.on('notification:unread-update', (data) => {
+      if (typeof data?.count === 'number') {
+        setUnreadNotificationsCount(Math.max(0, data.count));
+      }
+    });
+
     socket.on('message:unread-update', (data) => {
       if (typeof data?.count === 'number') {
         setUnreadMessagesCount(data.count);
@@ -61,6 +67,7 @@ export default function Layout() {
     });
 
     return () => {
+      socket.off('notification:unread-update');
       socket.off('message:unread-update');
     };
   }, []);

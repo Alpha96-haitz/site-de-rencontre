@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Message from '../models/Message.js';
 import Match from '../models/Match.js';
+import Notification from '../models/Notification.js';
 
 // userId -> Set(socketId)
 const onlineUsers = new Map();
@@ -20,6 +21,13 @@ const removeSocketForUser = (userId, socketId) => {
 };
 
 const getUserSocketIds = (userId) => Array.from(onlineUsers.get(userId?.toString()) || []);
+
+const emitNotificationUnreadCount = async (io, userId) => {
+  const ids = getUserSocketIds(userId);
+  if (!ids.length) return;
+  const count = await Notification.countDocuments({ recipient: userId, read: false }).catch(() => 0);
+  for (const sid of ids) io.to(sid).emit('notification:unread-update', { count });
+};
 
 export const initSocket = (io) => {
   io.use(async (socket, next) => {
@@ -43,6 +51,7 @@ export const initSocket = (io) => {
 
     await User.findByIdAndUpdate(socket.userId, { isOnline: true, lastSeen: new Date() }).catch(() => {});
     socket.broadcast.emit('user:online', { userId: socket.userId });
+    await emitNotificationUnreadCount(io, socket.userId);
 
     socket.on('join:match', (matchId) => {
       socket.join(`match:${matchId}`);
@@ -124,4 +133,8 @@ export const notifyMatch = (io, userId, matchData) => {
 export const notifyLike = (io, userId, likeData) => {
   const ids = getUserSocketIds(userId);
   for (const sid of ids) io.to(sid).emit('like:received', likeData);
+};
+
+export const notifyNotificationUnread = async (io, userId) => {
+  await emitNotificationUnreadCount(io, userId);
 };

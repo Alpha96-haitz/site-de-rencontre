@@ -1,59 +1,56 @@
 import Match from '../models/Match.js';
 import User from '../models/User.js';
-import { notifyMatch, notifyLike } from '../socket/index.js';
+import { notifyMatch, notifyLike, notifyNotificationUnread } from '../socket/index.js';
 import { createNotification } from './notificationController.js';
 
 export const like = async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUser = req.user._id;
-    
-    // Debug: log action
-    console.log(`Action Like: de ${currentUser} vers ${userId}`);
 
-    if (!userId || userId === "undefined" || userId === currentUser.toString()) {
+    if (!userId || userId === 'undefined' || userId === currentUser.toString()) {
       return res.status(400).json({ message: 'Action impossible : ID invalide ou manquant' });
     }
-    
-    // 1. Chercher si j'ai déjà liké ou s'il y a déjà un match
-    const existing = await Match.findOne({
-      $or: [
-        { likedBy: currentUser, likedUser: userId },
-        { users: { $all: [currentUser, userId] } }
-      ]
-    });
 
-    if (existing) {
-      console.log("Interaction existante, retour avec 200 OK");
-      return res.status(200).json({ match: existing, isMutual: existing.isMutual });
+    const targetExists = await User.exists({ _id: userId, isBanned: false });
+    if (!targetExists) {
+      return res.status(404).json({ message: 'Utilisateur introuvable' });
     }
 
-    // 2. Chercher s'il y a un like en sens inverse
+    // If current user already liked this profile, return existing relation.
+    const direct = await Match.findOne({ likedBy: currentUser, likedUser: userId });
+    if (direct) {
+      return res.status(200).json({ match: direct, isMutual: direct.isMutual });
+    }
+
+    // If reverse like exists, convert to a mutual match.
     const reverseLike = await Match.findOne({ likedBy: userId, likedUser: currentUser });
     let match;
     let isMutual = false;
 
     if (reverseLike) {
-      // C'est un match ! On transforme le reverseLike en Match mutuel
+      if (reverseLike.isMutual) {
+        return res.status(200).json({ match: reverseLike, isMutual: true });
+      }
+
       isMutual = true;
       reverseLike.isMutual = true;
       reverseLike.matchedAt = new Date();
       reverseLike.users = [currentUser, userId];
       match = await reverseLike.save();
 
-      // Notifications de Match pour les deux
       await createNotification({
         recipient: userId,
         sender: currentUser,
         type: 'match',
-        content: `C'est un match ! Vous êtes maintenant connecté avec ${req.user.firstName}.`
+        content: `C'est un match ! Vous etes maintenant connecte avec ${req.user.firstName}.`
       });
 
       await createNotification({
         recipient: currentUser,
         sender: userId,
         type: 'match',
-        content: `C'est un match ! Vous êtes maintenant connecté avec le profil.`
+        content: "C'est un match ! Vous etes maintenant connecte avec ce profil."
       });
 
       const io = req.app.get('io');
@@ -61,32 +58,50 @@ export const like = async (req, res) => {
         const populated = await Match.findById(match._id).populate('users', 'firstName lastName photos googlePhoto');
         notifyMatch(io, userId, populated);
         notifyMatch(io, currentUser, populated);
+        await notifyNotificationUnread(io, userId);
+        await notifyNotificationUnread(io, currentUser);
       }
     } else {
-      // Pas encore de match, on crée le like
-      match = await Match.create({
-        users: [currentUser, userId],
-        likedBy: currentUser,
-        likedUser: userId,
-        isMutual: false
-      });
+      try {
+        match = await Match.create({
+          users: [currentUser, userId],
+          likedBy: currentUser,
+          likedUser: userId,
+          isMutual: false
+        });
+      } catch (createErr) {
+        // Prevent duplicates on race conditions.
+        if (createErr?.code === 11000) {
+          const concurrent = await Match.findOne({
+            $or: [
+              { likedBy: currentUser, likedUser: userId },
+              { likedBy: userId, likedUser: currentUser }
+            ]
+          });
+          if (concurrent) {
+            return res.status(200).json({ match: concurrent, isMutual: concurrent.isMutual });
+          }
+        }
+        throw createErr;
+      }
 
-      // Notification de simple like (optionnel, mais demandé pour "reçois une notification")
       await createNotification({
         recipient: userId,
         sender: currentUser,
         type: 'like',
-        content: `${req.user.firstName} vous a envoyé un like !`
+        content: `${req.user.firstName} vous a envoye un like !`
       });
 
       const io = req.app.get('io');
-      if (io) notifyLike(io, userId, { from: req.user, match });
+      if (io) {
+        notifyLike(io, userId, { from: req.user, match });
+        await notifyNotificationUnread(io, userId);
+      }
     }
 
-    res.status(201).json({ match, isMutual });
+    return res.status(isMutual ? 200 : 201).json({ match, isMutual });
   } catch (err) {
-    console.error("Error in like:", err);
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 };
 
@@ -94,8 +109,8 @@ export const dislike = async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUser = req.user._id;
-    
-    await Match.findOneAndDelete({ likedBy: currentUser, likedUser: userId });
+
+    await Match.findOneAndDelete({ likedBy: currentUser, likedUser: userId, isMutual: false });
     res.json({ message: 'OK' });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -110,12 +125,12 @@ export const getMatches = async (req, res) => {
     })
       .populate('users', 'firstName lastName photos googlePhoto lastSeen isOnline')
       .sort({ matchedAt: -1 });
-    
-    const formatted = matches.map(m => {
-      const other = m.users.find(u => u._id.toString() !== req.user._id.toString());
+
+    const formatted = matches.map((m) => {
+      const other = m.users.find((u) => u._id.toString() !== req.user._id.toString());
       return { ...m.toObject(), matchedUser: other };
     });
-    
+
     res.json(formatted);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -134,16 +149,15 @@ export const getLikesReceived = async (req, res) => {
   }
 };
 
-// Récupérer un match par ID
 export const getMatchById = async (req, res) => {
   try {
     const { matchId } = req.params;
     const match = await Match.findById(matchId).populate('users', 'firstName lastName photos googlePhoto isOnline lastSeen');
-    
-    if (!match) return res.status(404).json({ message: "Match introuvable" });
-    
-    if (!match.users.some(u => u._id.toString() === req.user._id.toString())) {
-      return res.status(403).json({ message: "Action non autorisée" });
+
+    if (!match) return res.status(404).json({ message: 'Match introuvable' });
+
+    if (!match.users.some((u) => u._id.toString() === req.user._id.toString())) {
+      return res.status(403).json({ message: 'Action non autorisee' });
     }
 
     res.json(match);

@@ -242,7 +242,19 @@ export const search = async (req, res) => {
 export const getSuggestions = async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
-    const query = { _id: { $ne: req.user._id }, isBanned: false };
+    const interactions = await Match.find({
+      $or: [{ likedBy: req.user._id }, { likedUser: req.user._id }]
+    })
+      .select('likedBy likedUser')
+      .lean();
+
+    const excludedIds = new Set([req.user._id.toString()]);
+    interactions.forEach((row) => {
+      excludedIds.add(row.likedBy.toString());
+      excludedIds.add(row.likedUser.toString());
+    });
+
+    const query = { _id: { $nin: Array.from(excludedIds) }, isBanned: false };
     const users = await User.find(query)
       .select('firstName lastName age gender bio photos googlePhoto interests username')
       .limit(limit)

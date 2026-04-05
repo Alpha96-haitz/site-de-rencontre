@@ -27,7 +27,8 @@ export default function Discover() {
     setLoading(true);
     try {
       const { data } = await client.get('/users/suggestions');
-      setCards(data);
+      const uniqueCards = Array.from(new Map((data || []).map((u) => [u._id, u])).values());
+      setCards(uniqueCards);
       setCurrentIndex(0);
       setHistory([]);
     } catch (err) {
