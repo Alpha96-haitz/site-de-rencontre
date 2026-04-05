@@ -22,6 +22,7 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
   const [followLoading, setFollowLoading] = useState(false);
   const [followSuccess, setFollowSuccess] = useState(false);
   const [followedLocally, setFollowedLocally] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
 
 
   useEffect(() => {
@@ -144,6 +145,14 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
     }
   };
 
+  const openImageModal = () => {
+    setShowImageModal(true);
+  };
+
+  const closeImageModal = () => {
+    setShowImageModal(false);
+  };
+
   const authorPhoto = author?.photos?.find(p => p.isPrimary)?.url || author?.googlePhoto || 'https://placehold.co/150';
 
   return (
@@ -215,8 +224,8 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
       <div className="mb-4">
         <p className="text-slate-700 text-[15px] leading-relaxed whitespace-pre-wrap">{post.desc}</p>
         {post.image && (
-          <div className="mt-3 rounded-2xl overflow-hidden border border-slate-100 shadow-inner bg-slate-50">
-            <img src={post.image} alt="Post content" loading="lazy" decoding="async" className="max-h-[500px] w-full object-contain mx-auto" />
+          <div className="mt-3 rounded-2xl overflow-hidden border border-slate-100 shadow-inner bg-slate-50 cursor-pointer hover:shadow-lg transition-all duration-300" onClick={openImageModal}>
+            <img src={post.image} alt="Post content" loading="lazy" decoding="async" className="max-h-[500px] w-full object-contain mx-auto hover:scale-[1.02] transition-transform duration-300" />
           </div>
         )}
       </div>
@@ -346,6 +355,28 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
                 </button>
               </div>
             </form>
+          </div>
+        </>
+      )}
+
+      {/* Image Modal */}
+      {showImageModal && (
+        <>
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={closeImageModal}>
+            <div className="relative max-w-4xl max-h-[90vh] w-full">
+              <button
+                onClick={closeImageModal}
+                className="absolute -top-12 right-0 text-white hover:text-pink-400 transition-colors text-2xl font-bold z-60"
+              >
+                ✕
+              </button>
+              <img
+                src={post.image}
+                alt="Post content enlarged"
+                className="w-full h-full object-contain rounded-lg shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
           </div>
         </>
       )}
