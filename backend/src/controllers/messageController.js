@@ -2,25 +2,27 @@ import mongoose from 'mongoose';
 import Message from '../models/Message.js';
 import Match from '../models/Match.js';
 
-// Récupérer l'historique d'une conversation (Match)
+const isUserInMatch = (match, userId) =>
+  Boolean(match?.users?.some((id) => id.toString() === userId.toString()));
+
+// Recuperer l'historique d'une conversation (match)
 export const getMessages = async (req, res) => {
   try {
     const { matchId } = req.params;
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const skip = (page - 1) * limit;
+
     if (!mongoose.Types.ObjectId.isValid(matchId)) {
       return res.status(400).json({ message: 'Match ID invalide' });
     }
 
-    // Vérifier que l'utilisateur fait partie du match ET que c'est mutuel
     const match = await Match.findById(matchId);
-    if (!match || !match.users.includes(req.user._id)) {
-      return res.status(403).json({ message: "Accès refusé" });
+    if (!match || !isUserInMatch(match, req.user._id)) {
+      return res.status(403).json({ message: 'Acces refuse' });
     }
-
     if (!match.isMutual) {
-      return res.status(403).json({ message: "Le chat est activé uniquement après un Match mutuel." });
+      return res.status(403).json({ message: 'Le chat est active uniquement apres un match mutuel.' });
     }
 
     const messages = await Message.find({ match: matchId })
@@ -29,24 +31,23 @@ export const getMessages = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .lean();
-    
-    res.json(messages.reverse());
+
+    return res.json(messages.reverse());
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 };
 
-// Récupérer la liste des conversations (Matchs mutuels)
+// Recuperer la liste des conversations (matchs mutuels)
 export const getConversations = async (req, res) => {
   try {
-    const matches = await Match.find({ 
+    const matches = await Match.find({
       users: req.user._id,
       isMutual: true
     })
-    .populate('users', 'firstName lastName username photos googlePhoto isOnline')
-    .sort({ updatedAt: -1 }); // Trié par activité récente
+      .populate('users', 'firstName lastName username photos googlePhoto isOnline')
+      .sort({ updatedAt: -1 });
 
-    // Ajouter le nombre de messages non lus par match
     const matchIds = matches.map((m) => m._id);
 
     const [unreadAgg, lastAgg] = await Promise.all([
@@ -79,13 +80,12 @@ export const getConversations = async (req, res) => {
       ])
     ]);
 
-    const unreadMap = new Map(unreadAgg.map((r) => [r._id.toString(), r.count]));
-    const lastMap = new Map(lastAgg.map((r) => [r._id.toString(), r.lastMessage]));
+    const unreadMap = new Map(unreadAgg.map((row) => [row._id.toString(), row.count]));
+    const lastMap = new Map(lastAgg.map((row) => [row._id.toString(), row.lastMessage]));
 
     const conversations = matches.map((match) => {
       const unreadCount = unreadMap.get(match._id.toString()) || 0;
       const lastMessage = lastMap.get(match._id.toString()) || null;
-
       return {
         ...match.toObject(),
         unreadCount,
@@ -99,13 +99,14 @@ export const getConversations = async (req, res) => {
           : null
       };
     });
-    res.json(conversations);
+
+    return res.json(conversations);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 };
 
-// Récupérer le nombre total de messages non lus (tous matchs confondus)
+// Recuperer le nombre total de messages non lus
 export const getTotalUnreadMessagesCount = async (req, res) => {
   try {
     const userMatchIds = (await Match.find({ users: req.user._id }).select('_id').lean()).map((m) => m._id);
@@ -114,13 +115,13 @@ export const getTotalUnreadMessagesCount = async (req, res) => {
       'readBy.user': { $ne: req.user._id },
       match: { $in: userMatchIds }
     });
-    res.json({ count: unreadCount });
+    return res.json({ count: unreadCount });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 };
 
-// Marquer les messages comme lus
+// Marquer les messages d'un match comme lus
 export const markAsRead = async (req, res) => {
   try {
     const { matchId } = req.params;
@@ -129,35 +130,99 @@ export const markAsRead = async (req, res) => {
     }
 
     const match = await Match.findById(matchId);
-    if (!match || !match.users.includes(req.user._id)) {
-      return res.status(403).json({ message: 'Action non autorisée' });
+    if (!match || !isUserInMatch(match, req.user._id)) {
+      return res.status(403).json({ message: 'Action non autorisee' });
     }
 
     await Message.updateMany(
       { match: matchId, sender: { $ne: req.user._id }, 'readBy.user': { $ne: req.user._id } },
       { $push: { readBy: { user: req.user._id, readAt: Date.now() } } }
     );
-    res.json({ message: "Messages marqués comme lus" });
+
+    const userMatchIds = (await Match.find({ users: req.user._id }).select('_id').lean()).map((m) => m._id);
+    const unreadCount = await Message.countDocuments({
+      sender: { $ne: req.user._id },
+      'readBy.user': { $ne: req.user._id },
+      match: { $in: userMatchIds }
+    });
+
+    const io = req.app.get('io');
+    if (io) io.to(req.user._id.toString()).emit('message:unread-update', { count: unreadCount });
+
+    return res.json({ message: 'Messages marques comme lus', unreadCount });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 };
 
-// Récupérer ou créer une conversation (par userId cible)
+// Envoyer un message via HTTP (fallback quand socket indisponible)
+export const sendMessage = async (req, res) => {
+  try {
+    const { matchId } = req.params;
+    const { content, image, clientTempId } = req.body || {};
+
+    if (!mongoose.Types.ObjectId.isValid(matchId)) {
+      return res.status(400).json({ message: 'Match ID invalide' });
+    }
+    if (!String(content || '').trim() && !image?.url) {
+      return res.status(400).json({ message: 'Message vide' });
+    }
+
+    const match = await Match.findById(matchId).lean();
+    if (!match || !isUserInMatch(match, req.user._id)) {
+      return res.status(403).json({ message: 'Action non autorisee' });
+    }
+    if (!match.isMutual) {
+      return res.status(403).json({ message: 'Le chat est active uniquement apres un match mutuel.' });
+    }
+
+    const message = await Message.create({
+      match: matchId,
+      sender: req.user._id,
+      content: String(content || '').trim(),
+      image
+    });
+
+    await Match.findByIdAndUpdate(matchId, { updatedAt: Date.now() }).catch(() => {});
+    await message.populate('sender', 'firstName lastName photos googlePhoto');
+
+    const payload = {
+      ...message.toObject(),
+      clientTempId: clientTempId || null
+    };
+
+    const io = req.app.get('io');
+    if (io) {
+      const recipients = (match.users || [])
+        .map((id) => id.toString())
+        .filter((id) => id !== req.user._id.toString());
+
+      for (const recipientId of recipients) {
+        io.to(recipientId).emit('message:received', payload);
+        io.to(recipientId).emit('message:unread-update', { delta: 1, matchId });
+      }
+      io.to(`match:${matchId}`).emit('message:new', payload);
+    }
+
+    return res.status(201).json(payload);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+// Recuperer ou creer une conversation (par userId cible)
 export const getOrCreateConversation = async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUser = req.user._id;
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "ID utilisateur invalide" });
+      return res.status(400).json({ message: 'ID utilisateur invalide' });
     }
-
     if (userId === currentUser.toString()) {
-      return res.status(400).json({ message: "Action impossible" });
+      return res.status(400).json({ message: 'Action impossible' });
     }
 
-    // Chercher s'il existe déjà une conversation (Match) entre eux
     let conversation = await Match.findOne({
       $or: [
         { users: { $all: [currentUser, userId] } },
@@ -166,15 +231,12 @@ export const getOrCreateConversation = async (req, res) => {
       ]
     }).populate('users', 'firstName lastName username photos googlePhoto isOnline');
 
-    // Si on a trouvé une relation mais que 'users' n'est pas rempli (cas d'un like non mutuel)
-    // On met à jour pour permettre la messagerie
     if (conversation && (!conversation.users || conversation.users.length < 2)) {
       conversation.users = [conversation.likedBy, conversation.likedUser];
       await conversation.save();
       await conversation.populate('users', 'firstName lastName username photos googlePhoto isOnline');
     }
 
-    // Sinon, on crée une conversation (Match)
     if (!conversation) {
       try {
         conversation = await Match.create({
@@ -185,7 +247,6 @@ export const getOrCreateConversation = async (req, res) => {
         });
         await conversation.populate('users', 'firstName lastName username photos googlePhoto isOnline');
       } catch (createError) {
-        // En cas de conflit d'index unique si un match inverse existe
         conversation = await Match.findOne({
           users: { $all: [currentUser, userId] }
         }).populate('users', 'firstName lastName username photos googlePhoto isOnline');
@@ -194,16 +255,15 @@ export const getOrCreateConversation = async (req, res) => {
     }
 
     if (!conversation?.isMutual) {
-      return res.status(403).json({ 
-        message: "Match mutuel requis pour discuter.", 
-        isLocked: true 
+      return res.status(403).json({
+        message: 'Match mutuel requis pour discuter.',
+        isLocked: true
       });
     }
 
-    res.json(conversation);
+    return res.json(conversation);
   } catch (err) {
-    console.error("Error in getOrCreateConversation:", err);
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 };
 
@@ -214,24 +274,18 @@ export const deleteConversation = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(matchId)) {
       return res.status(400).json({ message: 'Match ID invalide' });
     }
-    
-    // Vérifier que le match existe et que l'utilisateur en fait partie
+
     const match = await Match.findById(matchId);
-    if (!match) return res.status(404).json({ message: "Conversation introuvable" });
-    
-    if (!match.users.includes(req.user._id.toString())) {
-      return res.status(403).json({ message: "Action non autorisée" });
+    if (!match) return res.status(404).json({ message: 'Conversation introuvable' });
+    if (!isUserInMatch(match, req.user._id)) {
+      return res.status(403).json({ message: 'Action non autorisee' });
     }
 
-    // Supprimer tous les messages du match
     await Message.deleteMany({ match: matchId });
-    
-    // Supprimer le match lui-même (ou on pourrait simplement vider les messages ?)
-    // Supprimer le match lui-même est plus radical (supprime la relation)
     await Match.findByIdAndDelete(matchId);
 
-    res.json({ message: "Conversation supprimée avec succès" });
+    return res.json({ message: 'Conversation supprimee avec succes' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 };

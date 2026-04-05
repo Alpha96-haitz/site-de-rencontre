@@ -88,6 +88,11 @@ export default function Messages() {
         setMessages(data);
 
         await client.put(`/messages/${matchId}/read`);
+        const { data: unreadData } = await client.get('/messages/unread-count');
+        window.dispatchEvent(new CustomEvent('message:read', {
+          detail: { count: unreadData.count || 0 }
+        }));
+
         setConversations((prev) =>
           prev.map((c) => (c._id === matchId ? { ...c, unreadCount: 0 } : c))
         );
@@ -158,9 +163,9 @@ export default function Messages() {
     };
   }, [socket, matchId]);
 
-  const sendMessage = (e) => {
+  const sendMessage = async (e) => {
     if (e) e.preventDefault();
-    if (!text.trim() || !socket || !matchId) return;
+    if (!text.trim() || !matchId) return;
     const trimmed = text.trim();
     const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const tempMessage = {
@@ -191,7 +196,17 @@ export default function Messages() {
     );
     setTimeout(scrollToBottom, 20);
 
-    socket.emit('message:send', { matchId, content: trimmed, clientTempId: tempId });
+    try {
+      if (socket && socket.connected) {
+        socket.emit('message:send', { matchId, content: trimmed, clientTempId: tempId });
+      } else {
+        await client.post(`/messages/${matchId}`, { content: trimmed, clientTempId: tempId });
+      }
+    } catch (err) {
+      setMessages((prev) => prev.filter((m) => m._id !== tempId));
+      toast.error(err.response?.data?.message || 'Erreur envoi message');
+    }
+
     setText('');
   };
 

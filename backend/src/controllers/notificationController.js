@@ -1,6 +1,12 @@
 import Notification from '../models/Notification.js';
 
-// Récupérer les notifications de l'utilisateur
+const emitUnreadNotificationCount = async (req, recipientId) => {
+  const io = req.app?.get?.('io');
+  if (!io) return;
+  const count = await Notification.countDocuments({ recipient: recipientId, read: false }).catch(() => 0);
+  io.to(recipientId.toString()).emit('notification:unread-update', { count });
+};
+
 export const getNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({ recipient: req.user._id })
@@ -8,78 +14,83 @@ export const getNotifications = async (req, res) => {
       .populate('post', 'desc image')
       .sort({ createdAt: -1 })
       .limit(50);
-    res.json(notifications);
+    return res.json(notifications);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 };
 
-// Compteur non lus leger pour la navbar
 export const getUnreadCount = async (req, res) => {
   try {
     const count = await Notification.countDocuments({
       recipient: req.user._id,
       read: false
     });
-    res.json({ count });
+    return res.json({ count });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 };
 
-// Marquer une notification comme lue
 export const markAsRead = async (req, res) => {
   try {
-    await Notification.findByIdAndUpdate(req.params.id, { read: true });
-    res.json({ message: 'Notification marquée comme lue' });
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.id, recipient: req.user._id },
+      { read: true },
+      { new: true }
+    );
+
+    if (!notification) {
+      return res.status(404).json({ message: 'Notification introuvable' });
+    }
+
+    const count = await Notification.countDocuments({ recipient: req.user._id, read: false });
+    await emitUnreadNotificationCount(req, req.user._id);
+    return res.json({ message: 'Notification marquee comme lue', count });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 };
 
-// Marquer toutes les notifications comme lues
 export const markAllAsRead = async (req, res) => {
   try {
-    if (!req.user?._id) return res.status(401).json({ message: "Non autorisé" });
-    
+    if (!req.user?._id) return res.status(401).json({ message: 'Non autorise' });
+
     const result = await Notification.updateMany(
-      { recipient: req.user._id, read: false }, 
+      { recipient: req.user._id, read: false },
       { read: true }
     );
-    
-    res.json({ 
-      message: 'Toutes les notifications marquées comme lues',
-      modifiedCount: result.modifiedCount 
+
+    await emitUnreadNotificationCount(req, req.user._id);
+    return res.json({
+      message: 'Toutes les notifications marquees comme lues',
+      modifiedCount: result.modifiedCount
     });
   } catch (err) {
-    console.error("Error in markAllAsRead:", err);
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 };
 
-// Utilitaire pour créer une notification (utilisé en interne)
 export const createNotification = async ({ recipient, sender, type, post, content }) => {
   if (recipient.toString() === sender.toString()) return null;
-  
-  // Générer un contenu par défaut si absent (Style Facebook)
+
   let finalContent = content;
   if (!finalContent) {
-    if (type === 'like') finalContent = "a aimé l'une de vos publications.";
-    if (type === 'comment') finalContent = "a ajouté un commentaire sur votre publication.";
-    if (type === 'follow') finalContent = "a commencé à suivre votre profil.";
-    if (type === 'match') finalContent = "Félicitations ! Vous avez un nouveau match. Envoyez-lui un message !";
+    if (type === 'like') finalContent = "a aime l'une de vos publications.";
+    if (type === 'comment') finalContent = 'a ajoute un commentaire sur votre publication.';
+    if (type === 'follow') finalContent = 'a commence a suivre votre profil.';
+    if (type === 'match') finalContent = 'Felicitations ! Vous avez un nouveau match. Envoyez-lui un message !';
   }
 
   try {
-    return await Notification.create({ 
-      recipient, 
-      sender, 
-      type, 
-      post, 
-      content: finalContent 
+    return await Notification.create({
+      recipient,
+      sender,
+      type,
+      post,
+      content: finalContent
     });
   } catch (err) {
-    console.error('Erreur création notification:', err);
     return null;
   }
 };

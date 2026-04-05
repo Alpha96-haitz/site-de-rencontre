@@ -72,6 +72,34 @@ export default function Layout() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleNotificationReadEvent = (event) => {
+      const detail = event.detail || {};
+      if (typeof detail.count === 'number') {
+        setUnreadNotificationsCount(Math.max(0, detail.count));
+      } else if (typeof detail.delta === 'number') {
+        setUnreadNotificationsCount((prev) => Math.max(0, prev + detail.delta));
+      }
+    };
+
+    const handleMessageReadEvent = (event) => {
+      const detail = event.detail || {};
+      if (typeof detail.count === 'number') {
+        setUnreadMessagesCount(Math.max(0, detail.count));
+      } else if (typeof detail.delta === 'number') {
+        setUnreadMessagesCount((prev) => Math.max(0, prev + detail.delta));
+      }
+    };
+
+    window.addEventListener('notification:read', handleNotificationReadEvent);
+    window.addEventListener('message:read', handleMessageReadEvent);
+
+    return () => {
+      window.removeEventListener('notification:read', handleNotificationReadEvent);
+      window.removeEventListener('message:read', handleMessageReadEvent);
+    };
+  }, []);
+
   const fetchResults = useCallback(
     debounce(async (query) => {
       if (!query.trim()) {

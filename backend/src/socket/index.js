@@ -47,6 +47,7 @@ export const initSocket = (io) => {
   });
 
   io.on('connection', async (socket) => {
+    socket.join(socket.userId);
     addSocketForUser(socket.userId, socket.id);
 
     await User.findByIdAndUpdate(socket.userId, { isOnline: true, lastSeen: new Date() }).catch(() => {});
@@ -67,9 +68,24 @@ export const initSocket = (io) => {
 
       try {
         const match = await Match.findById(matchId).lean();
-        if (!match || !match.isMutual) {
+        const isParticipant = Boolean(
+          match?.users?.some((id) => id.toString() === socket.userId)
+        );
+        if (!match || !isParticipant) {
+          return socket.emit('message:error', {
+            message: 'Action non autorisee.',
+            clientTempId: clientTempId || null
+          });
+        }
+        if (!match.isMutual) {
           return socket.emit('message:error', {
             message: 'Le chat est verrouille tant qu il n y a pas de match mutuel.',
+            clientTempId: clientTempId || null
+          });
+        }
+        if (!String(content || '').trim() && !image?.url) {
+          return socket.emit('message:error', {
+            message: 'Message vide.',
             clientTempId: clientTempId || null
           });
         }
@@ -77,7 +93,7 @@ export const initSocket = (io) => {
         const message = await Message.create({
           match: matchId,
           sender: socket.userId,
-          content: content || '',
+          content: String(content || '').trim(),
           image
         });
 

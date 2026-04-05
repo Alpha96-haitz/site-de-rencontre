@@ -27,8 +27,18 @@ export default function Notifications() {
     fetchNotifications();
     // Marquer tout comme lu après un court délai
     const timer = setTimeout(async () => {
-       try { await client.put('/notifications/mark-all-read'); } catch (e) {}
-    }, 2000);
+      try {
+        const { data } = await client.put('/notifications/mark-all-read');
+        if (data?.modifiedCount > 0) {
+          setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true })));
+          window.dispatchEvent(new CustomEvent('notification:read', {
+            detail: { count: 0 }
+          }));
+        }
+      } catch (e) {
+        // ignore
+      }
+    }, 500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -45,6 +55,30 @@ export default function Notifications() {
       refreshUser();
     } catch (err) {
       toast.error("Action impossible");
+    }
+  };
+
+  const handleNotificationClick = async (notification) => {
+    try {
+      if (!notification.read) {
+        await client.put(`/notifications/${notification._id}`);
+        setNotifications((prev) =>
+          prev.map((item) =>
+            item._id === notification._id ? { ...item, read: true } : item
+          )
+        );
+        window.dispatchEvent(new CustomEvent('notification:read', {
+          detail: { delta: -1 }
+        }));
+      }
+    } catch (err) {
+      console.error('Erreur marque notification lue', err);
+    } finally {
+      if (notification.post) {
+        navigate(`/home/profile/${user.username}`);
+      } else {
+        navigate(`/home/profile/${notification.sender?.username}`);
+      }
     }
   };
 
@@ -133,7 +167,7 @@ export default function Notifications() {
                      }
                      
                      return (
-                        <div key={n._id} className={`px-6 py-4 hover:bg-slate-50/50 transition-colors group cursor-pointer ${!n.read ? 'bg-pink-50/10' : ''}`} onClick={() => n.post ? navigate(`/home/profile/${user.username}`) : navigate(`/home/profile/${n.sender?.username}`)}>
+                        <div key={n._id} className={`px-6 py-4 hover:bg-slate-50/50 transition-colors group cursor-pointer ${!n.read ? 'bg-pink-50/10' : ''}`} onClick={() => handleNotificationClick(n)}>
                            <div className="flex items-start gap-3">
                               {/* Avatar */}
                               <div className="relative shrink-0">

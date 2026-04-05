@@ -4,6 +4,7 @@ import { FiUsers, FiHeart, FiSettings, FiImage, FiUserPlus, FiCheck, FiUser } fr
 import toast from 'react-hot-toast';
 import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { getSocket } from '../socket/client';
 import PostForm from '../components/PostForm';
 import PostItem from '../components/PostItem';
 
@@ -14,6 +15,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showMoreSuggestions, setShowMoreSuggestions] = useState(false);
 
   const fetchTimeline = async () => {
     try {
@@ -26,10 +28,10 @@ export default function Home() {
     }
   };
 
-  const fetchSuggestions = async () => {
+  const fetchSuggestions = async (limit = 5) => {
     setLoadingSuggestions(true);
     try {
-      const { data } = await client.get('/users/suggestions?limit=5');
+      const { data } = await client.get(`/users/suggestions?limit=${limit}`);
       // On prend les 5 premières suggestions
       setSuggestions(data);
     } catch (err) {
@@ -42,6 +44,29 @@ export default function Home() {
   useEffect(() => {
     fetchTimeline();
     fetchSuggestions();
+  }, []);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleOnline = ({ userId }) => {
+      if (!userId) return;
+      setSuggestions((prev) => prev.map((s) => (s._id === userId ? { ...s, isOnline: true } : s)));
+    };
+
+    const handleOffline = ({ userId }) => {
+      if (!userId) return;
+      setSuggestions((prev) => prev.map((s) => (s._id === userId ? { ...s, isOnline: false } : s)));
+    };
+
+    socket.on('user:online', handleOnline);
+    socket.on('user:offline', handleOffline);
+
+    return () => {
+      socket.off('user:online', handleOnline);
+      socket.off('user:offline', handleOffline);
+    };
   }, []);
 
   const handlePostCreated = (newPost) => {
@@ -68,6 +93,12 @@ export default function Home() {
     } catch (err) {
       toast.error(err.response?.data?.message || "Erreur lors de l'abonnement");
     }
+  };
+
+  const handleToggleMoreSuggestions = async () => {
+    const next = !showMoreSuggestions;
+    setShowMoreSuggestions(next);
+    await fetchSuggestions(next ? 30 : 5);
   };
 
   const primaryPhoto = user?.photos?.find((p) => p.isPrimary) || user?.photos?.[0];
@@ -198,7 +229,9 @@ export default function Home() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sticky top-24">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center justify-between">
             Suggestions pour vous
-            <Link to="/discover" className="text-xs text-pink-600 font-bold hover:underline">Voir tout</Link>
+            <button onClick={handleToggleMoreSuggestions} className="text-xs text-pink-600 font-bold hover:underline">
+              {showMoreSuggestions ? 'Voir moins' : 'Voir plus'}
+            </button>
           </h3>
           
           <div className="space-y-4">
@@ -214,8 +247,8 @@ export default function Home() {
                       <div className="truncate">
                         <p className="text-sm font-bold text-slate-800 truncate">{s.firstName} {s.lastName}</p>
                         <div className="flex items-center gap-1">
-                           <div className={`w-1.5 h-1.5 rounded-full ${s.isOnline ? 'bg-green-500' : 'bg-slate-300'}`}></div>
-                           <p className={`text-[10px] font-black uppercase tracking-widest ${s.isOnline ? 'text-green-500' : 'text-slate-400'}`}>
+                           <div className={`w-2 h-2 rounded-full ${s.isOnline ? 'bg-emerald-500 animate-pulse shadow-[0_0_0_3px_rgba(16,185,129,0.15)]' : 'bg-slate-300'}`}></div>
+                           <p className={`text-[10px] font-black uppercase tracking-widest ${s.isOnline ? 'text-emerald-500' : 'text-slate-400'}`}>
                               {s.isOnline ? 'en ligne' : 'hors ligne'}
                            </p>
                         </div>
