@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
 import GoogleLoginButton from '../components/GoogleLoginButton';
-import { FiArrowRight, FiArrowLeft, FiCamera, FiCheck, FiUser, FiMail, FiLock, FiCalendar, FiMapPin } from 'react-icons/fi';
+import { FiArrowRight, FiArrowLeft, FiCamera, FiCheck, FiUser, FiMail, FiLock, FiCalendar, FiMapPin, FiShield } from 'react-icons/fi';
 import logo from '../assets/logo.png';
 
 export default function Signup() {
@@ -17,7 +18,8 @@ export default function Signup() {
     lastName: '',
     birthDate: '',
     gender: '',
-    city: ''
+    city: '',
+    verificationCode: ['', '', '', '', '', '']
   });
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState('');
@@ -25,8 +27,26 @@ export default function Signup() {
   
   const { signup, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const codeInputs = useRef([]);
 
   const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handleCodeChange = (index, value) => {
+    if (!/^\d*$/.test(value)) return;
+    const newCode = [...form.verificationCode];
+    newCode[index] = value.slice(-1);
+    setForm(f => ({ ...f, verificationCode: newCode }));
+
+    if (value && index < 5) {
+      codeInputs.current[index + 1].focus();
+    }
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !form.verificationCode[index] && index > 0) {
+      codeInputs.current[index - 1].focus();
+    }
+  };
 
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
@@ -39,14 +59,53 @@ export default function Signup() {
   const nextStep = () => {
     if (step === 1) {
       if (!form.username || !form.email || !form.password) return toast.error('Veuillez remplir tous les champs');
-      if (/\s/.test(form.username)) return toast.error("Le nom d'utilisateur ne doit pas contenir d'espaces");
-      if (form.username.length < 3) return toast.error('Le nom d\'utilisateur doit faire au moins 3 caractères');
-      if (form.password.length < 6) return toast.error('Le mot de passe doit faire au moins 6 caractères');
+      sendCodeStep();
+      return;
     }
     if (step === 2) {
+      const fullCode = form.verificationCode.join('');
+      if (fullCode.length !== 6) return toast.error('Veuillez entrer le code à 6 chiffres');
+      verifyCodeStep(fullCode);
+      return;
+    }
+    if (step === 3) {
       if (!form.firstName || !form.lastName || !form.birthDate || !form.city || !form.gender) return toast.error('Veuillez remplir toutes les informations');
     }
     setStep(s => s + 1);
+  };
+
+  const verifyCodeStep = async (code) => {
+    setLoading(true);
+    try {
+      await client.post('/auth/verify-signup-code', { 
+        email: form.email, 
+        code: code 
+      });
+      toast.success('Email vérifié !');
+      setStep(3);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Code invalide');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendCodeStep = async () => {
+    if (!form.username || !form.email || !form.password) return toast.error('Veuillez remplir tous les champs');
+    if (/\s/.test(form.username)) return toast.error("Le nom d'utilisateur ne doit pas contenir d'espaces");
+    if (form.username.length < 3) return toast.error('Le nom d\'utilisateur doit faire au moins 3 caractères');
+    if (form.password.length < 6) return toast.error('Le mot de passe doit faire au moins 6 caractères');
+
+    setLoading(true);
+    try {
+      await client.post('/auth/send-signup-code', { email: form.email });
+      toast.success('Un code a été envoyé à ' + form.email);
+      setStep(2);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erreur lors de l\'envoi du code');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const prevStep = () => setStep(s => s - 1);
@@ -57,7 +116,8 @@ export default function Signup() {
     try {
       const signupData = {
         ...form,
-        location: { city: form.city }
+        location: { city: form.city },
+        verificationCode: form.verificationCode.join('')
       };
       
       const data = await signup(signupData);
@@ -94,135 +154,230 @@ export default function Signup() {
     }
   };
 
+  const variants = {
+    enter: { x: 20, opacity: 0 },
+    center: { x: 0, opacity: 1 },
+    exit: { x: -20, opacity: 0 }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-rose-100 p-4 font-sans">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 transition-all duration-500 relative overflow-hidden">
-        
-        {/* Back Link */}
-        <Link to="/" className="inline-flex items-center gap-2 text-slate-400 hover:text-pink-600 transition-all font-bold text-xs uppercase tracking-widest mb-8">
-           <FiArrowLeft className="text-lg" /> Retour à l'accueil
-        </Link>
-
-        <div className="text-center mb-6">
-          <img src={logo} alt="HAITZ" className="h-24 md:h-32 object-contain mx-auto mb-2" />
-          <div className="flex justify-center gap-2 mb-4">
-            {[1, 2, 3, 4].map(s => (
-              <div 
-                key={s} 
-                className={`h-1.5 rounded-full transition-all duration-300 ${step === s ? 'w-8 bg-pink-500' : 'w-3 bg-slate-200'}`}
-              />
-            ))}
-          </div>
-          <h2 className="text-xl font-bold text-slate-800">
-            {step === 1 && "Créer votre compte"}
-            {step === 2 && "Parlez-nous de vous"}
-            {step === 3 && "Ajoutez une photo"}
-            {step === 4 && "Vérification finale"}
-          </h2>
-        </div>
-
-        {/* Etape 1 */}
-        {step === 1 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-right duration-300">
-            <div className="relative">
-              <FiUser className="absolute left-3 top-3 text-slate-400" />
-              <input name="username" placeholder="Nom d'utilisateur" value={form.username} onChange={handleChange} required pattern="^[a-zA-Z0-9_]+$" title="Sans espaces, seulement lettres, chiffres et underscores" className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
-            </div>
-            <div className="relative">
-              <FiMail className="absolute left-3 top-3 text-slate-400" />
-              <input name="email" type="email" placeholder="Email" value={form.email} onChange={handleChange} required className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
-            </div>
-            <div className="relative">
-              <FiLock className="absolute left-3 top-3 text-slate-400" />
-              <input name="password" type="password" placeholder="Mot de passe" value={form.password} onChange={handleChange} required className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
-            </div>
-            <button onClick={nextStep} className="w-full py-4 bg-pink-500 text-white rounded-xl font-bold shadow-lg shadow-pink-200 flex items-center justify-center gap-2">
-              Suivant <FiArrowRight />
-            </button>
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100" /></div>
-              <div className="relative flex justify-center text-sm"><span className="px-2 bg-white text-slate-400">Ou s'inscrire avec</span></div>
-            </div>
-            <GoogleLoginButton onSuccess={handleGoogleSuccess} />
-          </div>
-        )}
-
-        {/* Etape 2 */}
-        {step === 2 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-right duration-300">
-            <div className="grid grid-cols-2 gap-4">
-              <input name="firstName" placeholder="Prénom" value={form.firstName} onChange={handleChange} required className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
-              <input name="lastName" placeholder="Nom" value={form.lastName} onChange={handleChange} required className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
-            </div>
-            <div className="relative">
-              <FiCalendar className="absolute left-3 top-3 text-slate-400" />
-              <input name="birthDate" type="date" value={form.birthDate} onChange={handleChange} required className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
-            </div>
-            <div className="relative">
-              <FiMapPin className="absolute left-3 top-3 text-slate-400" />
-              <input name="city" placeholder="Ville" value={form.city} onChange={handleChange} required className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none" />
-            </div>
-            <select name="gender" value={form.gender} onChange={handleChange} required className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none bg-white">
-              <option value="">-- Sélectionnez votre genre --</option>
-              <option value="male">Homme</option>
-              <option value="female">Femme</option>
-              <option value="other">Autre</option>
-            </select>
-            <div className="flex gap-3 pt-4">
-              <button onClick={prevStep} className="flex-1 py-4 border-2 border-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-50"><FiArrowLeft /> Retour</button>
-              <button onClick={nextStep} className="flex-1 py-4 bg-pink-500 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">Suivant <FiArrowRight /></button>
-            </div>
-          </div>
-        )}
-
-        {/* Etape 3 */}
-        {step === 3 && (
-          <div className="space-y-6 text-center animate-in fade-in slide-in-from-right duration-300">
-            <div className="relative inline-block mx-auto">
-              <div className="w-40 h-40 rounded-full border-4 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-slate-50">
-                {preview ? <img src={preview} alt="Aperçu" className="w-full h-full object-cover" /> : <FiCamera className="w-12 h-12 text-slate-300" />}
-              </div>
-              <label className="absolute bottom-1 right-1 w-10 h-10 bg-pink-500 text-white rounded-full flex items-center justify-center cursor-pointer border-4 border-white shadow-lg">
-                <FiCamera className="w-5 h-5" />
-                <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
-              </label>
-            </div>
-            <p className="text-slate-500 text-sm">Une photo profil attire plus de regards !</p>
-            <div className="flex gap-3">
-              <button onClick={prevStep} className="flex-1 py-4 border-2 border-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-50"><FiArrowLeft /> Retour</button>
-              <button onClick={nextStep} disabled={!preview} className="flex-1 py-4 bg-pink-500 disabled:bg-slate-300 text-white disabled:text-slate-500 rounded-xl font-bold shadow-lg disabled:shadow-none disabled:cursor-not-allowed">{preview ? "Suivant" : "Veuillez ajouter une photo"} <FiArrowRight /></button>
-            </div>
-          </div>
-        )}
-
-        {/* Etape 4 */}
-        {step === 4 && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-right duration-300">
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-3">
-              <div className="flex justify-between pb-2 border-b border-slate-200">
-                <span className="text-slate-500 text-sm">Utilisateur</span>
-                <span className="font-bold">@{form.username}</span>
-              </div>
-              <div className="flex justify-between pb-2 border-b border-slate-200">
-                <span className="text-slate-500 text-sm">Nom complet</span>
-                <span className="font-bold">{form.firstName} {form.lastName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 text-sm">Ville</span>
-                <span className="font-bold">{form.city}</span>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={prevStep} className="flex-1 py-4 border-2 border-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-50"><FiArrowLeft /> Retour</button>
-              <button onClick={handleSubmit} disabled={loading} className="flex-[2] py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-bold shadow-lg shadow-pink-200 transition-all active:scale-95 disabled:opacity-50">
-                {loading ? "Création..." : "Confirmer l'inscription"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        <p className="mt-8 text-center text-slate-400 text-sm">Déjà un compte ? <Link to="/login" className="text-pink-600 font-bold hover:underline">Se connecter</Link></p>
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#0a0a0a] font-sans selection:bg-pink-500 selection:text-white">
+      {/* Background elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink-600/20 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-rose-600/20 blur-[120px] rounded-full" />
       </div>
+
+      <motion.div 
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="w-full max-w-lg mx-auto z-10 p-4"
+      >
+        <div className="backdrop-blur-2xl bg-white/5 border border-white/10 rounded-[2.5rem] shadow-2xl p-8 md:p-12 relative overflow-hidden">
+          
+          {/* Header */}
+          <div className="flex justify-between items-center mb-10">
+            <button onClick={() => step > 1 ? prevStep() : navigate('/')} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+              <FiArrowLeft className="text-white text-xl" />
+            </button>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map(s => (
+                <div 
+                  key={s} 
+                  className={`h-1.5 rounded-full transition-all duration-500 ${step >= s ? 'w-8 bg-gradient-to-r from-pink-500 to-rose-500' : 'w-2 bg-white/10'}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="text-center mb-12">
+            <img src={logo} alt="HAITZ" className="h-20 object-contain mx-auto mb-6 drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]" />
+            <h1 className="text-3xl font-black text-white tracking-tight mb-2">
+              {step === 1 && "Commencez l'aventure"}
+              {step === 2 && "Sécurité"}
+              {step === 3 && "Qui êtes-vous ?"}
+              {step === 4 && "Montrez-vous"}
+              {step === 5 && "Prêt à partir ?"}
+            </h1>
+            <p className="text-slate-400 text-sm">
+              {step === 1 && "Créez votre compte pour rencontrer des gens."}
+              {step === 2 && "Nous avons envoyé un code à 6 chiffres à " + form.email}
+              {step === 3 && "Dites-nous en plus sur vous."}
+              {step === 4 && "Une photo rend votre profil 7x plus attirant."}
+              {step === 5 && "Vérifiez vos informations avant de confirmer."}
+            </p>
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={step}
+              variants={variants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            >
+              {/* Etape 1 */}
+              {step === 1 && (
+                <div className="space-y-4">
+                  <div className="group relative">
+                    <FiUser className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-pink-500 transition-colors" />
+                    <input name="username" placeholder="Nom d'utilisateur" value={form.username} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-white pl-11 pr-4 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all placeholder:text-slate-600" />
+                  </div>
+                  <div className="group relative">
+                    <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-pink-500 transition-colors" />
+                    <input name="email" type="email" placeholder="Adresse e-mail" value={form.email} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-white pl-11 pr-4 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all placeholder:text-slate-600" />
+                  </div>
+                  <div className="group relative">
+                    <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-pink-500 transition-colors" />
+                    <input name="password" type="password" placeholder="Mot de passe" value={form.password} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-white pl-11 pr-4 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all placeholder:text-slate-600" />
+                  </div>
+                  <button 
+                    onClick={nextStep} 
+                    disabled={loading}
+                    className="w-full py-4 mt-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl font-bold text-lg shadow-[0_10px_30px_rgba(244,63,94,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {loading ? <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "Vérifier mon identité"}
+                  </button>
+                  <div className="relative my-8">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5" /></div>
+                    <div className="relative flex justify-center text-xs uppercase tracking-widest text-slate-500 font-bold"><span className="px-4 bg-[#121212]">Ou inscrivez-vous avec</span></div>
+                  </div>
+                  <GoogleLoginButton onSuccess={handleGoogleSuccess} />
+                </div>
+              )}
+
+              {/* Etape 2: 6-Digit Code */}
+              {step === 2 && (
+                <div className="space-y-8">
+                  <div className="flex justify-between gap-2 md:gap-4">
+                    {form.verificationCode.map((digit, idx) => (
+                      <input
+                        key={idx}
+                        ref={el => codeInputs.current[idx] = el}
+                        type="text"
+                        maxLength="1"
+                        value={digit}
+                        onChange={(e) => handleCodeChange(idx, e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(idx, e)}
+                        className="w-full aspect-square text-center text-3xl font-black bg-white/5 border-2 border-white/10 text-white rounded-2xl focus:border-pink-500 focus:bg-pink-500/10 outline-none transition-all"
+                      />
+                    ))}
+                  </div>
+                  
+                  <div className="flex flex-col gap-4 pt-4">
+                    <button 
+                      onClick={nextStep} 
+                      disabled={loading || form.verificationCode.some(d => !d)}
+                      className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl font-bold shadow-[0_10px_30px_rgba(244,63,94,0.3)] disabled:opacity-30 transition-all flex items-center justify-center gap-2"
+                    >
+                      {loading ? <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Valider <FiCheck /></>}
+                    </button>
+                    <button 
+                      onClick={sendCodeStep} 
+                      disabled={loading}
+                      className="text-pink-500 text-sm font-bold hover:text-pink-400 transition-colors"
+                    >
+                      Pas reçu ? Renvoyer le code
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Etape 3 */}
+              {step === 3 && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <input name="firstName" placeholder="Prénom" value={form.firstName} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-white px-5 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all placeholder:text-slate-600" />
+                    <input name="lastName" placeholder="Nom" value={form.lastName} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-white px-5 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all placeholder:text-slate-600" />
+                  </div>
+                  <div className="group relative">
+                    <FiCalendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-pink-500 transition-colors" />
+                    <input name="birthDate" type="date" value={form.birthDate} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-white pl-11 pr-4 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all" />
+                  </div>
+                  <div className="group relative">
+                    <FiMapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-pink-500 transition-colors" />
+                    <input name="city" placeholder="Ville" value={form.city} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-white pl-11 pr-4 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all placeholder:text-slate-600" />
+                  </div>
+                  <div className="relative">
+                     <select name="gender" value={form.gender} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-slate-300 px-5 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all appearance-none cursor-pointer">
+                        <option value="" className="bg-slate-900">Genre</option>
+                        <option value="male" className="bg-slate-900">Homme</option>
+                        <option value="female" className="bg-slate-900">Femme</option>
+                        <option value="other" className="bg-slate-900">Autre</option>
+                      </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">▼</div>
+                  </div>
+                  <button onClick={nextStep} className="w-full py-4 mt-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl font-bold text-lg shadow-[0_10px_30px_rgba(244,63,94,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">Continuer <FiArrowRight /></button>
+                </div>
+              )}
+
+              {/* Etape 4 */}
+              {step === 4 && (
+                <div className="space-y-8 text-center pt-4">
+                  <div className="relative group mx-auto w-48 h-48">
+                    <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/20 to-rose-500/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+                    <div className="relative w-48 h-48 rounded-full border-2 border-white/10 bg-white/5 flex items-center justify-center overflow-hidden ring-4 ring-white/5 ring-offset-4 ring-offset-black transition-all">
+                      {preview ? 
+                        <img src={preview} alt="Aperçu" className="w-full h-full object-cover scale-105 hover:scale-110 transition-transform duration-700" /> : 
+                        <FiCamera className="w-16 h-16 text-slate-700 group-hover:text-pink-500 transition-colors duration-500" />
+                      }
+                      <label className="absolute inset-0 cursor-pointer">
+                        <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+                      </label>
+                    </div>
+                    {preview && (
+                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -bottom-2 -right-2 bg-pink-500 p-3 rounded-full border-4 border-black text-white shadow-xl">
+                        <FiCheck className="text-xl" />
+                      </motion.div>
+                    )}
+                  </div>
+                  <p className="text-slate-400 max-w-[250px] mx-auto">Téléchargez une photo de vous pour rendre votre profil plus attirant !</p>
+                  <button onClick={nextStep} disabled={!preview} className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl font-bold shadow-[0_10px_30px_rgba(244,63,94,0.3)] disabled:opacity-30 disabled:grayscale transition-all flex items-center justify-center gap-2">Presque fini <FiArrowRight /></button>
+                </div>
+              )}
+
+              {/* Etape 5 */}
+              {step === 5 && (
+                <div className="space-y-8">
+                  <div className="bg-white/5 rounded-3xl p-6 border border-white/10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><FiShield className="text-6xl text-white" /></div>
+                    <div className="space-y-4 relative z-10">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-500 font-medium">Pseudo</span>
+                        <span className="text-white font-black text-right">@{form.username}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-500 font-medium">Nom complet</span>
+                        <span className="text-white font-black text-right">{form.firstName} {form.lastName}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-500 font-medium">Ville</span>
+                        <span className="text-white font-black text-right">{form.city}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col gap-4">
+                    <button 
+                      onClick={handleSubmit} 
+                      disabled={loading} 
+                      className="w-full py-5 bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 text-white rounded-2xl font-black text-xl shadow-[0_15px_40px_rgba(244,63,94,0.4)] hover:shadow-[0_20px_50px_rgba(244,63,94,0.5)] transition-all active:scale-[0.97] flex items-center justify-center gap-3"
+                    >
+                      {loading ? <span className="w-7 h-7 border-3 border-white/30 border-t-white rounded-full animate-spin" /> : <>C'EST PARTI ! <FiCheck /></>}
+                    </button>
+                    <button onClick={prevStep} className="text-slate-500 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors">Modifier quelque chose ?</button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+        
+        <p className="mt-10 text-center text-slate-500 text-sm font-medium">
+          Déjà membre ? <Link to="/login" className="text-pink-500 font-bold hover:text-pink-400 transition-colors decoration-2 underline-offset-4 hover:underline">Se connecter</Link>
+        </p>
+      </motion.div>
     </div>
   );
 }

@@ -22,11 +22,13 @@ const Profile = lazy(() => import('./pages/Profile'));
 const EditProfile = lazy(() => import('./pages/EditProfile'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Search = lazy(() => import('./pages/Search'));
+const VerifyEmailRequired = lazy(() => import('./pages/VerifyEmailRequired'));
 
 const Protected = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, isEmailVerified } = useAuth();
   if (loading) return <PageLoader />;
   if (!user) return <Navigate to="/login" replace />;
+  if (!isEmailVerified) return <Navigate to="/verify-email-required" replace />;
   return children;
 };
 
@@ -45,6 +47,7 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/verify-email-required" element={<VerifyEmailRequired />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/contact" element={<Contact />} />

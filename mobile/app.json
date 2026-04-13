@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "HAITZ-RENCONTRE",
+    "slug": "haitz-rencontre-mobile",
+    "scheme": "haitzrencontre",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.mbarry309.haitzrencontre",
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
+    "android": {
+      "package": "com.mbarry309.haitzrencontre",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "extra": {
+      "apiUrl": "http://172.20.10.4:5000/api",
+      "socketUrl": "http://172.20.10.4:5000",
+      "googleExpoClientId": "374002145024-1fue9ua0rvco4qsdufi9h2sdveefnfg4.apps.googleusercontent.com",
+      "googleAndroidClientId": "374002145024-9pmpuvcoo59cnsrd8urtoniknu1srqrn.apps.googleusercontent.com",
+      "googleIosClientId": "374002145024-jjds0o5qofg11q6nnh9nlrl3k8i9prjl.apps.googleusercontent.com",
+      "googleWebClientId": "374002145024-1fue9ua0rvco4qsdufi9h2sdveefnfg4.apps.googleusercontent.com"
+    },
+    "plugins": [
+      "expo-web-browser",
+      "expo-font"
+    ]
+  }
+}

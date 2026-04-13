@@ -1,5 +1,5 @@
 /**
- * Serveur principal - Express + Socket.io
+ * Serveur principal - Express + Socket.io (Restart: 2026-04-13)
  */
 import 'dotenv/config';
 import { execSync } from 'child_process';
@@ -54,7 +54,10 @@ if (process.env.NODE_ENV !== 'production') {
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
   if (allowedOrigins.includes(origin)) return true;
-  if (process.env.NODE_ENV !== 'production' && /^http:\/\/localhost:\d+$/.test(origin)) return true;
+  if (process.env.NODE_ENV !== 'production') {
+    if (/^http:\/\/localhost:\d+$/.test(origin)) return true;
+    if (/^http:\/\/192\.168\.\d+\.\d+:\d+$/.test(origin)) return true;
+  }
   if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
   return false;
 };
@@ -92,6 +95,11 @@ app.use(mongoSanitize({ replaceWith: '_' }));
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
+
+app.use((req, res, next) => {
+  res.setHeader('Content-Type', 'application/json; charset=UTF-8');
+  next();
+});
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,

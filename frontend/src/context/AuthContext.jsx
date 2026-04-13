@@ -3,6 +3,13 @@
  */
 import { createContext, useContext, useState, useEffect } from 'react';
 import client from '../api/client';
+import { auth } from '../config/firebase';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  sendEmailVerification,
+  onAuthStateChanged
+} from 'firebase/auth';
 
 const AuthContext = createContext(null);
 
@@ -15,6 +22,18 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+      if (fbUser) {
+        setIsEmailVerified(fbUser.emailVerified);
+      } else {
+        setIsEmailVerified(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const fetchUser = async () => {
     const token = localStorage.getItem('token');
@@ -35,6 +54,9 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
       }
     } finally {
+      if (auth.currentUser) {
+        setIsEmailVerified(auth.currentUser.emailVerified);
+      }
       setLoading(false);
     }
   };
@@ -47,6 +69,25 @@ export const AuthProvider = ({ children }) => {
     const { data } = await client.post('/auth/login', { email, password });
     localStorage.setItem('token', data.token);
     setUser(data.user);
+
+    // Synchronisation Firebase
+    try {
+      const userCred = await signInWithEmailAndPassword(auth, email, password);
+      setIsEmailVerified(userCred.user.emailVerified);
+    } catch (err) {
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+        // Tentative de création auto si l'utilisateur existe backend mais pas Firebase
+        try {
+          const userCred = await createUserWithEmailAndPassword(auth, email, password);
+          await sendEmailVerification(userCred.user);
+          setIsEmailVerified(false);
+        } catch (fbCreateErr) {
+          console.error("Erreur création Firebase auto:", fbCreateErr);
+        }
+      } else {
+        console.error("Erreur login Firebase:", err);
+      }
+    }
     return data;
   };
 
@@ -54,6 +95,15 @@ export const AuthProvider = ({ children }) => {
     const { data } = await client.post('/auth/signup', formData);
     localStorage.setItem('token', data.token);
     setUser(data.user);
+
+    // Initialisation Firebase
+    try {
+      const userCred = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      await sendEmailVerification(userCred.user);
+      setIsEmailVerified(false);
+    } catch (err) {
+      console.error("Erreur initialisation Firebase:", err);
+    }
     return data;
   };
 
@@ -75,8 +125,27 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshVerificationStatus = async () => {
+    if (auth.currentUser) {
+      await auth.currentUser.reload();
+      setIsEmailVerified(auth.currentUser.emailVerified);
+      return auth.currentUser.emailVerified;
+    }
+    return false;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, loginWithGoogle, logout, refreshUser: fetchUser }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      isEmailVerified, 
+      login, 
+      signup, 
+      loginWithGoogle, 
+      logout, 
+      refreshUser: fetchUser,
+      refreshVerificationStatus
+    }}>
       {children}
     </AuthContext.Provider>
   );

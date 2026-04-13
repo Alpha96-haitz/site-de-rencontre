@@ -4,8 +4,14 @@
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
-import { sendVerificationEmail, sendPasswordResetCodeEmail, isSmtpConfigured } from '../utils/email.js';
+import { 
+  sendVerificationEmail, 
+  sendPasswordResetCodeEmail, 
+  sendSignupCodeEmail,
+  isSmtpConfigured 
+} from '../utils/email.js';
 import { generateToken, hashToken } from '../utils/tokenUtils.js';
+import { setCached, getCached } from '../utils/simpleCache.js';
 
 const generateJWT = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES || '7d' });
 
@@ -24,6 +30,55 @@ const getBaseFrontendUrl = (req) => {
 
 const generateSixDigitCode = () => String(Math.floor(100000 + Math.random() * 900000));
 
+export const sendSignupCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email requis' });
+
+    // Check if user already exists
+    const exists = await User.findOne({ email });
+    if (exists) return res.status(400).json({ message: 'Cet email est deja utilise' });
+
+    const code = generateSixDigitCode();
+    setCached(`signup_code_${email}`, code, 10 * 60 * 1000); // 10 minutes
+
+    try {
+      await sendSignupCodeEmail(email, code);
+    } catch (emailErr) {
+      console.warn('Signup code email error:', emailErr.message);
+    }
+
+    const response = { message: 'Code envoye avec succes' };
+    if (process.env.NODE_ENV !== 'production' && !isSmtpConfigured()) {
+      response.devCode = code;
+      console.log('[DEV] Signup code for', email, ':', code);
+    }
+
+    res.json(response);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const verifySignupCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ message: 'Email et code requis' });
+
+    const cachedCode = getCached(`signup_code_${email}`);
+    if (!cachedCode || cachedCode !== String(code)) {
+      return res.status(400).json({ message: 'Code invalide ou expire' });
+    }
+
+    // Temporarily record that this email is verified for signup (expires in 15 min)
+    setCached(`signup_verified_${email}`, 'true', 15 * 60 * 1000);
+
+    res.json({ message: 'Email verifie avec succes' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const signup = async (req, res) => {
   try {
     const { username, email, password, firstName, lastName, birthDate, gender, location } = req.body;
@@ -38,7 +93,9 @@ export const signup = async (req, res) => {
       return res.status(400).json({ message: 'Utilisateur deja existant' });
     }
 
-    const token = generateToken();
+    const isVerified = getCached(`signup_verified_${email}`) === 'true';
+
+    const token = isVerified ? undefined : generateToken();
     const user = await User.create({
       username,
       email,
@@ -48,15 +105,18 @@ export const signup = async (req, res) => {
       birthDate,
       gender,
       location,
+      emailVerified: isVerified,
       emailVerificationToken: token,
-      emailVerificationExpires: Date.now() + 24 * 60 * 60 * 1000
+      emailVerificationExpires: isVerified ? undefined : Date.now() + 24 * 60 * 60 * 1000
     });
 
     const baseUrl = getBaseFrontendUrl(req);
-    try {
-      await sendVerificationEmail(email, token, baseUrl);
-    } catch (emailErr) {
-      console.warn('Verification email not sent:', emailErr.message);
+    if (!isVerified) {
+      try {
+        await sendVerificationEmail(email, token, baseUrl);
+      } catch (emailErr) {
+        console.warn('Verification email not sent:', emailErr.message);
+      }
     }
 
     const jwtToken = generateJWT(user._id);
@@ -162,12 +222,6 @@ export const forgotPassword = async (req, res) => {
       console.warn('Reset code email not sent:', emailErr.message);
     }
 
-    const response = { message: genericMessage };
-    if (process.env.NODE_ENV !== 'production' && !isSmtpConfigured()) {
-      response.devResetCode = code;
-      console.log('[DEV] Password reset code for', email, ':', code);
-    }
-
     return res.json(response);
   } catch (err) {
     return res.status(500).json({ message: err.message });
@@ -251,14 +305,23 @@ export const googleAuth = async (req, res) => {
     if (!credential) {
       return res.status(400).json({ message: 'Token Google requis' });
     }
-    if (!process.env.GOOGLE_CLIENT_ID) {
-      return res.status(500).json({ message: 'Google OAuth non configure (GOOGLE_CLIENT_ID manquant)' });
+
+    const audiences = [
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_ANDROID_CLIENT_ID,
+      process.env.GOOGLE_IOS_CLIENT_ID,
+      process.env.GOOGLE_WEB_CLIENT_ID,
+      process.env.GOOGLE_EXPO_CLIENT_ID
+    ].filter(Boolean);
+
+    if (!audiences.length) {
+      return res.status(500).json({ message: 'Google OAuth non configure (client IDs manquants)' });
     }
 
-    const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    const googleClient = new OAuth2Client();
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID
+      audience: audiences
     });
     const payload = ticket.getPayload();
     const { sub: googleId, email, given_name: firstName, family_name: lastName, picture: googlePhoto } = payload;

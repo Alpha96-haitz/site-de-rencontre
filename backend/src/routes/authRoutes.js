@@ -8,6 +8,8 @@ import { handleValidation, signupValidation, loginValidation, forgotPasswordVali
 
 const router = Router();
 
+router.post('/send-signup-code', authController.sendSignupCode);
+router.post('/verify-signup-code', authController.verifySignupCode);
 router.post('/signup', signupValidation, handleValidation, authController.signup);
 router.post('/login', loginValidation, handleValidation, authController.login);
 router.post('/google', authController.googleAuth);

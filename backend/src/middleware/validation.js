@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { body, param, validationResult } from 'express-validator';
 
 const isMongoId = (value) => mongoose.Types.ObjectId.isValid(value);
+const normalizeText = (value) => (typeof value === 'string' ? value.normalize('NFC') : value);
 
 export const handleValidation = (req, res, next) => {
   const errors = validationResult(req);
@@ -18,11 +19,11 @@ export const signupValidation = [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }).trim(),
   body('username').trim().notEmpty().isLength({ min: 3, max: 32 }).matches(/^[a-zA-Z0-9_]+$/).withMessage('Le nom d\'utilisateur ne doit contenir que des lettres, chiffres et underscores sans espaces'),
-  body('firstName').trim().notEmpty().escape(),
-  body('lastName').trim().notEmpty().escape(),
+  body('firstName').trim().customSanitizer(normalizeText).notEmpty().escape(),
+  body('lastName').trim().customSanitizer(normalizeText).notEmpty().escape(),
   body('birthDate').isISO8601(),
   body('gender').notEmpty().isIn(['male', 'female', 'other']),
-  body('location.city').trim().notEmpty().escape().withMessage('La ville est requise')
+  body('location.city').trim().customSanitizer(normalizeText).notEmpty().escape().withMessage('La ville est requise')
 ];
 
 export const loginValidation = [
@@ -51,21 +52,21 @@ export const changePasswordValidation = [
 
 export const profileValidation = [
   body('username').optional({ checkFalsy: true }).trim().isLength({ min: 3, max: 32 }).matches(/^[a-zA-Z0-9_]+$/),
-  body('firstName').optional().trim().escape(),
-  body('lastName').optional().trim().escape(),
-  body('bio').optional().trim().isLength({ max: 500 }).escape(),
+  body('firstName').optional().trim().customSanitizer(normalizeText).escape(),
+  body('lastName').optional().trim().customSanitizer(normalizeText).escape(),
+  body('bio').optional().trim().customSanitizer(normalizeText).isLength({ max: 500 }).escape(),
   body('interests').optional().isArray(),
   body('privacy').optional().isObject(),
   body('notificationPreferences').optional().isObject()
 ];
 
 export const postValidation = [
-  body('desc').optional().trim().isLength({ max: 500 }).escape(),
+  body('desc').optional().trim().customSanitizer(normalizeText).isLength({ max: 500 }).escape(),
   body('image').optional().trim().isURL().withMessage('Image URL invalide')
 ];
 
 export const commentValidation = [
-  body('text').trim().notEmpty().isLength({ max: 300 }).escape()
+  body('text').trim().customSanitizer(normalizeText).notEmpty().isLength({ max: 300 }).escape()
 ];
 
 export const reportValidation = [
@@ -74,8 +75,8 @@ export const reportValidation = [
     .notEmpty()
     .custom(isMongoId)
     .withMessage('Identifiant utilisateur invalide'),
-  body('reason').trim().notEmpty().isLength({ max: 200 }).escape(),
-  body('description').optional().trim().isLength({ max: 1000 }).escape()
+  body('reason').trim().customSanitizer(normalizeText).notEmpty().isLength({ max: 200 }).escape(),
+  body('description').optional().trim().customSanitizer(normalizeText).isLength({ max: 1000 }).escape()
 ];
 
 export const idValidation = (field) => [

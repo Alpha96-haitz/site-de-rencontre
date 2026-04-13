@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { FiUsers, FiHeart, FiSettings, FiImage, FiUserPlus, FiCheck, FiUser } from 'react-icons/fi';
 import toast from 'react-hot-toast';
@@ -17,7 +17,7 @@ export default function Home() {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showMoreSuggestions, setShowMoreSuggestions] = useState(false);
 
-  const fetchTimeline = async () => {
+  const fetchTimeline = useCallback(async () => {
     try {
       const { data } = await client.get('/posts/timeline?limit=30&page=1');
       setPosts(data);
@@ -26,7 +26,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const fetchSuggestions = async (limit = 5) => {
     setLoadingSuggestions(true);

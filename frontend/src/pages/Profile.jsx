@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import PostItem from '../components/PostItem';
 import PostForm from '../components/PostForm';
 import ReportModal from '../components/ReportModal';
-import { FiEdit2, FiUserPlus, FiCheck, FiHeart, FiMessageCircle, FiMapPin, FiCamera, FiMoreHorizontal, FiPlus, FiBriefcase, FiHome, FiClock, FiGrid, FiUsers, FiImage, FiStar, FiMail, FiFlag, FiShield } from 'react-icons/fi';
+import { FiEdit2, FiUserPlus, FiCheck, FiHeart, FiMessageCircle, FiMapPin, FiCamera, FiMoreHorizontal, FiPlus, FiBriefcase, FiHome, FiClock, FiGrid, FiUsers, FiImage, FiStar, FiMail, FiFlag, FiShield, FiTrash2 } from 'react-icons/fi';
 import MatchModal from '../components/MatchModal';
 
 export default function Profile() {
@@ -479,6 +479,25 @@ export default function Profile() {
                              <FiMessageCircle className="text-xl" />
                           </button>
                           <button onClick={() => setShowReportModal(true)} className="bg-rose-50 hover:bg-rose-100 text-rose-500 p-2.5 rounded-lg transition-colors border border-rose-100" title="Signaler"><FiFlag className="text-xl" /></button>
+                          {['admin', 'root'].includes(user?.role) && (
+                             <button 
+                               onClick={async () => {
+                                 if (window.confirm("Supprimer DEFINITIVEMENT cet utilisateur et toutes ses données ?")) {
+                                   try {
+                                     await client.delete(`/admin/users/${profile._id}`);
+                                     toast.success("Utilisateur supprimé avec succès");
+                                     navigate('/home');
+                                   } catch (err) {
+                                     toast.error("Erreur lors de la suppression");
+                                   }
+                                 }
+                               }}
+                               className="bg-red-50 hover:bg-red-100 text-red-600 p-2.5 rounded-lg transition-colors border border-red-100" 
+                               title="Supprimer définitivement (Admin)"
+                             >
+                               <FiTrash2 className="text-xl" />
+                             </button>
+                           )}
                        </>
                     )}
                     <button className="bg-slate-100 p-2.5 rounded-lg"><FiMoreHorizontal className="text-xl" /></button>

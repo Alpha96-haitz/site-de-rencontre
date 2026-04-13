@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "983085451227",
+    "project_id": "haitz-rencontre-cbd92",
+    "storage_bucket": "haitz-rencontre-cbd92.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:983085451227:android:7fb75bb8b1eadc825c89fe",
+        "android_client_info": {
+          "package_name": "com.mbarry309.haitzrencontre"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDuv59vgt1TGbSssJw6rxwpL-FurGfTdB4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

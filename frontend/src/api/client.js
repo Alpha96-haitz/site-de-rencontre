@@ -24,7 +24,8 @@ const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL) ||
 
 const client = axios.create({
   baseURL: API_URL,
-  withCredentials: false
+  withCredentials: false,
+  timeout: 10000 // 10 secondes
 });
 
 client.interceptors.request.use((config) => {

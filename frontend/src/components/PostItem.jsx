@@ -1,4 +1,4 @@
-import { memo, useState, useEffect } from 'react';
+import { memo, useState, useEffect, useCallback } from 'react';
 import { FiHeart, FiMessageCircle, FiTrash2, FiMoreHorizontal, FiEdit2 } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -24,24 +24,11 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
   const [followedLocally, setFollowedLocally] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
 
-
   useEffect(() => {
     setPost(initialPost);
   }, [initialPost]);
-  useEffect(() => {
-    // Récupérer les infos de l'auteur
-    if (post.userId) {
-      if (typeof post.userId === 'object' && post.userId.username) {
-        setAuthor(post.userId);
-      } else {
-        client.get(`/users/${post.userId}`)
-          .then(r => setAuthor(r.data))
-          .catch(() => {});
-      }
-    }
-  }, [post.userId]);
 
-  const getSafeId = (value) => {
+  const getSafeId = useCallback((value) => {
     if (!value) return '';
     if (typeof value === 'string') return value;
     if (typeof value === 'object') {
@@ -49,9 +36,22 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
       if (typeof value.id === 'string') return value.id;
     }
     return '';
-  };
+  }, []);
 
   const authorId = getSafeId(author) || getSafeId(post.userId);
+
+  useEffect(() => {
+    if (authorId && !author) {
+      if (typeof post.userId === 'object' && post.userId.username) {
+        setAuthor(post.userId);
+      } else {
+        client.get(`/users/${authorId}`)
+          .then(r => setAuthor(r.data))
+          .catch(() => {});
+      }
+    }
+  }, [authorId, post.userId, author]);
+
   const currentUserId = getSafeId(user);
   const isOwner = currentUserId && currentUserId === authorId;
   const canDelete = isOwner || user?.role === 'root';
@@ -60,7 +60,7 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
   const isFollowing = (user?.following || []).some((f) => getSafeId(f) === authorId);
   const showFollowButton = showFollowAction && Boolean(authorId) && !isOwner && !isFollowing && !followedLocally;
 
-  const toggleLike = async () => {
+  const toggleLike = useCallback(async () => {
     try {
       await client.put(`/posts/${post._id}/like`);
       setPost(prev => {
@@ -72,9 +72,9 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [post._id, user?._id]);
 
-  const handleComment = async (e) => {
+  const handleComment = useCallback(async (e) => {
     e.preventDefault();
     if (!commentText.trim()) return;
     setLoadingComment(true);
@@ -87,9 +87,9 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
     } finally {
       setLoadingComment(false);
     }
-  };
+  }, [post._id, commentText]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!window.confirm("Supprimer cette publication ?")) return;
     try {
       await client.delete(`/posts/${post._id}`);
@@ -98,16 +98,16 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
     } catch (err) {
       toast.error("Erreur lors de la suppression");
     }
-  };
+  }, [post._id, onDelete]);
 
-  const openEdit = () => {
+  const openEdit = useCallback(() => {
     setEditDesc(post.desc || '');
     setEditImage(post.image || '');
     setIsEditing(true);
     setShowOptions(false);
-  };
+  }, [post.desc, post.image]);
 
-  const handleEditSave = async (e) => {
+  const handleEditSave = useCallback(async (e) => {
     e.preventDefault();
     const payload = { desc: editDesc };
     if (editImage.trim()) payload.image = editImage.trim();
@@ -124,9 +124,9 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
     } finally {
       setSavingEdit(false);
     }
-  };
+  }, [post._id, editDesc, editImage, onUpdate]);
 
-  const handleFollowAuthor = async () => {
+  const handleFollowAuthor = useCallback(async () => {
     if (!authorId || followLoading) return;
     setFollowLoading(true);
     try {
@@ -143,7 +143,7 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
     } finally {
       setFollowLoading(false);
     }
-  };
+  }, [authorId, followLoading, refreshUser]);
 
   const openImageModal = () => {
     setShowImageModal(true);

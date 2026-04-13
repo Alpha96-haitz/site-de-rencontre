@@ -3,7 +3,7 @@ import cloudinary from '../config/cloudinary.js';
 import { createNotification } from './notificationController.js';
 import { getCached, setCached, clearCacheByPrefix } from '../utils/simpleCache.js';
 
-const escapeHtml = (str) => String(str || '')
+const escapeHtml = (str) => String(str || '').normalize('NFC')
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
   .replace(/>/g, '&gt;')
