@@ -12,13 +12,11 @@ const escapeHtml = (str) => String(str || '').normalize('NFC')
 
 export const createPost = async (req, res) => {
   try {
-    let imageUrl = '';
-
-    if (req.file) {
-      imageUrl = await new Promise((resolve, reject) => {
+    const uploadOneFile = async (file) => {
+      return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => reject(new Error('Cloudinary upload timeout (60s)')), 60000);
-        const b64 = Buffer.from(req.file.buffer).toString('base64');
-        const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+        const b64 = Buffer.from(file.buffer).toString('base64');
+        const dataURI = `data:${file.mimetype};base64,${b64}`;
 
         cloudinary.uploader.upload(
           dataURI,
@@ -37,19 +35,36 @@ export const createPost = async (req, res) => {
           }
         );
       });
+    };
+
+    const singleFile = req.files?.image?.[0] || req.file || null;
+    const multiFiles = Array.isArray(req.files?.images) ? req.files.images : [];
+    const filesToUpload = [...(singleFile ? [singleFile] : []), ...multiFiles].slice(0, 4);
+
+    const uploadedImages = [];
+    for (const file of filesToUpload) {
+      // Upload sequentially to keep memory and request pressure stable
+      const url = await uploadOneFile(file);
+      uploadedImages.push(url);
     }
 
     const postData = { ...req.body };
     if (typeof postData.image === 'object') delete postData.image;
+    if (typeof postData.images === 'object') delete postData.images;
 
     const savedPost = await new Post({
       ...postData,
       userId: req.user._id,
-      image: imageUrl || (typeof req.body.image === 'string' ? req.body.image : '')
+      image: uploadedImages[0] || (typeof req.body.image === 'string' ? req.body.image : ''),
+      images: uploadedImages.length ? uploadedImages : []
     }).save();
 
     clearCacheByPrefix('timeline:');
-    res.status(201).json(savedPost);
+    const populatedPost = await Post.findById(savedPost._id)
+      .populate('userId', 'firstName lastName username photos googlePhoto isOnline')
+      .populate('comments.userId', 'firstName lastName username photos googlePhoto')
+      .lean();
+    res.status(201).json(populatedPost || savedPost);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

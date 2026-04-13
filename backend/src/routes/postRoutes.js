@@ -7,7 +7,17 @@ import { postValidation, commentValidation, handleValidation, idValidation } fro
 const router = express.Router();
 
 // Créer un post
-router.post('/', protect, upload.single('image'), postValidation, handleValidation, createPost);
+router.post(
+  '/',
+  protect,
+  upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'images', maxCount: 4 }
+  ]),
+  postValidation,
+  handleValidation,
+  createPost
+);
 
 // Récupérer le feed de l'utilisateur (Timeline)
 router.get('/timeline', protect, getTimelinePosts);

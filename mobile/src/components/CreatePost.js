@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Pressable, Text, StyleSheet, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, TextInput, Pressable, Text, StyleSheet, Image, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,7 +10,7 @@ import { colors } from '../theme/colors';
 export default function CreatePost({ onPostCreated }) {
   const { user } = useAuth();
   const [desc, setDesc] = useState('');
-  const [image, setImage] = useState(null);
+  const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const primaryPhoto = user?.photos?.find((p) => p.isPrimary) || user?.photos?.[0];
@@ -22,33 +22,39 @@ export default function CreatePost({ onPostCreated }) {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
+      allowsEditing: false,
+      allowsMultipleSelection: true,
+      selectionLimit: 4,
       quality: 0.8
     });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setImage(result.assets[0]);
+    if (!result.canceled && Array.isArray(result.assets) && result.assets.length > 0) {
+      setImages((prev) => [...prev, ...result.assets].slice(0, 4));
     }
   };
 
   const handlePost = async () => {
-    if (!desc.trim() && !image) return;
+    if (!desc.trim() && images.length === 0) return;
     setLoading(true);
 
     try {
       const formData = new FormData();
       formData.append('desc', desc.trim());
       
-      if (image) {
-        const localUri = image.uri;
+      images.forEach((img, index) => {
+        const localUri = img.uri;
         const filename = localUri.split('/').pop();
         const match = /\.(\w+)$/.exec(filename);
         const type = match ? `image/${match[1]}` : `image`;
-        formData.append('image', { uri: localUri, name: filename, type });
-      }
+        formData.append('images', {
+          uri: localUri,
+          name: `${index}-${filename || `image-${index}.jpg`}`,
+          type
+        });
+      });
 
       const newPost = await postService.create(formData);
       setDesc('');
-      setImage(null);
+      setImages([]);
       onPostCreated?.(newPost);
     } catch (err) {
       Alert.alert('Erreur', 'Erreur lors de la publication');
@@ -70,13 +76,20 @@ export default function CreatePost({ onPostCreated }) {
         />
       </View>
 
-      {image && (
-        <View style={styles.previewContainer}>
-          <Image source={{ uri: image.uri }} style={styles.preview} />
-          <Pressable style={styles.removeBtn} onPress={() => setImage(null)}>
-            <Ionicons name="close" size={20} color="#fff" />
-          </Pressable>
-        </View>
+      {images.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.previewScroll}>
+          {images.map((img, idx) => (
+            <View key={`${img.uri}-${idx}`} style={styles.previewContainer}>
+              <Image source={{ uri: img.uri }} style={styles.preview} />
+              <Pressable
+                style={styles.removeBtn}
+                onPress={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
+              >
+                <Ionicons name="close" size={18} color="#fff" />
+              </Pressable>
+            </View>
+          ))}
+        </ScrollView>
       )}
 
       <View style={styles.footerRow}>
@@ -85,9 +98,9 @@ export default function CreatePost({ onPostCreated }) {
           <Text style={styles.actionText}>PHOTO</Text>
         </Pressable>
         <Pressable 
-          style={[styles.postBtn, (!desc.trim() && !image) && styles.postBtnDisabled]} 
+          style={[styles.postBtn, (!desc.trim() && images.length === 0) && styles.postBtnDisabled]} 
           onPress={handlePost} 
-          disabled={loading || (!desc.trim() && !image)}
+          disabled={loading || (!desc.trim() && images.length === 0)}
         >
           {loading ? (
             <ActivityIndicator color="#fff" size="small" />
@@ -120,8 +133,9 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   input: { flex: 1, backgroundColor: colors.inputBg, minHeight: 48, borderRadius: 24, color: colors.text, fontSize: 16, paddingHorizontal: 16 },
-  previewContainer: { marginTop: 16, borderRadius: 12, overflow: 'hidden', position: 'relative' },
-  preview: { width: '100%', height: 200, resizeMode: 'cover' },
+  previewScroll: { marginTop: 16 },
+  previewContainer: { width: 160, height: 140, marginRight: 10, borderRadius: 12, overflow: 'hidden', position: 'relative' },
+  preview: { width: '100%', height: '100%', resizeMode: 'cover' },
   removeBtn: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.6)', width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   footerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 12 },

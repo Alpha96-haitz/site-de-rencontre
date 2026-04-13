@@ -1,91 +1,249 @@
-import React, { useState, useRef, memo } from 'react';
-import { Image, Pressable, StyleSheet, Text, View, Animated, Alert } from 'react-native';
+import React, { memo, useMemo, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { postService } from '../services/postService';
 import Avatar from './Avatar';
+import { postService } from '../services/postService';
+import { userService } from '../services/userService';
 import { colors } from '../theme/colors';
 
-function PostCard({ post, currentUserId, userRole, onRefresh }) {
-  const author = post.userId || {}; // Corrected from post.user to post.userId based on FeedScreen map
-  const hasLiked = (post.likes || []).includes(currentUserId);
-  const likeScale = useRef(new Animated.Value(1)).current;
-  
-  const canDelete = currentUserId === author?._id || userRole === 'root' || userRole === 'admin';
+const resolvePostImages = (post) => {
+  if (Array.isArray(post?.images) && post.images.length > 0) return post.images;
+  if (post?.image) return [post.image];
+  return [];
+};
+
+function PostCard({
+  post,
+  currentUserId,
+  userRole,
+  isFollowingAuthor,
+  onPostChanged,
+  onPostDeleted,
+  onFollowChanged,
+  onOpenProfile
+}) {
+  const author = post?.userId || {};
+  const authorId = author?._id;
+  const myId = currentUserId ? String(currentUserId) : '';
+  const isMine = authorId && String(authorId) === myId;
+  const canDelete = isMine || userRole === 'root' || userRole === 'admin';
+  const canFollow = Boolean(authorId) && !isMine;
+
+  const images = useMemo(() => resolvePostImages(post), [post]);
+  const hasLiked = useMemo(
+    () => (post?.likes || []).some((id) => String(id) === myId),
+    [post?.likes, myId]
+  );
+
+  const [commentText, setCommentText] = useState('');
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [likeBusy, setLikeBusy] = useState(false);
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
 
   const handleLike = async () => {
-    Animated.sequence([
-      Animated.timing(likeScale, { toValue: 1.3, duration: 100, useNativeDriver: true }),
-      Animated.spring(likeScale, { toValue: 1, friction: 3, useNativeDriver: true })
-    ]).start();
-    await postService.like(post._id);
-    onRefresh?.();
+    if (likeBusy) return;
+    setLikeBusy(true);
+    const currentLikes = Array.isArray(post.likes) ? post.likes : [];
+    const nextLikes = hasLiked
+      ? currentLikes.filter((id) => String(id) !== myId)
+      : [...currentLikes, myId];
+
+    onPostChanged?.({ ...post, likes: nextLikes });
+    try {
+      await postService.like(post._id);
+    } catch (err) {
+      onPostChanged?.(post);
+      Alert.alert('Erreur', 'Impossible de liker cette publication.');
+    } finally {
+      setLikeBusy(false);
+    }
   };
 
-  const handleDelete = async () => {
+  const handleComment = async () => {
+    const clean = commentText.trim();
+    if (!clean || commentBusy) return;
+
+    setCommentBusy(true);
+    try {
+      const result = await postService.comment(post._id, clean);
+      const newComment = result?.comment;
+      if (newComment) {
+        onPostChanged?.({
+          ...post,
+          comments: [...(post.comments || []), newComment]
+        });
+      }
+      setCommentText('');
+      setCommentsOpen(true);
+    } catch (err) {
+      Alert.alert('Erreur', 'Commentaire non envoyé.');
+    } finally {
+      setCommentBusy(false);
+    }
+  };
+
+  const handleDelete = () => {
     Alert.alert(
-      "Supprimer",
-      "Voulez-vous vraiment supprimer cette publication ?",
+      'Supprimer',
+      'Voulez-vous vraiment supprimer cette publication ?',
       [
-        { text: "Annuler", style: "cancel" },
-        { 
-          text: "Supprimer", 
-          style: "destructive",
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
           onPress: async () => {
             try {
               await postService.delete(post._id);
-              onRefresh?.();
+              onPostDeleted?.(post._id);
             } catch (err) {
-              console.log('Erreur suppression', err);
+              Alert.alert('Erreur', 'Suppression impossible.');
             }
-          } 
+          }
         }
       ]
     );
   };
 
+  const handleFollowToggle = async () => {
+    if (!canFollow || followBusy) return;
+    const next = !isFollowingAuthor;
+
+    setFollowBusy(true);
+    onFollowChanged?.(authorId, next);
+    try {
+      if (next) {
+        await userService.follow(authorId);
+      } else {
+        await userService.unfollow(authorId);
+      }
+    } catch (err) {
+      onFollowChanged?.(authorId, !next);
+      Alert.alert('Erreur', "Impossible de modifier l'abonnement.");
+    } finally {
+      setFollowBusy(false);
+    }
+  };
+
   return (
     <View style={styles.card}>
       <View style={styles.head}>
-        <Avatar uri={author?.profilePicture || author?.googlePhoto || author?.photos?.find?.((p) => p.isPrimary)?.url} size={42} />
-        <View style={styles.headerText}>
-          <Text style={styles.name}>{author?.firstName} {author?.lastName}</Text>
-          <Text style={styles.meta}>RÉCENT</Text>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {canDelete && (
-            <Pressable onPress={handleDelete} style={[styles.followBtn, { backgroundColor: 'rgba(239, 68, 68, 0.08)' }]}>
-              <Ionicons name="trash-outline" size={16} color="#ef4444" />
+        <Pressable
+          style={styles.authorPressable}
+          onPress={() => onOpenProfile?.(author)}
+          disabled={!authorId}
+        >
+          <Avatar
+            uri={
+              author?.profilePicture ||
+              author?.googlePhoto ||
+              author?.photos?.find?.((p) => p.isPrimary)?.url
+            }
+            size={42}
+          />
+
+          <View style={styles.headerText}>
+            <Text style={styles.name}>
+              {author?.firstName || ''} {author?.lastName || ''}
+            </Text>
+            <Text style={styles.meta}>Publication</Text>
+          </View>
+        </Pressable>
+
+        <View style={styles.headerActions}>
+          {canFollow && (
+            <Pressable
+              onPress={handleFollowToggle}
+              style={[styles.followBtn, isFollowingAuthor && styles.followingBtn]}
+            >
+              <Text style={[styles.followText, isFollowingAuthor && styles.followingText]}>
+                {followBusy ? '...' : isFollowingAuthor ? 'Abonne' : 'Suivre'}
+              </Text>
             </Pressable>
           )}
-          <Pressable style={styles.followBtn}>
-            <Text style={styles.followText}>SUIVRE</Text>
-          </Pressable>
+
+          {canDelete && (
+            <Pressable onPress={handleDelete} style={styles.deleteBtn}>
+              <Ionicons name="trash-outline" size={16} color={colors.danger} />
+            </Pressable>
+          )}
         </View>
       </View>
 
-      {!!post.desc && <Text style={styles.desc}>{post.desc}</Text>}
-      
-      {!!post.image && (
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: post.image }} style={styles.postImage} resizeMode="cover" />
+      {!!post?.desc && <Text style={styles.desc}>{post.desc}</Text>}
+
+      {images.length > 0 && (
+        <View style={styles.imageGrid}>
+          {images.map((uri, idx) => (
+            <Image
+              key={`${post._id}-img-${idx}`}
+              source={{ uri }}
+              style={styles.postImage}
+              contentFit="cover"
+            />
+          ))}
         </View>
       )}
 
-      {/* Action Footer style Facebook minimal */}
       <View style={styles.footer}>
         <Pressable style={styles.iconBtn} onPress={handleLike}>
-          <Animated.View style={{ transform: [{ scale: likeScale }] }}>
-            <Ionicons name={hasLiked ? 'heart' : 'heart'} size={18} color={hasLiked ? colors.primary : colors.textGhost} />
-          </Animated.View>
-          <Text style={styles.actionTextLike}>
-            {post.likes?.length || 0} J'AIME
-          </Text>
+          <Ionicons
+            name={hasLiked ? 'heart' : 'heart-outline'}
+            size={18}
+            color={hasLiked ? colors.primary : colors.textGhost}
+          />
+          <Text style={styles.actionText}>{post?.likes?.length || 0} J'aime</Text>
         </Pressable>
 
-        <View style={styles.iconBtn}>
-          <Text style={styles.actionTextComments}>{post.comments?.length || 0} Commentaires</Text>
-        </View>
+        <Pressable style={styles.iconBtn} onPress={() => setCommentsOpen((prev) => !prev)}>
+          <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.textGhost} />
+          <Text style={styles.actionText}>{post?.comments?.length || 0} Commentaires</Text>
+        </Pressable>
       </View>
+
+      {commentsOpen && (
+        <View style={styles.commentsBox}>
+          {(post.comments || []).slice(-5).map((comment) => {
+            const cUser = comment?.userId || {};
+            return (
+              <View key={String(comment._id || `${comment.createdAt}-${comment.text}`)} style={styles.commentItem}>
+                <Avatar
+                  uri={
+                    cUser?.profilePicture ||
+                    cUser?.googlePhoto ||
+                    cUser?.photos?.find?.((p) => p.isPrimary)?.url
+                  }
+                  size={28}
+                />
+                <View style={styles.commentBubble}>
+                  <Text style={styles.commentAuthor}>
+                    {cUser?.firstName || ''} {cUser?.lastName || ''}
+                  </Text>
+                  <Text style={styles.commentText}>{comment?.text}</Text>
+                </View>
+              </View>
+            );
+          })}
+
+          <View style={styles.commentInputRow}>
+            <TextInput
+              value={commentText}
+              onChangeText={setCommentText}
+              placeholder="Ecrire un commentaire..."
+              placeholderTextColor={colors.textGhost}
+              style={styles.commentInput}
+            />
+            <Pressable onPress={handleComment} disabled={commentBusy} style={styles.sendBtn}>
+              <Ionicons
+                name="send"
+                size={16}
+                color={commentBusy ? colors.textGhost : colors.primary}
+              />
+            </Pressable>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -93,11 +251,11 @@ function PostCard({ post, currentUserId, userRole, onRefresh }) {
 export default memo(PostCard);
 
 const styles = StyleSheet.create({
-  card: { 
-    backgroundColor: '#fff', 
-    borderRadius: 20, 
-    padding: 16, 
-    marginBottom: 16, 
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -107,16 +265,68 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0,0,0,0.02)'
   },
   head: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  authorPressable: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   headerText: { flex: 1, marginLeft: 12 },
   name: { fontWeight: '800', color: colors.text, fontSize: 16 },
-  meta: { color: colors.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginTop: 2, letterSpacing: 0.5 },
-  followBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: 'rgba(236, 72, 153, 0.08)' },
-  followText: { color: colors.primary, fontWeight: '800', fontSize: 12, letterSpacing: 0.5 },
+  meta: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginTop: 2,
+    letterSpacing: 0.5
+  },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  followBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(236, 72, 153, 0.08)'
+  },
+  followText: { color: colors.primary, fontWeight: '800', fontSize: 12, letterSpacing: 0.3 },
+  followingBtn: { backgroundColor: 'rgba(16, 185, 129, 0.10)' },
+  followingText: { color: '#047857' },
+  deleteBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)'
+  },
   desc: { color: colors.text, fontSize: 16, lineHeight: 22, marginBottom: 12, fontWeight: '500' },
-  imageContainer: { borderRadius: 16, overflow: 'hidden', marginBottom: 14, backgroundColor: colors.inputBg },
-  postImage: { width: '100%', aspectRatio: 4/3 },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.03)' },
+  imageGrid: { gap: 8, marginBottom: 12 },
+  postImage: { width: '100%', height: 260, borderRadius: 14, backgroundColor: colors.inputBg },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.03)'
+  },
   iconBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
-  actionTextLike: { color: colors.textMuted, fontWeight: '800', fontSize: 13, textTransform: 'uppercase' },
-  actionTextComments: { color: colors.textMuted, fontWeight: '700', fontSize: 13 }
+  actionText: { color: colors.textMuted, fontWeight: '700', fontSize: 13 },
+  commentsBox: { marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, gap: 10 },
+  commentItem: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+  commentBubble: { flex: 1, backgroundColor: colors.inputBg, borderRadius: 14, padding: 10 },
+  commentAuthor: { fontWeight: '700', color: colors.text, fontSize: 12, marginBottom: 2 },
+  commentText: { color: colors.text, fontSize: 13, lineHeight: 18 },
+  commentInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  commentInput: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 20,
+    backgroundColor: colors.inputBg,
+    color: colors.text,
+    paddingHorizontal: 14
+  },
+  sendBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(236, 72, 153, 0.08)'
+  }
 });

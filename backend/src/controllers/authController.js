@@ -222,7 +222,7 @@ export const forgotPassword = async (req, res) => {
       console.warn('Reset code email not sent:', emailErr.message);
     }
 
-    return res.json(response);
+    return res.json({ message: genericMessage });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }

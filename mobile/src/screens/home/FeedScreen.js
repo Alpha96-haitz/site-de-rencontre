@@ -15,6 +15,7 @@ export default function FeedScreen({ navigation }) {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [posts, setPosts] = useState([]);
+  const [followingIds, setFollowingIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -31,6 +32,11 @@ export default function FeedScreen({ navigation }) {
     fetchFeed().finally(() => setLoading(false));
   }, [fetchFeed]);
 
+  useEffect(() => {
+    const ids = (user?.following || []).map((id) => String(id));
+    setFollowingIds(new Set(ids));
+  }, [user?.following]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -40,9 +46,36 @@ export default function FeedScreen({ navigation }) {
     }
   };
 
-  const handlePostCreated = (newPost) => {
+  const handlePostCreated = useCallback((newPost) => {
     setPosts((prev) => [newPost, ...prev]);
-  };
+  }, []);
+
+  const handlePostChanged = useCallback((nextPost) => {
+    setPosts((prev) => prev.map((post) => (post._id === nextPost._id ? nextPost : post)));
+  }, []);
+
+  const handlePostDeleted = useCallback((postId) => {
+    setPosts((prev) => prev.filter((post) => post._id !== postId));
+  }, []);
+
+  const handleFollowChanged = useCallback((authorId, isNowFollowing) => {
+    if (!authorId) return;
+    setFollowingIds((prev) => {
+      const next = new Set(prev);
+      if (isNowFollowing) {
+        next.add(String(authorId));
+      } else {
+        next.delete(String(authorId));
+      }
+      return next;
+    });
+  }, []);
+
+  const handleOpenProfile = useCallback((author) => {
+    const idOrUsername = author?.username || author?._id;
+    if (!idOrUsername) return;
+    navigation.navigate('Profile', { screen: 'ProfileMain', params: { userId: idOrUsername } });
+  }, [navigation]);
 
   const TopHeader = () => (
     <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
@@ -78,9 +111,13 @@ export default function FeedScreen({ navigation }) {
       post={item} 
       currentUserId={user?._id || user?.id} 
       userRole={user?.role} 
-      onRefresh={fetchFeed} 
+      isFollowingAuthor={followingIds.has(String(item?.userId?._id || ''))}
+      onPostChanged={handlePostChanged}
+      onPostDeleted={handlePostDeleted}
+      onFollowChanged={handleFollowChanged}
+      onOpenProfile={handleOpenProfile}
     />
-  ), [user?._id, user?.id, user?.role, fetchFeed]);
+  ), [user?._id, user?.id, user?.role, followingIds, handlePostChanged, handlePostDeleted, handleFollowChanged, handleOpenProfile]);
 
   if (loading) return <LoadingScreen label="Chargement du feed" />;
 
