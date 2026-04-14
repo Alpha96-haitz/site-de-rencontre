@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AppInput from '../../components/AppInput';
 import Avatar from '../../components/Avatar';
 import { userService } from '../../services/userService';
@@ -68,6 +69,15 @@ export default function SearchScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <View style={styles.topRow}>
+          <Pressable
+            style={styles.backBtn}
+            onPress={() => navigation.navigate('Feed')}
+          >
+            <Ionicons name="arrow-back" size={18} color={colors.text} />
+            <Text style={styles.backText}>Accueil</Text>
+          </Pressable>
+        </View>
         <AppInput
           placeholder="Nom, username, centre d'interet..."
           value={q}
@@ -121,6 +131,19 @@ export default function SearchScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   header: { padding: 12 },
+  topRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 7
+  },
+  backText: { color: colors.text, fontWeight: '700', fontSize: 12 },
   title: { color: colors.textMuted, marginTop: 4, fontWeight: '600' },
   loadingBox: { paddingHorizontal: 12, paddingBottom: 8 },
   errorText: { color: colors.danger, paddingHorizontal: 12, marginBottom: 6, fontWeight: '600' },

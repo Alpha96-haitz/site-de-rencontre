@@ -5,19 +5,22 @@ export default function GoogleLoginButton({ onSuccess, onError, disabled }) {
   if (!clientId) return null;
 
   return (
-    <div className={disabled ? 'opacity-50 pointer-events-none' : ''}>
+    <div className={`flex justify-center w-full ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
       <GoogleLogin
         onSuccess={(credentialResponse) => {
           if (credentialResponse?.credential) {
             onSuccess?.(credentialResponse.credential);
           }
         }}
-        onError={(err) => onError?.(err)}
+        onError={(err) => {
+          console.error("Google Login Error:", err);
+          onError?.(err);
+        }}
         useOneTap={false}
-        theme="outlined"
+        theme="filled_black"
         size="large"
-        type="icon"
-        shape="rectangular"
+        shape="pill"
+        width="100%"
         text="continue_with"
         locale="fr"
       />

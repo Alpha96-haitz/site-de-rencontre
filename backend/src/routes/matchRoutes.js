@@ -11,6 +11,7 @@ const router = Router();
 router.use(protect);
 
 router.post('/like/:userId', idValidation('userId'), handleValidation, matchController.like);
+router.post('/superlike/:userId', idValidation('userId'), handleValidation, matchController.superLike);
 router.post('/dislike/:userId', idValidation('userId'), handleValidation, matchController.dislike);
 router.get('/', matchController.getMatches);
 router.get('/likes-received', matchController.getLikesReceived);

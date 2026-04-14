@@ -20,6 +20,7 @@ const ProfileScreen = lazy(() => import('../screens/home/ProfileScreen'));
 const EditProfileScreen = lazy(() => import('../screens/home/EditProfileScreen'));
 const EmailVerificationScreen = lazy(() => import('../screens/auth/EmailVerificationScreen'));
 const ForgotPasswordScreen = lazy(() => import('../screens/auth/ForgotPasswordScreen'));
+const AdminDashboardScreen = lazy(() => import('../screens/admin/AdminDashboardScreen'));
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -44,23 +45,28 @@ function ProfileStack() {
 }
 
 function MainTabs() {
+  const { user } = useAuth();
+  const { theme, isDark } = useTheme();
+
   return (
     <Tab.Navigator screenOptions={({ route }) => ({
       headerShown: false,
-      tabBarActiveTintColor: colors.primary,
-      tabBarInactiveTintColor: colors.textGhost,
-      tabBarLabelStyle: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', marginBottom: 6 },
+      tabBarShowLabel: true,
+      tabBarActiveTintColor: theme.primary,
+      tabBarInactiveTintColor: isDark ? theme.textGhost : theme.textGhost,
+      tabBarLabelStyle: { fontSize: 10, fontWeight: '700', marginBottom: 8, marginTop: -4 },
       tabBarStyle: { 
         position: 'absolute',
-        bottom: 12,
+        bottom: 16,
         left: 16,
         right: 16,
-        height: 64, 
+        height: 70, 
         paddingTop: 8, 
         paddingBottom: 8, 
-        backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-        borderTopWidth: 0, 
-        borderRadius: 32,
+        backgroundColor: isDark ? 'rgba(17, 24, 39, 0.95)' : 'rgba(255, 255, 255, 0.95)', 
+        borderWidth: 1, 
+        borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+        borderRadius: 35,
         elevation: 10, 
         shadowColor: '#000', 
         shadowOpacity: 0.1, 
@@ -75,33 +81,45 @@ function MainTabs() {
           Matches: focused ? 'heart' : 'heart-outline',
           Messages: focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline',
           Notifications: focused ? 'notifications' : 'notifications-outline',
-          Profile: focused ? 'person' : 'person-outline' // Caché si besoin
+          Profile: focused ? 'person' : 'person-outline'
         };
-        return <Ionicons name={map[route.name]} size={focused ? 26 : 24} color={color} style={focused ? { transform: [{ scale: 1.1 }] } : {}} />;
+        const iconName = map[route.name];
+        if (!iconName) return null;
+        return <Ionicons name={iconName} size={24} color={color} />;
       }
     })}>
       <Tab.Screen name="Feed" component={FeedScreen} options={{ title: 'Accueil' }} />
       <Tab.Screen name="Discover" component={DiscoverScreen} options={{ title: 'Découvrir' }} />
-      <Tab.Screen name="Search" component={SearchScreen} options={{ title: 'Recherche' }} />
-      <Tab.Screen name="Matches" component={MatchesScreen} options={{ title: 'Matchs' }} />
-      <Tab.Screen name="Messages" component={MessagesScreen} options={{ title: 'Messages' }} />
-      <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Alertes' }} />
-      <Tab.Screen name="Profile" component={ProfileStack} options={{ title: 'Profil', tabBarButton: () => null }} />
+      <Tab.Screen name="Search" component={SearchScreen} options={{ tabBarItemStyle: { display: 'none' }, tabBarButton: () => null }} />
+      <Tab.Screen name="Matches" component={MatchesScreen} options={{ title: 'Likes' }} />
+      <Tab.Screen name="Messages" component={MessagesScreen} options={{ title: 'Messages', tabBarBadge: user?.unreadMessages > 0 ? user.unreadMessages : undefined, tabBarBadgeStyle: { backgroundColor: theme.danger, color: '#fff', fontSize: 11, minWidth: 18, height: 18, lineHeight: 18 } }} />
+      <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Alertes', tabBarBadge: user?.unreadNotifications > 0 ? user.unreadNotifications : undefined, tabBarBadgeStyle: { backgroundColor: theme.danger, color: '#fff', fontSize: 11, minWidth: 18, height: 18, lineHeight: 18 } }} />
+      <Tab.Screen name="Profile" component={ProfileStack} options={{ tabBarItemStyle: { display: 'none' }, tabBarButton: () => null }} />
+      <Tab.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ tabBarItemStyle: { display: 'none' }, tabBarButton: () => null }} />
     </Tab.Navigator>
   );
 }
 
-const navTheme = {
-  ...DefaultTheme,
-  colors: { ...DefaultTheme.colors, background: colors.bg }
-};
-
 export default function AppNavigator() {
   const { loading, token, isEmailVerified } = useAuth();
+  const { isDark, theme } = useTheme();
+  
   if (loading) return <LoadingScreen />;
+
+  const navTheme = {
+    ...DefaultTheme,
+    colors: { 
+      ...DefaultTheme.colors, 
+      background: theme.bg,
+      card: theme.surface,
+      text: theme.text,
+      border: theme.border,
+    }
+  };
 
   return (
     <NavigationContainer theme={navTheme}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <Suspense fallback={<LoadingScreen />}>
         {!token ? (
           <AuthStack />

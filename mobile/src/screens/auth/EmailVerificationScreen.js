@@ -1,42 +1,39 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, Alert, TextInput, KeyboardAvoidingView, Platform, ScrollView, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import AppButton from '../../components/AppButton';
+import { authService } from '../../services/authService';
 import { colors } from '../../theme/colors';
 
 export default function EmailVerificationScreen() {
-  const { verifyEmail, logout, user } = useAuth();
-  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const { refreshUser, logout, user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const inputs = useRef([]);
+  const [resending, setResending] = useState(false);
 
-  const handleChange = (text, index) => {
-    const newCode = [...code];
-    newCode[index] = text.slice(-1);
-    setCode(newCode);
-
-    if (text && index < 5) {
-      inputs.current[index + 1].focus();
+  const handleResendEmail = async () => {
+    setResending(true);
+    try {
+      await authService.resendVerification();
+      Alert.alert('E-mail envoyé', 'Un nouveau lien de validation a été envoyé à votre adresse e-mail.');
+    } catch (err) {
+      Alert.alert('Erreur', 'Impossible de renvoyer l\'e-mail. Veuillez réessayer plus tard.');
+    } finally {
+      setResending(false);
     }
   };
 
-  const handleKeyPress = (e, index) => {
-    if (e.nativeEvent.key === 'Backspace' && !code[index] && index > 0) {
-      inputs.current[index - 1].focus();
-    }
-  };
-
-  const handleVerify = async () => {
-    const fullCode = code.join('');
-    if (fullCode.length !== 6) return Alert.alert('Erreur', 'Entrez les 6 chiffres.');
-
+  const handleCheckVerification = async () => {
     setLoading(true);
     try {
-      await verifyEmail(fullCode);
-      Alert.alert('Succès', 'Votre email a été vérifié !');
+      const updatedUser = await refreshUser();
+      if (updatedUser?.emailVerified) {
+        Alert.alert('Succès', 'Votre adresse e-mail a bien été validée !');
+      } else {
+        Alert.alert('En attente', "Votre adresse e-mail n'est pas encore validée. Veuillez vérifier votre boîte de réception et cliquer sur le lien.");
+      }
     } catch (err) {
-      Alert.alert('Erreur', err?.response?.data?.message || 'Code invalide.');
+      Alert.alert('Erreur', 'Impossible de vérifier le statut. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
@@ -49,39 +46,36 @@ export default function EmailVerificationScreen() {
           <View style={styles.iconCircle}>
             <Ionicons name="mail-unread" size={40} color={colors.primary} />
           </View>
-          <Text style={styles.title}>Vérification</Text>
+          <Text style={styles.title}>Vérifiez votre e-mail</Text>
           <Text style={styles.subtitle}>
-            Entrez le code envoyé à{"\n"}
+            Nous vous avons envoyé un lien d'activation à l'adresse{"\\n"}
             <Text style={styles.email}>{user?.email}</Text>
-          </subtitle>
-        </View>
-
-        <View style={styles.codeContainer}>
-          {code.map((digit, idx) => (
-            <TextInput
-              key={idx}
-              ref={(ref) => (inputs.current[idx] = ref)}
-              style={styles.input}
-              value={digit}
-              onChangeText={(t) => handleChange(t, idx)}
-              onKeyPress={(e) => handleKeyPress(e, idx)}
-              keyboardType="number-pad"
-              maxLength={1}
-              placeholderTextColor={colors.textGhost}
-              selectionColor={colors.primary}
-            />
-          ))}
+          </Text>
+          
+          <View style={styles.instructionBox}>
+            <Ionicons name="information-circle-outline" size={24} color={colors.primary} style={styles.infoIcon} />
+            <Text style={styles.instructionText}>
+              Veuillez ouvrir cet e-mail et cliquer sur le lien pour activer votre compte.
+            </Text>
+          </View>
         </View>
 
         <View style={styles.footer}>
           <AppButton 
-            title="Vérifier le compte" 
-            onPress={handleVerify} 
+            title="J'ai validé mon adresse e-mail" 
+            onPress={handleCheckVerification} 
             loading={loading}
             style={styles.primaryBtn}
           />
+          <AppButton 
+            title="Renvoyer l'e-mail de validation" 
+            onPress={handleResendEmail} 
+            loading={resending}
+            variant="secondary"
+            style={styles.resendBtn}
+          />
           <Pressable onPress={logout} style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>Utiliser un autre compte</Text>
+            <Text style={styles.logoutText}>Utiliser un autre compte / Se déconnecter</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -117,48 +111,53 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#fff',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 15,
     color: '#94a3b8',
     textAlign: 'center',
     lineHeight: 22,
+    marginBottom: 20,
   },
   email: {
     color: colors.primary,
     fontWeight: '700',
   },
-  codeContainer: {
+  instructionBox: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 40,
-  },
-  input: {
-    width: '14%',
-    aspectRatio: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '800',
-    textAlign: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  infoIcon: {
+    marginRight: 10,
+  },
+  instructionText: {
+    flex: 1,
+    color: '#cbd5e1',
+    lineHeight: 20,
   },
   footer: {
-    gap: 16,
+    marginTop: 20,
   },
   primaryBtn: {
-    borderRadius: 16,
-    height: 56,
+    marginBottom: 10,
+  },
+  resendBtn: {
+    marginBottom: 16,
   },
   logoutBtn: {
-    padding: 12,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   logoutText: {
-    color: '#64748b',
-    fontSize: 14,
+    color: colors.textGhost,
+    fontSize: 15,
     fontWeight: '600',
-  }
+  },
 });

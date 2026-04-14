@@ -6,9 +6,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { postService } from '../services/postService';
 import Avatar from './Avatar';
 import { colors } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function CreatePost({ onPostCreated }) {
   const { user } = useAuth();
+  const { theme, isDark } = useTheme();
   const [desc, setDesc] = useState('');
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -64,15 +66,15 @@ export default function CreatePost({ onPostCreated }) {
   };
 
   return (
-    <View style={styles.createBox}>
+    <View style={[styles.createBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <View style={styles.row}>
         <Avatar uri={avatarUrl} size={48} />
         <TextInput
           value={desc}
           onChangeText={setDesc}
           placeholder={`Quoi de neuf, ${user?.firstName || 'utilisateur'} ?`}
-          placeholderTextColor={colors.textGhost}
-          style={styles.input}
+          placeholderTextColor={theme.textGhost}
+          style={[styles.input, { backgroundColor: theme.inputBg, color: theme.text }]}
         />
       </View>
 
@@ -94,11 +96,11 @@ export default function CreatePost({ onPostCreated }) {
 
       <View style={styles.footerRow}>
         <Pressable style={styles.actionBtn} onPress={pickImage} disabled={loading}>
-          <Ionicons name="image-outline" size={20} color={colors.textMuted} />
-          <Text style={styles.actionText}>PHOTO</Text>
+          <Ionicons name="image-outline" size={20} color={theme.textMuted} />
+          <Text style={[styles.actionText, { color: theme.textMuted }]}>PHOTO</Text>
         </Pressable>
         <Pressable 
-          style={[styles.postBtn, (!desc.trim() && images.length === 0) && styles.postBtnDisabled]} 
+          style={[styles.postBtn, { backgroundColor: theme.primary }, (!desc.trim() && images.length === 0) && { backgroundColor: theme.border }]} 
           onPress={handlePost} 
           disabled={loading || (!desc.trim() && images.length === 0)}
         >

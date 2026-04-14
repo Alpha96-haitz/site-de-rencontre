@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { SocketProvider } from './src/contexts/SocketContext';
+import { ThemeProvider } from './src/contexts/ThemeContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 export default function App() {
@@ -13,8 +14,9 @@ export default function App() {
       <SafeAreaProvider>
         <AuthProvider>
           <SocketProvider>
-            <StatusBar style="dark" />
-            <AppNavigator />
+            <ThemeProvider>
+              <AppNavigator />
+            </ThemeProvider>
           </SocketProvider>
         </AuthProvider>
       </SafeAreaProvider>

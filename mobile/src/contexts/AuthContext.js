@@ -133,7 +133,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const loginWithGoogle = async () => {
-    await promptAsync(Platform.OS === 'web' ? {} : { useProxy: true });
+    try {
+      await promptAsync();
+    } catch (err) {
+      console.warn("Erreur Google Auth:", err);
+    }
   };
 
   const value = useMemo(

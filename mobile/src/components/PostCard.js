@@ -1,11 +1,12 @@
 import React, { memo, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View, Modal } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from './Avatar';
 import { postService } from '../services/postService';
 import { userService } from '../services/userService';
 import { colors } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 const resolvePostImages = (post) => {
   if (Array.isArray(post?.images) && post.images.length > 0) return post.images;
@@ -23,6 +24,7 @@ function PostCard({
   onFollowChanged,
   onOpenProfile
 }) {
+  const { theme, isDark } = useTheme();
   const author = post?.userId || {};
   const authorId = author?._id;
   const myId = currentUserId ? String(currentUserId) : '';
@@ -41,6 +43,11 @@ function PostCard({
   const [likeBusy, setLikeBusy] = useState(false);
   const [commentBusy, setCommentBusy] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [showPostMenu, setShowPostMenu] = useState(false);
+
+  const handleEdit = () => {
+    Alert.alert('Info', 'La modification de publication sera bientôt disponible !');
+  };
 
   const handleLike = async () => {
     if (likeBusy) return;
@@ -127,7 +134,7 @@ function PostCard({
   };
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <View style={styles.head}>
         <Pressable
           style={styles.authorPressable}
@@ -164,14 +171,14 @@ function PostCard({
           )}
 
           {canDelete && (
-            <Pressable onPress={handleDelete} style={styles.deleteBtn}>
-              <Ionicons name="trash-outline" size={16} color={colors.danger} />
+            <Pressable onPress={() => setShowPostMenu(true)} style={[styles.actionBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+              <Ionicons name="ellipsis-horizontal" size={20} color={theme.textGhost} />
             </Pressable>
           )}
         </View>
       </View>
 
-      {!!post?.desc && <Text style={styles.desc}>{post.desc}</Text>}
+      {!!post?.desc && <Text style={[styles.desc, { color: theme.text }]}>{post.desc}</Text>}
 
       {images.length > 0 && (
         <View style={styles.imageGrid}>
@@ -186,24 +193,24 @@ function PostCard({
         </View>
       )}
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { borderTopColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
         <Pressable style={styles.iconBtn} onPress={handleLike}>
           <Ionicons
             name={hasLiked ? 'heart' : 'heart-outline'}
             size={18}
-            color={hasLiked ? colors.primary : colors.textGhost}
+            color={hasLiked ? theme.primary : theme.textGhost}
           />
-          <Text style={styles.actionText}>{post?.likes?.length || 0} J'aime</Text>
+          <Text style={[styles.actionText, { color: theme.textMuted }]}>{post?.likes?.length || 0} J'aime</Text>
         </Pressable>
 
         <Pressable style={styles.iconBtn} onPress={() => setCommentsOpen((prev) => !prev)}>
-          <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.textGhost} />
-          <Text style={styles.actionText}>{post?.comments?.length || 0} Commentaires</Text>
+          <Ionicons name="chatbubble-ellipses-outline" size={18} color={theme.textGhost} />
+          <Text style={[styles.actionText, { color: theme.textMuted }]}>{post?.comments?.length || 0} Commentaires</Text>
         </Pressable>
       </View>
 
       {commentsOpen && (
-        <View style={styles.commentsBox}>
+        <View style={[styles.commentsBox, { borderTopColor: theme.border }]}>
           {(post.comments || []).slice(-5).map((comment) => {
             const cUser = comment?.userId || {};
             return (
@@ -216,11 +223,11 @@ function PostCard({
                   }
                   size={28}
                 />
-                <View style={styles.commentBubble}>
-                  <Text style={styles.commentAuthor}>
+                <View style={[styles.commentBubble, { backgroundColor: theme.inputBg }]}>
+                  <Text style={[styles.commentAuthor, { color: theme.text }]}>
                     {cUser?.firstName || ''} {cUser?.lastName || ''}
                   </Text>
-                  <Text style={styles.commentText}>{comment?.text}</Text>
+                  <Text style={[styles.commentText, { color: theme.text }]}>{comment?.text}</Text>
                 </View>
               </View>
             );
@@ -231,19 +238,42 @@ function PostCard({
               value={commentText}
               onChangeText={setCommentText}
               placeholder="Ecrire un commentaire..."
-              placeholderTextColor={colors.textGhost}
-              style={styles.commentInput}
+              placeholderTextColor={theme.textGhost}
+              style={[styles.commentInput, { backgroundColor: theme.inputBg, color: theme.text }]}
             />
             <Pressable onPress={handleComment} disabled={commentBusy} style={styles.sendBtn}>
               <Ionicons
                 name="send"
                 size={16}
-                color={commentBusy ? colors.textGhost : colors.primary}
+                color={commentBusy ? theme.textGhost : theme.primary}
               />
             </Pressable>
           </View>
         </View>
       )}
+
+      {/* Menu Options Post */}
+      <Modal visible={showPostMenu} transparent animationType="fade">
+        <Pressable style={styles.menuOverlay} onPress={() => setShowPostMenu(false)}>
+          <View style={[styles.postMenuBox, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: isDark ? 1 : 0 }]}>
+            {isMine && (
+              <Pressable style={styles.menuItem} onPress={() => { setShowPostMenu(false); handleEdit(); }}>
+                <Ionicons name="pencil-outline" size={20} color={theme.text} />
+                <Text style={[styles.menuItemText, { color: theme.text }]}>Modifier</Text>
+              </Pressable>
+            )}
+            {canDelete && (
+              <>
+                {isMine && <View style={[styles.menuDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} />}
+                <Pressable style={styles.menuItem} onPress={() => { setShowPostMenu(false); handleDelete(); }}>
+                  <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                  <Text style={[styles.menuItemText, { color: colors.danger }]}>Supprimer</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -286,13 +316,10 @@ const styles = StyleSheet.create({
   followText: { color: colors.primary, fontWeight: '800', fontSize: 12, letterSpacing: 0.3 },
   followingBtn: { backgroundColor: 'rgba(16, 185, 129, 0.10)' },
   followingText: { color: '#047857' },
-  deleteBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.08)'
+  actionBtn: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.03)'
   },
   desc: { color: colors.text, fontSize: 16, lineHeight: 22, marginBottom: 12, fontWeight: '500' },
   imageGrid: { gap: 8, marginBottom: 12 },
@@ -328,5 +355,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(236, 72, 153, 0.08)'
-  }
+  },
+  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  postMenuBox: { backgroundColor: '#fff', width: 220, borderRadius: 14, padding: 8, elevation: 10, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 12 },
+  menuItemText: { fontSize: 15, fontWeight: '600', color: colors.text },
+  menuDivider: { height: 1, backgroundColor: 'rgba(0,0,0,0.05)', marginVertical: 4 }
 });

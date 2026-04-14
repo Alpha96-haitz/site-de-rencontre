@@ -10,13 +10,15 @@ import Notification from '../models/Notification.js';
 
 export const getStats = async (req, res) => {
   try {
-    const [users, matches, reports, messages] = await Promise.all([
+    const [users, online, matches, reports, messages, posts] = await Promise.all([
       User.countDocuments(),
+      User.countDocuments({ isOnline: true }),
       Match.countDocuments({ isMutual: true }),
       Report.countDocuments({ status: 'pending' }),
-      Message.countDocuments()
+      Message.countDocuments(),
+      Post.countDocuments()
     ]);
-    res.json({ users, matches, reports, messages });
+    res.json({ users, online, matches, reports, messages, posts });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -26,7 +28,8 @@ export const getUsers = async (req, res) => {
   try {
     const users = await User.find()
       .select('-password -emailVerificationToken -passwordResetToken')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json(users);
   } catch (err) {
@@ -37,7 +40,7 @@ export const getUsers = async (req, res) => {
 export const banUser = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { duration } = req.body;
+    const { duration } = req.body || {};
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
@@ -114,7 +117,8 @@ export const getReports = async (req, res) => {
   try {
     const reports = await Report.find({ status: 'pending' })
       .populate('reporter', 'firstName lastName email username')
-      .populate('reportedUser', 'firstName lastName email username photos');
+      .populate('reportedUser', 'firstName lastName email username photos')
+      .lean();
 
     res.json(reports);
   } catch (err) {
@@ -165,7 +169,7 @@ export const sendNotificationToReportedUser = async (req, res) => {
     const notification = await Notification.create({
       recipient: report.reportedUser._id,
       sender: req.user._id,
-      type: 'follow',
+      type: 'report',
       content: message
     });
 

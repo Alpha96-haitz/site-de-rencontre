@@ -15,6 +15,7 @@ router.post('/login', loginValidation, handleValidation, authController.login);
 router.post('/google', authController.googleAuth);
 router.post('/logout', protect, authController.logout);
 router.get('/verify-email', authController.verifyEmail);
+router.post('/resend-verification', protect, authController.resendVerification);
 router.post('/forgot-password', forgotPasswordValidation, handleValidation, authController.forgotPassword);
 router.post('/verify-reset-code', verifyResetCodeValidation, handleValidation, authController.verifyResetCode);
 router.get('/reset-password/validate', authController.validateResetToken);

@@ -47,6 +47,7 @@ export const initSocket = (io) => {
   });
 
   io.on('connection', async (socket) => {
+    socket.joinedMatches = new Set();
     socket.join(socket.userId);
     addSocketForUser(socket.userId, socket.id);
 
@@ -54,12 +55,20 @@ export const initSocket = (io) => {
     socket.broadcast.emit('user:online', { userId: socket.userId });
     await emitNotificationUnreadCount(io, socket.userId);
 
-    socket.on('join:match', (matchId) => {
-      socket.join(`match:${matchId}`);
+    socket.on('join:match', async (matchId) => {
+      if (!matchId) return;
+      try {
+        const match = await Match.findById(matchId).select('users isMutual').lean();
+        const isParticipant = Boolean(match?.users?.some((id) => id.toString() === socket.userId));
+        if (!match || !isParticipant || !match.isMutual) return;
+        socket.join(`match:${matchId}`);
+        socket.joinedMatches.add(String(matchId));
+      } catch (_) {}
     });
 
     socket.on('leave:match', (matchId) => {
       socket.leave(`match:${matchId}`);
+      if (socket.joinedMatches) socket.joinedMatches.delete(String(matchId));
     });
 
     socket.on('message:send', async (data) => {
@@ -127,6 +136,18 @@ export const initSocket = (io) => {
 
     socket.on('message:read', (matchId) => {
       socket.to(`match:${matchId}`).emit('message:read', { userId: socket.userId, matchId });
+    });
+
+    socket.on('typing:start', ({ matchId } = {}) => {
+      if (!matchId) return;
+      if (!socket.joinedMatches?.has(String(matchId))) return;
+      socket.to(`match:${matchId}`).emit('typing:start', { matchId, userId: socket.userId });
+    });
+
+    socket.on('typing:stop', ({ matchId } = {}) => {
+      if (!matchId) return;
+      if (!socket.joinedMatches?.has(String(matchId))) return;
+      socket.to(`match:${matchId}`).emit('typing:stop', { matchId, userId: socket.userId });
     });
 
     socket.on('disconnect', async () => {

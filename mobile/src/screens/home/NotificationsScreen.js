@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from '
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../../components/Avatar';
 import { notificationService } from '../../services/notificationService';
+import { useSocket } from '../../contexts/SocketContext';
 import { colors } from '../../theme/colors';
 
 const formatRelativeTime = (value) => {
@@ -21,10 +22,13 @@ const getTypeConfig = (type) => {
   if (type === 'comment') return { icon: 'chatbubble', color: '#3b82f6', label: 'a commente votre publication.' };
   if (type === 'follow') return { icon: 'person-add', color: '#10b981', label: 'a commence a vous suivre.' };
   if (type === 'match') return { icon: 'sparkles', color: '#f59e0b', label: 'vous avez un nouveau match.' };
+  if (type === 'report') return { icon: 'warning', color: '#f97316', label: 'a signale votre profil.' };
+  if (type === 'message') return { icon: 'mail', color: '#6366f1', label: 'vous a envoye un message.' };
   return { icon: 'notifications', color: colors.primary, label: 'nouvelle notification.' };
 };
 
 export default function NotificationsScreen({ navigation }) {
+  const { socket } = useSocket();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionBusy, setActionBusy] = useState(false);
@@ -41,6 +45,24 @@ export default function NotificationsScreen({ navigation }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const onNewNotification = (notification) => {
+      if (!notification?._id) return;
+      setItems((prev) => {
+        const exists = prev.some((item) => String(item._id) === String(notification._id));
+        if (exists) return prev;
+        return [notification, ...prev];
+      });
+    };
+
+    socket.on('notification:new', onNewNotification);
+    return () => {
+      socket.off('notification:new', onNewNotification);
+    };
+  }, [socket]);
 
   const unreadCount = useMemo(
     () => items.filter((item) => !item.read).length,

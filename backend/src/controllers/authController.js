@@ -201,6 +201,30 @@ export const verifyEmail = async (req, res) => {
   }
 };
 
+export const resendVerification = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'Utilisateur non trouve' });
+    if (user.emailVerified) return res.status(400).json({ message: 'Email deja verifie' });
+
+    const token = generateToken();
+    user.emailVerificationToken = token;
+    user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
+    await user.save();
+
+    const baseUrl = getBaseFrontendUrl(req);
+    try {
+      await sendVerificationEmail(user.email, token, baseUrl);
+    } catch (emailErr) {
+      console.warn('Verification email not resent:', emailErr.message);
+    }
+
+    res.json({ message: 'E-mail de verification renvoye' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;

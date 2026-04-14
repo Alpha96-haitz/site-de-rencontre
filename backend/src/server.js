@@ -87,6 +87,7 @@ const io = new Server(httpServer, {
 });
 initSocket(io);
 app.set('io', io);
+global.ioInstance = io;
 
 // Sécurité
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));

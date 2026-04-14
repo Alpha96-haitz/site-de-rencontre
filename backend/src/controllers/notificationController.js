@@ -1,4 +1,5 @@
 import Notification from '../models/Notification.js';
+import { notifyNotificationUnread } from '../socket/index.js';
 
 const emitUnreadNotificationCount = async (req, recipientId) => {
   const io = req.app?.get?.('io');
@@ -10,10 +11,11 @@ const emitUnreadNotificationCount = async (req, recipientId) => {
 export const getNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({ recipient: req.user._id })
-      .populate('sender', 'firstName lastName username photos googlePhoto')
-      .populate('post', 'desc image')
+      .populate('sender', 'firstName lastName username photos googlePhoto profilePicture')
+      .populate('post', 'desc image images')
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean();
     return res.json(notifications);
   } catch (err) {
     return res.status(500).json({ message: err.message });
@@ -80,16 +82,34 @@ export const createNotification = async ({ recipient, sender, type, post, conten
     if (type === 'comment') finalContent = 'a ajoute un commentaire sur votre publication.';
     if (type === 'follow') finalContent = 'a commence a suivre votre profil.';
     if (type === 'match') finalContent = 'Felicitations ! Vous avez un nouveau match. Envoyez-lui un message !';
+    if (type === 'message') finalContent = 'vous a envoye un message.';
+    if (type === 'report') finalContent = 'a envoye un signalement concernant votre profil.';
   }
 
   try {
-    return await Notification.create({
+    const notification = await Notification.create({
       recipient,
       sender,
       type,
       post,
       content: finalContent
     });
+
+    // Emission temps reel pour un rendu "Instagram-like".
+    try {
+      const io = global?.ioInstance || null;
+      if (io) {
+        io.to(recipient.toString()).emit('notification:new', {
+          ...notification.toObject(),
+          sender: typeof sender === 'object' ? sender : { _id: sender }
+        });
+        await notifyNotificationUnread(io, recipient);
+      }
+    } catch (_) {
+      // silent fail: la notif reste sauvegardee en base
+    }
+
+    return notification;
   } catch (err) {
     return null;
   }
