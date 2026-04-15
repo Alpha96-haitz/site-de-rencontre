@@ -289,3 +289,67 @@ export const deleteConversation = async (req, res) => {
     return res.status(500).json({ message: err.message });
   }
 };
+
+// Modifier un message specifique
+export const editMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { content } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({ message: 'ID de message invalide' });
+    }
+    if (!String(content || '').trim()) {
+      return res.status(400).json({ message: 'Le contenu ne peut pas etre vide' });
+    }
+
+    const message = await Message.findById(messageId).populate('sender', 'firstName lastName photos googlePhoto');
+    if (!message) return res.status(404).json({ message: 'Message introuvable' });
+    if (message.sender._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Action non autorisee' });
+    }
+
+    message.content = String(content).trim();
+    message.isEdited = true;
+    await message.save();
+
+    const payload = message.toObject();
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`match:${message.match}`).emit('message:updated', payload);
+    }
+
+    return res.json(payload);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+// Supprimer un message specifique
+export const deleteMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({ message: 'ID de message invalide' });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: 'Message introuvable' });
+    if (message.sender.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Action non autorisee' });
+    }
+
+    const matchId = message.match;
+    await Message.findByIdAndDelete(messageId);
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`match:${matchId}`).emit('message:deleted', { messageId, match: matchId });
+    }
+
+    return res.json({ message: 'Message supprime avec succes' });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};

@@ -74,10 +74,29 @@ export default function Notifications() {
     } catch (err) {
       console.error('Erreur marque notification lue', err);
     } finally {
-      if (notification.post) {
-        navigate(`/home/profile/${user.username}`);
+      const { type, post, match, sender } = notification;
+      const postId = post?._id || post;
+      const matchId = match?._id || match;
+
+      if (type === 'like' || type === 'comment') {
+        if (postId) {
+          navigate(`/home/post/${postId}`);
+          return;
+        }
+      }
+
+      if (type === 'match' || type === 'message') {
+        if (matchId) {
+          navigate(`/home/messages/${matchId}`);
+          return;
+        }
+      }
+
+      // Par défaut vers le profil de l'expéditeur (pour les follows, etc)
+      if (sender?.username) {
+        navigate(`/home/profile/${sender.username}`);
       } else {
-        navigate(`/home/profile/${notification.sender?.username}`);
+        navigate('/home');
       }
     }
   };

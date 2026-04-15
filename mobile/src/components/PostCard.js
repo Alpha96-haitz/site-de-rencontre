@@ -2,6 +2,7 @@ import React, { memo, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View, Modal } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from './Avatar';
 import { postService } from '../services/postService';
 import { userService } from '../services/userService';
@@ -12,6 +13,31 @@ const resolvePostImages = (post) => {
   if (Array.isArray(post?.images) && post.images.length > 0) return post.images;
   if (post?.image) return [post.image];
   return [];
+};
+
+const formatRelativeTime = (date) => {
+  if (!date) return '';
+  const now = new Date();
+  const diff = Math.floor((now - new Date(date)) / 1000);
+
+  if (diff < 0) return "À l'instant";
+  if (diff < 60) return `Il y a ${diff}s`;
+  if (diff < 3600) {
+    const min = Math.floor(diff / 60);
+    return `Il y a ${min} min`;
+  }
+  if (diff < 86400) {
+    const hours = Math.floor(diff / 3600);
+    return `Il y a ${hours}h`;
+  }
+  if (diff < 2592000) {
+    const days = Math.floor(diff / 86400);
+    return `Il y a ${days}j`;
+  }
+  return new Date(date).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short'
+  });
 };
 
 function PostCard({
@@ -25,6 +51,7 @@ function PostCard({
   onOpenProfile
 }) {
   const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const author = post?.userId || {};
   const authorId = author?._id;
   const myId = currentUserId ? String(currentUserId) : '';
@@ -44,6 +71,7 @@ function PostCard({
   const [commentBusy, setCommentBusy] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [showPostMenu, setShowPostMenu] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const handleEdit = () => {
     Alert.alert('Info', 'La modification de publication sera bientôt disponible !');
@@ -154,7 +182,9 @@ function PostCard({
             <Text style={[styles.name, { color: theme.text }]}>
               {author?.firstName || ''} {author?.lastName || ''}
             </Text>
-            <Text style={[styles.meta, { color: theme.textMuted }]}>Publication</Text>
+            <Text style={[styles.meta, { color: theme.textMuted }]}>
+              {formatRelativeTime(post.createdAt)}
+            </Text>
           </View>
         </Pressable>
 
@@ -183,15 +213,31 @@ function PostCard({
       {images.length > 0 && (
         <View style={styles.imageGrid}>
           {images.map((uri, idx) => (
-            <Image
-              key={`${post._id}-img-${idx}`}
-              source={{ uri }}
-              style={styles.postImage}
-              contentFit="cover"
-            />
+            <Pressable key={`${post._id}-img-${idx}`} onPress={() => setSelectedImage(uri)}>
+              <Image
+                source={{ uri }}
+                style={styles.postImage}
+                contentFit="cover"
+              />
+            </Pressable>
           ))}
         </View>
       )}
+
+      {/* Image Zoom Modal */}
+      <Modal visible={!!selectedImage} transparent animationType="fade" statusBarTranslucent>
+        <Pressable style={styles.fullImageOverlay} onPress={() => setSelectedImage(null)}>
+          <Image
+            source={{ uri: selectedImage }}
+            style={styles.fullImage}
+            contentFit="contain"
+            transition={300}
+          />
+          <Pressable style={[styles.closeImageBtn, { top: insets.top + 10 }]} onPress={() => setSelectedImage(null)}>
+            <Ionicons name="close-circle" size={40} color="#fff" />
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <View style={[styles.footer, { borderTopColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
         <Pressable style={styles.iconBtn} onPress={handleLike}>
@@ -360,5 +406,8 @@ const styles = StyleSheet.create({
   postMenuBox: { backgroundColor: '#fff', width: 220, borderRadius: 14, padding: 8, elevation: 10, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20 },
   menuItem: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 12 },
   menuItemText: { fontSize: 15, fontWeight: '600', color: colors.text },
-  menuDivider: { height: 1, backgroundColor: 'rgba(0,0,0,0.05)', marginVertical: 4 }
+  menuDivider: { height: 1, backgroundColor: 'rgba(0,0,0,0.05)', marginVertical: 4 },
+  fullImageOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
+  fullImage: { width: '100%', height: '100%' },
+  closeImageBtn: { position: 'absolute', right: 20, zIndex: 100 }
 });

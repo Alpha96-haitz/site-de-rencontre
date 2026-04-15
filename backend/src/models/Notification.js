@@ -22,6 +22,10 @@ const notificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Post'
     },
+    match: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Match'
+    },
     content: String,
     read: {
       type: Boolean,

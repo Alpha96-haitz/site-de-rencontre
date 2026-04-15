@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View, Image, ScrollView } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View, Image, ScrollView, Modal } from 'react-native';
 import AppInput from '../../components/AppInput';
 import AppButton from '../../components/AppButton';
 import { useAuth } from '../../contexts/AuthContext';
@@ -12,6 +12,7 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   const handleLogin = async () => {
     try {
@@ -66,10 +67,40 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.termsWrapper}>
             <Text style={[styles.termsText, { color: theme.textGhost }]}>
               En vous connectant, vous acceptez nos{' '}
-              <Text style={styles.underline}>Conditions d'utilisation</Text> et notre{' '}
+              <Text 
+                style={styles.underline} 
+                onPress={() => setShowTerms(true)}
+              >
+                Conditions d'utilisation
+              </Text> et notre{' '}
               <Text style={styles.underline}>Politique de confidentialité</Text>.
             </Text>
           </View>
+
+          {/* Modal des Conditions d'utilisation */}
+          <Modal visible={showTerms} animationType="slide" transparent={false}>
+            <View style={[styles.modalContainer, { backgroundColor: theme.bg }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>Conditions d'utilisation</Text>
+                <Pressable onPress={() => setShowTerms(false)} style={styles.closeBtn}>
+                  <Text style={{ color: theme.primary, fontWeight: 'bold' }}>Fermer</Text>
+                </Pressable>
+              </View>
+              <ScrollView contentContainerStyle={styles.modalContent}>
+                <Text style={[styles.termsFullText, { color: theme.text }]}>
+                  Bienvenue sur HAITZ. En utilisant notre plateforme, vous acceptez les présentes conditions d'utilisation. Ces conditions définissent vos droits et obligations vis-à-vis de notre service, de nos utilisateurs et de notre communauté.{"\n\n"}
+                  <Text style={styles.bold}>1. Inscription</Text>{"\n"}
+                  Vous devez avoir au moins 18 ans pour créer un compte. Les informations que vous fournissez doivent être véridiques et à jour. Toute fausse déclaration peut entraîner la suspension de votre compte.{"\n\n"}
+                  <Text style={styles.bold}>2. Contenu utilisateur</Text>{"\n"}
+                  Vous restez responsable du contenu que vous publiez. Aucun contenu haineux, discriminatoire ou illégal n'est autorisé. Nous nous réservons le droit de supprimer tout contenu non conforme.{"\n\n"}
+                  <Text style={styles.bold}>3. Comportement</Text>{"\n"}
+                  Le respect et la bienveillance sont obligatoires. Le harcèlement, le spamming et les comportements abusifs peuvent conduire à un bannissement immédiat.{"\n\n"}
+                  <Text style={styles.bold}>4. Propriété intellectuelle</Text>{"\n"}
+                  Tous les droits sur la marque HAITZ, l'interface et le contenu propriétaire sont réservés. Vous pouvez utiliser le service dans le cadre de l'application des présentes conditions.
+                </Text>
+              </ScrollView>
+            </View>
+          </Modal>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -98,5 +129,19 @@ const styles = StyleSheet.create({
   link: { color: colors.primary, fontWeight: '800' },
   termsWrapper: { marginTop: 'auto', paddingTop: 40, paddingHorizontal: 16 },
   termsText: { fontSize: 11, textAlign: 'center', lineHeight: 18, fontWeight: '500' },
-  underline: { textDecorationLine: 'underline' }
+  underline: { textDecorationLine: 'underline' },
+  modalContainer: { flex: 1, paddingTop: Platform.OS === 'ios' ? 60 : 20 },
+  modalHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    paddingHorizontal: 20, 
+    paddingBottom: 20,
+    borderBottomWidth: 1
+  },
+  modalTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+  closeBtn: { padding: 8 },
+  modalContent: { padding: 20 },
+  termsFullText: { fontSize: 15, lineHeight: 24, fontWeight: '500' },
+  bold: { fontWeight: '900', fontSize: 16 }
 });

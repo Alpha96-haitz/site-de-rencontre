@@ -20,12 +20,12 @@ const formatRelativeTime = (value) => {
 };
 
 const getTypeConfig = (type) => {
-  if (type === 'like') return { icon: 'heart', color: '#ef4444', label: "a aime votre publication." };
-  if (type === 'comment') return { icon: 'chatbubble', color: '#3b82f6', label: 'a commente votre publication.' };
-  if (type === 'follow') return { icon: 'person-add', color: '#10b981', label: 'a commence a vous suivre.' };
-  if (type === 'match') return { icon: 'sparkles', color: '#f59e0b', label: 'vous avez un nouveau match.' };
-  if (type === 'report') return { icon: 'warning', color: '#f97316', label: 'a signale votre profil.' };
-  if (type === 'message') return { icon: 'mail', color: '#6366f1', label: 'vous a envoye un message.' };
+  if (type === 'like') return { icon: 'heart', color: '#ef4444', label: "a aimé votre photo." };
+  if (type === 'comment') return { icon: 'chatbubble', color: '#3b82f6', label: 'a commenté votre photo.' };
+  if (type === 'follow') return { icon: 'person-add', color: '#10b981', label: 'a commencé à vous suivre.' };
+  if (type === 'match') return { icon: 'sparkles', color: '#f59e0b', label: 'est maintenant un match !' };
+  if (type === 'report') return { icon: 'warning', color: '#f97316', label: 'a signalé votre profil.' };
+  if (type === 'message') return { icon: 'mail', color: '#6366f1', label: 'vous a envoyé un message.' };
   return { icon: 'notifications', color: colors.primary, label: 'nouvelle notification.' };
 };
 
@@ -94,7 +94,27 @@ export default function NotificationsScreen({ navigation }) {
       }
     }
 
-    const senderId = item?.sender?.username || item?.sender?._id;
+    const { type, post, match, sender } = item;
+    const senderId = sender?.username || sender?._id;
+
+    // L'objet post/match peut être peuplé (objet) ou non (string ID)
+    const postId = post?._id || post;
+    const matchId = match?._id || match || item?.relatedId;
+
+    if (type === 'like' || type === 'comment') {
+      if (postId) {
+        navigation.navigate('PostDetail', { postId });
+        return;
+      }
+    }
+
+    if (type === 'match' || type === 'message') {
+      if (matchId) {
+        navigation.navigate('Messages', { matchId, recipient: sender });
+        return;
+      }
+    }
+
     if (senderId) {
       navigation.navigate('ProfileMain', { userId: senderId });
     }
@@ -131,6 +151,8 @@ export default function NotificationsScreen({ navigation }) {
           renderItem={({ item }) => {
             const sender = item?.sender || {};
             const cfg = getTypeConfig(item?.type);
+            const relativeTime = formatRelativeTime(item?.createdAt);
+
             return (
               <Pressable
                 onPress={() => handleOpenNotification(item)}
@@ -152,13 +174,13 @@ export default function NotificationsScreen({ navigation }) {
                   <Text style={[styles.content, { color: theme.text }]}>
                     <Text style={[styles.senderName, { color: theme.text }]}>
                       {sender?.firstName || ''} {sender?.lastName || ''}
-                    </Text>{' '}
-                    {item?.content || cfg.label}
+                    </Text>
+                    <Text style={{ fontWeight: '400' }}> {item?.content || cfg.label} </Text>
+                    <Text style={[styles.timeTextInline, { color: theme.textGhost }]}>{relativeTime}</Text>
                   </Text>
-                  <Text style={[styles.timeText, { color: theme.textGhost }]}>{formatRelativeTime(item?.createdAt)}</Text>
                 </View>
                 <View style={[styles.typeIconWrap, { backgroundColor: `${cfg.color}22` }]}>
-                  <Ionicons name={cfg.icon} size={16} color={cfg.color} />
+                  <Ionicons name={cfg.icon} size={14} color={cfg.color} />
                 </View>
               </Pressable>
             );
@@ -207,7 +229,7 @@ const styles = StyleSheet.create({
   itemBody: { flex: 1 },
   content: { color: colors.text, lineHeight: 20 },
   senderName: { fontWeight: '800', color: colors.text },
-  timeText: { color: colors.textGhost, marginTop: 4, fontSize: 12, fontWeight: '600' },
+  timeTextInline: { color: colors.textGhost, fontSize: 13, fontWeight: '400' },
   typeIconWrap: {
     width: 30,
     height: 30,

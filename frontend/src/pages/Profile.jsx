@@ -26,6 +26,10 @@ export default function Profile() {
   const [matchData, setMatchData] = useState(null);
   const [isLiked, setIsLiked] = useState(false);
   const [hasMatch, setHasMatch] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showCoverMenu, setShowCoverMenu] = useState(false);
+  const [viewPhotoUrl, setViewPhotoUrl] = useState(null);
 
   useEffect(() => {
     refreshUser().catch(() => {});
@@ -52,7 +56,6 @@ export default function Profile() {
         
         setProfile(profileData);
 
-        // Vérifier si un match mutuel existe pour le chat
         if (!isOwnProfile && profileData?._id) {
           const { data: matchCheck } = await client.get(`/matches/status/${profileData._id}`);
           setHasMatch(matchCheck.isMutual);
@@ -400,17 +403,41 @@ export default function Profile() {
       <div className="bg-white shadow-sm overflow-hidden pb-4">
         <div className="max-w-5xl mx-auto px-0 md:px-4">
            {/* Cover Photo */}
-           <div className="h-[200px] md:h-[350px] w-full relative bg-slate-200 md:rounded-b-xl overflow-hidden">
-             <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
-             <div className="absolute inset-0 bg-black/5"></div>
-             {isOwnProfile && (
-                <button 
-                  onClick={() => navigate('/home/profile/edit?tab=photos')}
-                  className="absolute bottom-4 right-4 bg-white hover:bg-slate-50 text-slate-800 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-sm transition-all"
-                >
-                   <FiCamera className="text-xl" /> <span className="hidden md:inline">Modifier la couverture</span>
-                </button>
-             )}
+           <div className="relative group">
+              <div className="h-[200px] md:h-[350px] w-full relative bg-slate-200 md:rounded-b-xl overflow-hidden">
+                <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/5"></div>
+              </div>
+              
+              {isOwnProfile && (
+                <div className="absolute bottom-4 right-4 z-30">
+                  <button 
+                    onClick={() => setShowCoverMenu(!showCoverMenu)}
+                    className="bg-white hover:bg-slate-50 text-slate-800 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-sm transition-all border border-slate-100"
+                  >
+                    <FiCamera className="text-xl" /> <span className="hidden md:inline">Modifier la couverture</span>
+                  </button>
+                  {showCoverMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowCoverMenu(false)}></div>
+                      <div className="absolute bottom-full right-0 mb-2 w-64 bg-white rounded-xl shadow-2xl border border-slate-100 z-50 py-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                        <button 
+                          onClick={() => { setViewPhotoUrl(coverUrl); setShowCoverMenu(false); }}
+                          className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-slate-700 flex items-center gap-3 transition-colors text-sm"
+                        >
+                          <FiImage className="text-xl text-slate-400" /> Voir la photo de couverture
+                        </button>
+                        <button 
+                          onClick={() => { navigate('/home/profile/edit?tab=photos'); setShowCoverMenu(false); }}
+                          className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-slate-700 flex items-center gap-3 transition-colors text-sm"
+                        >
+                          <FiCamera className="text-xl text-slate-400" /> Importer une photo
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
            </div>
 
            {/* Profile Header Info */}
@@ -421,12 +448,33 @@ export default function Profile() {
                        <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
                     </div>
                     {isOwnProfile && (
-                       <button 
-                         onClick={() => navigate('/home/profile/edit?tab=photos')}
-                         className="absolute bottom-3 right-3 bg-slate-100 hover:bg-slate-200 p-2.5 rounded-full text-slate-800 shadow-md border border-white transition-all"
-                       >
-                          <FiCamera className="text-lg" />
-                       </button>
+                       <div className="absolute bottom-3 right-3">
+                          <button 
+                            onClick={() => setShowProfileMenu(!showProfileMenu)}
+                            className="bg-slate-100 hover:bg-slate-200 p-2.5 rounded-full text-slate-800 shadow-md border border-white transition-all"
+                          >
+                              <FiCamera className="text-lg" />
+                          </button>
+                          {showProfileMenu && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)}></div>
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-slate-100 z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
+                                <button 
+                                  onClick={() => { setViewPhotoUrl(avatarUrl); setShowProfileMenu(false); }}
+                                  className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-slate-700 flex items-center gap-3 transition-colors"
+                                >
+                                  <FiUsers className="text-xl text-slate-400" /> Voir la photo de profil
+                                </button>
+                                <button 
+                                  onClick={() => { navigate('/home/profile/edit?tab=photos'); setShowProfileMenu(false); }}
+                                  className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-slate-700 flex items-center gap-3 transition-colors text-sm"
+                                >
+                                  <FiPlus className="text-xl text-slate-400" /> Importer une nouvelle photo
+                                </button>
+                              </div>
+                            </>
+                          )}
+                       </div>
                     )}
                  </div>
                  
@@ -534,7 +582,29 @@ export default function Profile() {
 
       {showMatchModal && <MatchModal match={matchData} onClose={() => setShowMatchModal(false)} />}
       {showReportModal && <ReportModal reportedUserId={profile?._id} reportedUserName={profile?.firstName} onClose={() => setShowReportModal(false)} />}
+
+      {/* Photo Viewer Modal */}
+      {viewPhotoUrl && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300"
+          onClick={() => setViewPhotoUrl(null)}
+        >
+           <button 
+             onClick={() => setViewPhotoUrl(null)}
+             className="absolute top-6 right-6 text-white text-3xl hover:text-pink-500 transition-colors z-[110]"
+           >
+             <FiPlus className="rotate-45" />
+           </button>
+           <div className="max-w-5xl max-h-[90vh] w-full flex items-center justify-center">
+             <img 
+               src={viewPhotoUrl} 
+               alt="Viewer" 
+               className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300" 
+               onClick={(e) => e.stopPropagation()}
+             />
+           </div>
+        </div>
+      )}
     </div>
   );
 }
-

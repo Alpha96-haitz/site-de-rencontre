@@ -13,6 +13,7 @@ export const getNotifications = async (req, res) => {
     const notifications = await Notification.find({ recipient: req.user._id })
       .populate('sender', 'firstName lastName username photos googlePhoto profilePicture')
       .populate('post', 'desc image images')
+      .populate('match')
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
@@ -73,7 +74,7 @@ export const markAllAsRead = async (req, res) => {
   }
 };
 
-export const createNotification = async ({ recipient, sender, type, post, content }) => {
+export const createNotification = async ({ recipient, sender, type, post, match, content }) => {
   if (recipient.toString() === sender.toString()) return null;
 
   let finalContent = content;
@@ -92,6 +93,7 @@ export const createNotification = async ({ recipient, sender, type, post, conten
       sender,
       type,
       post,
+      match,
       content: finalContent
     });
 

@@ -47,6 +47,7 @@ const processLike = async (req, res, { isSuperLike = false } = {}) => {
       recipient: userId,
       sender: currentUser,
       type: 'match',
+      match: match._id,
       content: `C'est un match ! Vous etes maintenant connecte avec ${req.user.firstName}.`
     });
 
@@ -54,6 +55,7 @@ const processLike = async (req, res, { isSuperLike = false } = {}) => {
       recipient: currentUser,
       sender: userId,
       type: 'match',
+      match: match._id,
       content: "C'est un match ! Vous etes maintenant connecte avec ce profil."
     });
 

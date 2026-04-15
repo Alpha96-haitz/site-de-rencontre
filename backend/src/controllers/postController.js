@@ -222,3 +222,17 @@ export const deletePost = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const getPostById = async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id)
+      .populate('userId', 'firstName lastName username photos googlePhoto isOnline')
+      .populate('comments.userId', 'firstName lastName username photos googlePhoto')
+      .lean();
+
+    if (!post) return res.status(404).json({ message: 'Publication introuvable' });
+    res.json(post);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

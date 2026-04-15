@@ -24,6 +24,7 @@ const EditProfileScreen = lazy(() => import('../screens/home/EditProfileScreen')
 const EmailVerificationScreen = lazy(() => import('../screens/auth/EmailVerificationScreen'));
 const ForgotPasswordScreen = lazy(() => import('../screens/auth/ForgotPasswordScreen'));
 const AdminDashboardScreen = lazy(() => import('../screens/admin/AdminDashboardScreen'));
+const PostDetailScreen = lazy(() => import('../screens/home/PostDetailScreen'));
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -125,6 +126,7 @@ function HomeStack() {
       <Stack.Screen name="ProfileMain" component={ProfileScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Modifier Profil', headerShown: true }} />
       <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+      <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ title: 'Publication', headerShown: true }} />
     </Stack.Navigator>
   );
 }

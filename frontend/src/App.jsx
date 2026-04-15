@@ -22,6 +22,7 @@ const Profile = lazy(() => import('./pages/Profile'));
 const EditProfile = lazy(() => import('./pages/EditProfile'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Search = lazy(() => import('./pages/Search'));
+const PostDetail = lazy(() => import('./pages/PostDetail'));
 const VerifyEmailRequired = lazy(() => import('./pages/VerifyEmailRequired'));
 
 const Protected = ({ children }) => {
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="notifications" element={<Notifications />} />
           <Route path="profile/:username" element={<Profile />} />
           <Route path="profile/edit" element={<EditProfile />} />
+          <Route path="post/:postId" element={<PostDetail />} />
           <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
         </Route>
         <Route path="/profile" element={<Protected><Navigate to="/home" replace /></Protected>} />

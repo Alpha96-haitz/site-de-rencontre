@@ -5,8 +5,9 @@ export const postService = {
   like: (postId) => api.put(`/posts/${postId}/like`).then((r) => r.data),
   comment: (postId, text) => api.post(`/posts/${postId}/comment`, { text }).then((r) => r.data),
   create: (formData) => api.post('/posts', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-type' }
   }).then((r) => r.data),
   delete: (postId) => api.delete(`/posts/${postId}`).then((r) => r.data),
-  getUserPosts: (userId) => api.get(`/posts/profile/${userId}`).then((r) => r.data)
+  getUserPosts: (userId) => api.get(`/posts/profile/${userId}`).then((r) => r.data),
+  getById: (postId) => api.get(`/posts/${postId}`).then((r) => r.data)
 };

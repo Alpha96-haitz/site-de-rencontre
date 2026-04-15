@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../../components/Avatar';
@@ -25,7 +25,7 @@ const buildTempMessage = ({ tempId, matchId, text, currentUser }) => ({
 
 const senderIdOf = (msg) => (msg?.sender?._id || msg?.sender || '').toString();
 
-export default function MessagesScreen({ route }) {
+export default function MessagesScreen({ route, navigation }) {
   const { user } = useAuth();
   const { socket } = useSocket();
   const { theme, isDark } = useTheme();
@@ -41,6 +41,7 @@ export default function MessagesScreen({ route }) {
   const [currentId, setCurrentId] = useState(route.params?.matchId || null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
+  const [editingMessageId, setEditingMessageId] = useState(null);
   const [typing, setTyping] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [query, setQuery] = useState('');
@@ -179,8 +180,18 @@ export default function MessagesScreen({ route }) {
       });
     };
 
+    const onMessageUpdated = (msg) => {
+      setMessages((prev) => prev.map((m) => (String(m._id) === String(msg._id) ? msg : m)));
+    };
+
+    const onMessageDeleted = ({ messageId }) => {
+      setMessages((prev) => prev.filter((m) => String(m._id) !== String(messageId)));
+    };
+
     socket.on('message:new', onNew);
     socket.on('message:received', onNew);
+    socket.on('message:updated', onMessageUpdated);
+    socket.on('message:deleted', onMessageDeleted);
     socket.on('message:error', onMessageError);
     socket.on('typing:start', onTypingStart);
     socket.on('typing:stop', onTypingStop);
@@ -190,6 +201,8 @@ export default function MessagesScreen({ route }) {
     return () => {
       socket.off('message:new', onNew);
       socket.off('message:received', onNew);
+      socket.off('message:updated', onMessageUpdated);
+      socket.off('message:deleted', onMessageDeleted);
       socket.off('message:error', onMessageError);
       socket.off('typing:start', onTypingStart);
       socket.off('typing:stop', onTypingStop);
@@ -222,8 +235,11 @@ export default function MessagesScreen({ route }) {
     [conversations, currentId]
   );
 
+  const fallbackRecipient = route.params?.recipient;
   const currentChatUser =
-    currentConversation?.users?.find((u) => String(u._id) !== currentUserId) || currentConversation?.users?.[0];
+    currentConversation?.users?.find((u) => String(u._id) !== currentUserId) || 
+    currentConversation?.users?.[0] ||
+    fallbackRecipient;
   const isCurrentChatOnline = currentChatUser ? onlineUsers.has(currentChatUser._id) : false;
 
   const handleDeleteConversation = (idToDel) => {
@@ -262,9 +278,53 @@ export default function MessagesScreen({ route }) {
     }, 900);
   };
 
+  useLayoutEffect(() => {
+    const parent = navigation.getParent();
+    if (parent) {
+      if (currentId) {
+        parent.setOptions({ tabBarStyle: { display: 'none' } });
+      } else {
+        parent.setOptions({
+          tabBarStyle: { 
+            position: 'absolute',
+            bottom: 16,
+            left: 16,
+            right: 16,
+            height: 70, 
+            paddingTop: 8, 
+            paddingBottom: 8, 
+            backgroundColor: isDark ? 'rgba(17, 24, 39, 0.95)' : 'rgba(255, 255, 255, 0.95)', 
+            borderWidth: 1, 
+            borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+            borderRadius: 35,
+            elevation: 10, 
+            shadowColor: '#000', 
+            shadowOpacity: 0.1, 
+            shadowOffset: { width: 0, height: 10 },
+            shadowRadius: 20
+          }
+        });
+      }
+    }
+  }, [currentId, navigation, isDark]);
+
   const sendTextMessage = async (forcedText, retryTempId = null) => {
     const clean = (forcedText ?? text).trim();
     if (!clean || !currentId) return;
+
+    if (editingMessageId) {
+      const targetId = editingMessageId;
+      setEditingMessageId(null);
+      setText('');
+      
+      try {
+        const updated = await messageService.editMessage(targetId, clean);
+        setMessages((prev) => prev.map((m) => String(m._id) === String(targetId) ? updated : m));
+      } catch (err) {
+        Alert.alert('Erreur', 'Impossible de modifier le message');
+      }
+      return;
+    }
 
     const tempId = retryTempId || `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const optimistic = buildTempMessage({
@@ -345,68 +405,114 @@ export default function MessagesScreen({ route }) {
     sendTextMessage(msg.content, msg.clientTempId || msg._id);
   };
 
+  const handleLongPressMessage = (item) => {
+    const mine = senderIdOf(item) === currentUserId;
+    if (!mine || item.__pending || item.__failed) return;
+    
+    Alert.alert(
+      "Options du message",
+      "Que souhaitez-vous faire avec ce message ?",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Modifier", 
+          onPress: () => {
+            setText(item.content);
+            setEditingMessageId(item._id);
+          }
+        },
+        { 
+          text: "Supprimer", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              await messageService.deleteMessage(item._id);
+              setMessages((prev) => prev.filter((m) => String(m._id) !== String(item._id)));
+            } catch (err) {
+              Alert.alert("Erreur", "Impossible de supprimer ce message.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.container, { backgroundColor: theme.bg }]}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <View style={[styles.convListWrapper, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Discussions</Text>
-        <View style={[styles.searchBox, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
-          <Ionicons name="search" size={15} color={theme.textGhost} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Rechercher une discussion..."
-            placeholderTextColor={theme.textGhost}
-            style={[styles.searchInput, { color: theme.text }]}
+      {!currentId && (
+        <View style={[styles.convListWrapper, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Discussions</Text>
+          <View style={[styles.searchBox, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
+            <Ionicons name="search" size={15} color={theme.textGhost} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Rechercher une discussion..."
+              placeholderTextColor={theme.textGhost}
+              style={[styles.searchInput, { color: theme.text }]}
+            />
+          </View>
+
+          <FlatList
+            data={filteredConversations}
+            showsVerticalScrollIndicator={false}
+            keyExtractor={(item) => String(item._id)}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 16, paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }}
+            renderItem={({ item }) => {
+              const other = item.users?.find((u) => String(u._id) !== currentUserId) || item.users?.[0];
+              const isOnline = other ? onlineUsers.has(other._id) : false;
+              const isActive = String(item._id) === String(currentId);
+              return (
+                <Pressable 
+                  style={[styles.convItemVertical, isActive && styles.convItemActive]} 
+                  onPress={() => setCurrentId(item._id)}
+                  onLongPress={() => handleDeleteConversation(item._id)}
+                >
+                  <View style={styles.avatarWrap}>
+                    <Avatar uri={other?.photos?.find?.((p) => p.isPrimary)?.url || other?.googlePhoto} size={60} />
+                    {isOnline && <View style={styles.onlineBadge} />}
+                  </View>
+                  <View style={styles.convDetails}>
+                    <View style={styles.convDetailsTop}>
+                      <Text style={[styles.convNameVertical, { color: theme.text }]} numberOfLines={1}>{other?.firstName} {other?.lastName}</Text>
+                      {item.lastMessage && <Text style={[styles.convTime, { color: theme.textGhost }]}>{new Date(item.lastMessage.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>}
+                    </View>
+                    <Text style={[styles.convPreview, { color: !!item.unreadCount ? theme.primary : theme.textMuted, fontWeight: !!item.unreadCount ? '800' : '500' }]} numberOfLines={1}>
+                      {item.lastMessage?.hasImage ? '📷 Image' : (item.lastMessage?.content || 'Nouvelle discussion')}
+                    </Text>
+                  </View>
+                  {!!item.unreadCount && <View style={styles.badge}><Text style={styles.badgeText}>{item.unreadCount}</Text></View>}
+                </Pressable>
+              );
+            }}
           />
         </View>
+      )}
 
-        <FlatList
-          data={filteredConversations}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => String(item._id)}
-          contentContainerStyle={{ paddingHorizontal: 12, gap: 10 }}
-          renderItem={({ item }) => {
-            const other = item.users?.find((u) => String(u._id) !== currentUserId) || item.users?.[0];
-            const isOnline = other ? onlineUsers.has(other._id) : false;
-            const isActive = String(item._id) === String(currentId);
-            return (
-              <Pressable 
-                style={[styles.convItem, isActive && styles.convItemActive]} 
-                onPress={() => setCurrentId(item._id)}
-                onLongPress={() => handleDeleteConversation(item._id)}
-              >
-                <View style={styles.avatarWrap}>
-                  <Avatar uri={other?.photos?.find?.((p) => p.isPrimary)?.url || other?.googlePhoto} size={52} />
-                  {isOnline && <View style={styles.onlineBadge} />}
-                </View>
-                <Text style={[styles.convName, { color: theme.text }]} numberOfLines={1}>{other?.firstName || 'Chat'}</Text>
-                {!!item.unreadCount && <View style={styles.badge}><Text style={styles.badgeText}>{item.unreadCount}</Text></View>}
-              </Pressable>
-            );
-          }}
-        />
-      </View>
-
-      <View style={[styles.chatBox, { backgroundColor: theme.bg }]}>
-        {currentId ? (
-          <>
+      {currentId && (
+          <View style={[styles.chatBox, { backgroundColor: theme.bg }]}>
             <View style={[styles.chatHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-              <View style={styles.chatHeaderTitleGroup}>
-                <Text style={[styles.chatHeaderName, { color: theme.text }]}>{currentChatUser?.firstName || 'Discussion'}</Text>
-                <Text style={[styles.chatHeaderStatus, { color: theme.textMuted }]}>
-                  {typing
-                    ? "en train d'ecrire..."
-                    : isCurrentChatOnline
-                      ? 'en ligne'
-                      : 'hors ligne'}
-                </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Pressable onPress={() => setCurrentId(null)} style={{ padding: 4 }}>
+                  <Ionicons name="arrow-back" size={24} color={theme.text} />
+                </Pressable>
+                <Avatar uri={currentChatUser?.photos?.find?.((p) => p.isPrimary)?.url || currentChatUser?.googlePhoto} size={40} />
+                <View style={styles.chatHeaderTitleGroup}>
+                  <Text style={[styles.chatHeaderName, { color: theme.text }]} numberOfLines={1}>{currentChatUser?.firstName || 'Discussion'} {currentChatUser?.lastName || ''}</Text>
+                  <Text style={[styles.chatHeaderStatus, { color: theme.textMuted }]}>
+                    {typing
+                      ? "en train d'écrire..."
+                      : isCurrentChatOnline
+                        ? 'en ligne'
+                        : 'hors ligne'}
+                  </Text>
+                </View>
               </View>
-              <Pressable onPress={() => handleDeleteConversation(currentId)}>
+              <Pressable onPress={() => handleDeleteConversation(currentId)} style={{ padding: 8 }}>
                 <Ionicons name="trash-outline" size={22} color={theme.danger || '#ef4444'} />
               </Pressable>
             </View>
@@ -426,8 +532,11 @@ export default function MessagesScreen({ route }) {
                 return (
                   <View style={[styles.bubbleWrap, mine ? styles.bubbleWrapMine : styles.bubbleWrapOther]}>
                     <Pressable
-                      disabled={!item.__failed}
-                      onPress={() => retryFailedMessage(item)}
+                      disabled={!item.__failed && !mine}
+                      onPress={() => {
+                        if (item.__failed) retryFailedMessage(item);
+                      }}
+                      onLongPress={() => handleLongPressMessage(item)}
                       style={[
                         styles.bubble,
                         mine ? styles.bubbleMine : styles.bubbleOther,
@@ -465,44 +574,41 @@ export default function MessagesScreen({ route }) {
                 <Ionicons name="send" size={16} color="#fff" style={{ marginLeft: 2 }} />
               </Pressable>
             </View>
-          </>
-        ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name="chatbubbles-outline" size={64} color={theme.border} style={{ marginBottom: 16 }} />
-            <Text style={[styles.emptyTitle, { color: theme.text }]}>Vos messages</Text>
-            <Text style={[styles.emptyText, { color: theme.textMuted }]}>Selectionnez une discussion pour commencer.</Text>
           </View>
         )}
-      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#ece5dd' },
-  convListWrapper: { paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: colors.border },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: colors.text, marginLeft: 14, marginBottom: 8 },
+  convListWrapper: { flex: 1, backgroundColor: '#fff' },
+  sectionTitle: { fontSize: 28, fontWeight: '900', color: colors.text, marginLeft: 16, marginBottom: 16, marginTop: 16 },
   searchBox: {
-    marginHorizontal: 12,
-    marginBottom: 10,
+    marginHorizontal: 16,
+    marginBottom: 16,
     borderRadius: 14,
     backgroundColor: colors.inputBg,
     borderWidth: 1,
     borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    height: 40,
-    gap: 6
+    paddingHorizontal: 12,
+    height: 48,
+    gap: 8
   },
-  searchInput: { flex: 1, color: colors.text, fontSize: 13 },
-  convItem: { width: 64, alignItems: 'center', opacity: 0.65 },
+  searchInput: { flex: 1, color: colors.text, fontSize: 15 },
+  convItemVertical: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 14 },
   convItemActive: { opacity: 1 },
-  avatarWrap: { position: 'relative', marginBottom: 6 },
-  onlineBadge: { position: 'absolute', bottom: 1, right: 1, width: 13, height: 13, borderRadius: 7, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#fff' },
-  convName: { fontSize: 11, color: colors.text, fontWeight: '700' },
-  badge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#ef4444', minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: '#fff' },
-  badgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+  avatarWrap: { position: 'relative' },
+  onlineBadge: { position: 'absolute', bottom: 2, right: 2, width: 15, height: 15, borderRadius: 8, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#fff' },
+  convDetails: { flex: 1, justifyContent: 'center' },
+  convDetailsTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  convNameVertical: { fontSize: 16, color: colors.text, fontWeight: '800', flex: 1, paddingRight: 8 },
+  convTime: { fontSize: 12, fontWeight: '600' },
+  convPreview: { fontSize: 14, lineHeight: 20 },
+  badge: { backgroundColor: '#ef4444', minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
 
   chatBox: { flex: 1, backgroundColor: '#ece5dd' },
   chatHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#f6f6f6', borderBottomWidth: 1, borderBottomColor: colors.border },

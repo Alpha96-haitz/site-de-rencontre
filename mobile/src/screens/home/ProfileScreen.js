@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator, Alert, Dimensions } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator, Alert, Dimensions } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
@@ -36,6 +37,8 @@ export default function ProfileScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Publications');
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedFullImage, setSelectedFullImage] = useState(null);
+  const [uploading, setUploading] = useState(false);
   
   const targetId = route.params?.userId || user?.username || user?._id;
 
@@ -95,6 +98,72 @@ export default function ProfileScreen({ navigation, route }) {
   const cover = profile?.coverPicture || 'https://placehold.co/1200x500';
   const isMe = targetId === (user?.username || user?._id);
 
+  const pickImage = async (kind) => {
+    if (!isMe) return;
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("Permission requise", "Nous avons besoin de votre permission pour accéder à vos photos.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: kind === 'cover' ? [16, 9] : [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled) return;
+
+      setUploading(true);
+      const file = result.assets[0];
+      const data = new FormData();
+      data.append('photo', {
+        uri: file.uri,
+        type: file.mimeType || 'image/jpeg',
+        name: file.fileName || 'profile_update.jpg'
+      });
+
+      if (kind === 'cover') {
+        await userService.uploadCover(data);
+      } else {
+        await userService.uploadPhoto(data);
+      }
+
+      await fetchProfileData();
+      await refreshUser();
+      Alert.alert("Succès", "Votre photo a été mise à jour !");
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Erreur", "Une erreur est survenue lors de l'envoi de la photo.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCameraPress = (kind) => {
+    const photoUrl = kind === 'cover' ? cover : avatar;
+    Alert.alert(
+      kind === 'cover' ? "Photo de couverture" : "Photo de profil",
+      "Que souhaitez-vous faire ?",
+      [
+        {
+          text: "Voir la photo",
+          onPress: () => setSelectedFullImage(photoUrl)
+        },
+        {
+          text: "Importer une nouvelle",
+          onPress: () => pickImage(kind)
+        },
+        {
+          text: "Annuler",
+          style: "cancel"
+        }
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: theme.bg }]}>
@@ -104,7 +173,8 @@ export default function ProfileScreen({ navigation, route }) {
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.bg }]} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+    <>
+      <ScrollView style={[styles.container, { backgroundColor: theme.bg }]} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
       {/* Cover Photo */}
       <View style={styles.coverContainer}>
         <Image source={cover} style={styles.cover} contentFit="cover" transition={300} />
@@ -118,7 +188,7 @@ export default function ProfileScreen({ navigation, route }) {
         </Pressable>
 
         {isMe && (
-          <Pressable style={styles.editCoverBtn} onPress={() => navigation.navigate('EditProfile', { profile })}>
+          <Pressable style={styles.editCoverBtn} onPress={() => handleCameraPress('cover')}>
             <Ionicons name="camera" size={18} color="#fff" />
           </Pressable>
         )}
@@ -129,7 +199,7 @@ export default function ProfileScreen({ navigation, route }) {
         <View style={[styles.avatarContainer, { borderColor: theme.surface, backgroundColor: theme.bg }]}>
           <Image source={avatar} style={styles.avatar} transition={300} />
           {isMe && (
-            <Pressable style={styles.editAvatarBtn} onPress={() => navigation.navigate('EditProfile', { profile })}>
+            <Pressable style={styles.editAvatarBtn} onPress={() => handleCameraPress('avatar')}>
               <Ionicons name="camera" size={20} color={theme.text} />
             </Pressable>
           )}
@@ -448,6 +518,30 @@ export default function ProfileScreen({ navigation, route }) {
       )}
 
     </ScrollView>
+
+      {/* Full Image Viewer Modal */}
+      <Modal visible={!!selectedFullImage} transparent animationType="fade" statusBarTranslucent>
+        <Pressable style={styles.fullImageOverlay} onPress={() => setSelectedFullImage(null)}>
+          <Image
+            source={selectedFullImage}
+            style={styles.fullImage}
+            contentFit="contain"
+            transition={300}
+          />
+          <Pressable style={[styles.closeImageBtn, { top: insets.top + 10 }]} onPress={() => setSelectedFullImage(null)}>
+            <Ionicons name="close-circle" size={40} color="#fff" />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Loading Overlay */}
+      {uploading && (
+        <View style={styles.uploadOverlay}>
+          <ActivityIndicator size="large" color="#fff" />
+          <Text style={styles.uploadText}>Mise à jour...</Text>
+        </View>
+      )}
+    </>
   );
 }
 
@@ -755,6 +849,26 @@ const styles = StyleSheet.create({
   adminSection: {
     padding: 16,
     marginTop: 10,
+  },
+  fullImageOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.95)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  fullImage: { width: '100%', height: '100%' },
+  closeImageBtn: { position: 'absolute', right: 20, zIndex: 100 },
+  uploadOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000
+  },
+  uploadText: {
+    color: '#fff',
+    marginTop: 10,
+    fontWeight: '700'
   }
 });
 

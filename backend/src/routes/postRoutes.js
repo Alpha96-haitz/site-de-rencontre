@@ -1,5 +1,5 @@
 import express from 'express';
-import { createPost, deletePost, likePost, getUserPosts, getTimelinePosts, commentPost, updatePost } from '../controllers/postController.js';
+import { createPost, deletePost, likePost, getUserPosts, getTimelinePosts, commentPost, updatePost, getPostById } from '../controllers/postController.js';
 import { protect } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 import { postValidation, commentValidation, handleValidation, idValidation } from '../middleware/validation.js';
@@ -24,6 +24,9 @@ router.get('/timeline', protect, getTimelinePosts);
 
 // Récupérer les posts d'un utilisateur
 router.get('/profile/:userId', protect, idValidation('userId'), handleValidation, getUserPosts);
+
+// Récupérer un post spécifique
+router.get('/:id', protect, idValidation('id'), handleValidation, getPostById);
 
 // Liker/Disliker un post
 router.put('/:id/like', protect, idValidation('id'), handleValidation, likePost);
