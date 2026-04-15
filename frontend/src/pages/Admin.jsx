@@ -230,7 +230,8 @@ export default function Admin() {
                     <p className="text-slate-500 font-bold">Aucun signalement à traiter.</p>
                  </div>
               ) : (
-                 <div className="grid grid-cols-1 md:grid-cols                     {reports.map((r) => (
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {reports.map((r) => (
                        <div key={r._id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-all dark:bg-slate-900 dark:border-slate-800">
                           <div className="flex items-center justify-between mb-6">
                              <div className="flex items-center gap-2 text-rose-600 font-black uppercase text-[10px] tracking-widest bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100 dark:bg-rose-900/20 dark:border-rose-900/40">
@@ -269,7 +270,7 @@ export default function Admin() {
                              </button>
                           </div>
                        </div>
-                    ))}           ))}
+                    ))}
                  </div>
               )}
            </div>
