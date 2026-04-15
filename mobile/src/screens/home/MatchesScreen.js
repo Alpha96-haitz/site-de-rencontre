@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../../components/Avatar';
 import { matchService } from '../../services/matchService';
@@ -8,6 +9,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 
 export default function MatchesScreen({ navigation }) {
   const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [matches, setMatches] = useState([]);
   const [likes, setLikes] = useState([]);
   const [tab, setTab] = useState('matches');
@@ -31,7 +33,7 @@ export default function MatchesScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <Text style={[styles.headerTitle, { color: theme.text }]}>Mes Matchs</Text>
+      <Text style={[styles.headerTitle, { color: theme.text, paddingTop: insets.top + 10 }]}>Mes Matchs</Text>
 
       <View style={[styles.tabs, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Pressable 

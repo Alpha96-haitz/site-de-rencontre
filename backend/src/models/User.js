@@ -23,12 +23,10 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: function () { return !this.googleId; },
+      required: [true, 'Mot de passe requis'],
       minlength: 6,
       select: false
     },
-    googleId: { type: String, sparse: true },
-    googlePhoto: String,
     emailVerified: {
       type: Boolean,
       default: false
@@ -40,19 +38,19 @@ const userSchema = new mongoose.Schema(
     // Profil
     firstName: {
       type: String,
-      required: function () { return !this.googleId; },
+      required: [true, 'Prenom requis'],
       trim: true,
       default: ''
     },
     lastName: {
       type: String,
-      required: function () { return !this.googleId; },
+      required: [true, 'Nom requis'],
       trim: true,
       default: ''
     },
     birthDate: {
       type: Date,
-      required: function () { return !this.googleId; }
+      required: [true, 'Date de naissance requise']
     },
     gender: {
       type: String,

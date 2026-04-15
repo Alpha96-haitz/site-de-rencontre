@@ -9,18 +9,48 @@ import { getCached, setCached, clearCacheByPrefix } from '../utils/simpleCache.j
 // Obtenir le profil public d'un utilisateur
 export const getProfile = async (req, res) => {
   try {
-    const cacheKey = `profile:${req.params.id}`;
-    const cached = getCached(cacheKey);
-    if (cached) return res.json(cached);
+    const isMeRequest = req.params.id === 'me' || req.params.id === req.user?._id?.toString();
+    const queryId = isMeRequest ? req.user._id : req.params.id;
 
-    const query = req.params.id.match(/^[0-9a-fA-F]{24}$/) ? { _id: req.params.id } : { username: req.params.id };
-    const user = await User.findOne(query)
-      .select('username profilePicture coverPicture followers following firstName lastName age gender bio photos googlePhoto interests location privacy notificationPreferences lastSeen isOnline createdAt')
-      .populate('photos')
-      .populate('followers following', 'firstName lastName photos googlePhoto username');
-    if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
-    setCached(cacheKey, user, 30000);
-    res.json(user);
+    const cacheKey = `profile:${queryId}`;
+    const cached = getCached(cacheKey);
+    
+    let user;
+    if (cached) {
+      user = cached;
+    } else {
+      const dbQuery = queryId.toString().match(/^[0-9a-fA-F]{24}$/) ? { _id: queryId } : { username: queryId };
+      user = await User.findOne(dbQuery)
+        .select('username profilePicture coverPicture followers following firstName lastName age gender bio photos googlePhoto interests location privacy notificationPreferences lastSeen isOnline createdAt')
+        .populate('photos')
+        .populate('followers following', 'firstName lastName photos googlePhoto username');
+      
+      if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
+      setCached(cacheKey, user, 30000);
+    }
+
+    // Convert to object to add virtual fields
+    const userObj = user.toObject ? user.toObject() : JSON.parse(JSON.stringify(user));
+
+    // Add match status if requester is not the same user
+    if (req.user && req.user._id.toString() !== userObj._id.toString()) {
+      const match = await Match.findOne({
+        $or: [
+          { likedBy: req.user._id, likedUser: userObj._id },
+          { likedBy: userObj._id, likedUser: req.user._id }
+        ]
+      });
+
+      userObj.matchStatus = {
+        isMutual: match?.isMutual || false,
+        hasLiked: !!match && match.likedBy?.toString() === req.user._id.toString(),
+        matchId: match?.isMutual ? match._id : null
+      };
+    } else if (req.user && req.user._id.toString() === userObj._id.toString()) {
+       userObj.isMe = true;
+    }
+
+    res.json(userObj);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -242,19 +272,7 @@ export const search = async (req, res) => {
 export const getSuggestions = async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
-    const interactions = await Match.find({
-      $or: [{ likedBy: req.user._id }, { likedUser: req.user._id }]
-    })
-      .select('likedBy likedUser')
-      .lean();
-
-    const excludedIds = new Set([req.user._id.toString()]);
-    interactions.forEach((row) => {
-      excludedIds.add(row.likedBy.toString());
-      excludedIds.add(row.likedUser.toString());
-    });
-
-    const query = { _id: { $nin: Array.from(excludedIds) }, isBanned: false };
+    const query = { _id: { $ne: req.user._id }, isBanned: false };
     const users = await User.find(query)
       .select('firstName lastName age gender bio photos googlePhoto interests username')
       .limit(limit)

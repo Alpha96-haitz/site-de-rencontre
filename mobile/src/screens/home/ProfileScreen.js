@@ -1,10 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator, Alert, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Share } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { userService } from '../../services/userService';
+import { matchService } from '../../services/matchService';
+import { postService } from '../../services/postService';
 import { useTheme } from '../../contexts/ThemeContext';
+import PostCard from '../../components/PostCard';
+import CreatePost from '../../components/CreatePost';
+
+import client from '../../api/client';
 
 const { width } = Dimensions.get('window');
 
@@ -22,18 +30,62 @@ const fbDark = {
 export default function ProfileScreen({ navigation, route }) {
   const { user, logout, refreshUser } = useAuth();
   const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState(null);
+  const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('Publications'); // Publications | À propos | Photos
+  const [activeTab, setActiveTab] = useState('Publications');
+  const [refreshing, setRefreshing] = useState(false);
   
   const targetId = route.params?.userId || user?.username || user?._id;
 
-  useEffect(() => {
-    userService.getProfile(targetId)
-      .then(setProfile)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+  const fetchProfileData = useCallback(async () => {
+    try {
+      // 1. Fetch profile first (accepts ID or username)
+      const profileData = await userService.getProfile(targetId);
+      setProfile(profileData);
+
+      // 2. Fetch posts using the REAL technical ID from profileData
+      if (profileData?._id) {
+        const postsData = await postService.getUserPosts(profileData._id);
+        setPosts(postsData || []);
+      }
+    } catch (err) {
+      console.error('Profile Load Error:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [targetId]);
+
+  useEffect(() => {
+    fetchProfileData();
+  }, [fetchProfileData]);
+
+  const handlePostCreated = (newPost) => {
+    setPosts(prev => [newPost, ...prev]);
+  };
+
+  const handlePostChanged = (updatedPost) => {
+    setPosts(prev => prev.map(p => p._id === updatedPost._id ? updatedPost : p));
+  };
+
+  const handlePostDeleted = (postId) => {
+    setPosts(prev => prev.filter(p => p._id !== postId));
+  };
+
+  const sendReport = async (reason) => {
+    try {
+      await client.post('/reports', {
+        reportedUserId: profile._id,
+        reason: reason,
+        description: `Signalement via l'application mobile pour: ${reason}`
+      });
+      Alert.alert("Merci", "Le signalement a été envoyé avec succès. Notre équipe va l'étudier.");
+    } catch (err) {
+      Alert.alert("Erreur", "Impossible d'envoyer le signalement pour le moment.");
+    }
+  };
 
   const avatar = useMemo(
     () => profile?.photos?.find?.((p) => p.isPrimary)?.url || profile?.googlePhoto || profile?.profilePicture || 'https://placehold.co/300x300',
@@ -56,6 +108,15 @@ export default function ProfileScreen({ navigation, route }) {
       {/* Cover Photo */}
       <View style={styles.coverContainer}>
         <Image source={cover} style={styles.cover} contentFit="cover" transition={300} />
+        
+        {/* Back Button */}
+        <Pressable 
+          style={[styles.backBtn, { top: insets.top + 10 }]} 
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </Pressable>
+
         {isMe && (
           <Pressable style={styles.editCoverBtn} onPress={() => navigation.navigate('EditProfile', { profile })}>
             <Ionicons name="camera" size={18} color="#fff" />
@@ -98,18 +159,122 @@ export default function ProfileScreen({ navigation, route }) {
             </>
           ) : (
             <>
-              <Pressable style={[styles.btn, styles.btnPrimary, { backgroundColor: theme.primary }]}>
-                <Ionicons name="heart" size={20} color="#fff" />
-                <Text style={styles.btnPrimaryText}>Liker</Text>
-              </Pressable>
+              {/* Bouton Like / Match */}
+              {!profile?.matchStatus?.isMutual ? (
+                 <Pressable 
+                  style={[
+                    styles.btn, 
+                    styles.btnPrimary, 
+                    { backgroundColor: profile?.matchStatus?.hasLiked ? theme.textMuted : '#f43f5e' }
+                  ]}
+                  onPress={async () => {
+                    try {
+                      const res = await matchService.like(profile._id);
+                      // Update local state to reflect the like/match
+                      setProfile(prev => ({
+                        ...prev,
+                        matchStatus: {
+                          ...prev.matchStatus,
+                          hasLiked: true,
+                          isMutual: res.isMutual
+                        }
+                      }));
+                      if (res.isMutual) {
+                        Alert.alert("C'est un Match !", `Vous pouvez maintenant envoyer un message à ${profile.firstName}.`);
+                      }
+                    } catch (err) {
+                      Alert.alert("Erreur", "Impossible de liker ce profil.");
+                    }
+                  }}
+                  disabled={profile?.matchStatus?.hasLiked}
+                >
+                  <Ionicons name={profile?.matchStatus?.hasLiked ? "heart" : "heart-outline"} size={20} color="#fff" />
+                  <Text style={styles.btnPrimaryText}>{profile?.matchStatus?.hasLiked ? "Déjà aimé" : "Liker"}</Text>
+                </Pressable>
+              ) : (
+                <View style={[styles.matchBadge, { backgroundColor: '#f43f5e20', borderColor: '#f43f5e' }]}>
+                   <Ionicons name="heart" size={16} color="#f43f5e" />
+                   <Text style={[styles.matchBadgeText, { color: '#f43f5e' }]}>Matché</Text>
+                </View>
+              )}
+
+              {/* Bouton Message */}
               <Pressable 
-                style={[styles.btn, styles.btnSecondary, { backgroundColor: theme.border }]} 
-                onPress={() => navigation.navigate('Messages')} // Redirige vers l'écran de messagerie direct
+                style={[
+                  styles.btn, 
+                  styles.btnSecondary, 
+                  { 
+                    backgroundColor: theme.border,
+                    opacity: profile?.matchStatus?.isMutual ? 1 : 0.4
+                  }
+                ]} 
+                onPress={() => {
+                  if (profile?.matchStatus?.isMutual) {
+                    navigation.navigate('Messages', { 
+                      matchId: profile.matchStatus.matchId,
+                      recipient: profile 
+                    });
+                  } else {
+                    Alert.alert("Lien Requis", "Vous devez matcher avec cet utilisateur avant de pouvoir discuter.");
+                  }
+                }}
               >
-                <FontAwesome5 name="facebook-messenger" size={16} color={theme.text} />
-                <Text style={[styles.btnSecondaryText, { color: theme.text }]}>Message</Text>
+                <FontAwesome5 
+                  name="facebook-messenger" 
+                  size={16} 
+                  color={profile?.matchStatus?.isMutual ? theme.primary : theme.textMuted} 
+                />
+                <Text style={[
+                  styles.btnSecondaryText, 
+                  { color: profile?.matchStatus?.isMutual ? theme.text : theme.textMuted }
+                ]}>Message</Text>
               </Pressable>
-              <Pressable style={[styles.btnIcon, styles.btnSecondary, { backgroundColor: theme.border }]}>
+
+              <Pressable 
+                style={[styles.btnIcon, styles.btnSecondary, { backgroundColor: theme.border }]}
+                onPress={() => {
+                  Alert.alert(
+                    "Options du profil",
+                    "Que souhaitez-vous faire ?",
+                    [
+                      {
+                        text: "Partager le profil",
+                        onPress: async () => {
+                          try {
+                            await Share.share({
+                              message: `Découvre le profil de ${profile.firstName} sur Haitz Rencontre !\n@${profile.username}`,
+                            });
+                          } catch (err) {}
+                        }
+                      },
+                      {
+                        text: "Signaler l'utilisateur",
+                        style: "destructive",
+                        onPress: () => {
+                          Alert.alert(
+                            "Signaler",
+                            "Pourquoi signalez-vous ce profil ?",
+                            [
+                              { text: "Comportement inapproprié", onPress: () => sendReport('inappropriate') },
+                              { text: "Faux profil / Spam", onPress: () => sendReport('spam') },
+                              { text: "Harcèlement", onPress: () => sendReport('harassment') },
+                              { text: "Annuler", style: "cancel" }
+                            ]
+                          );
+                        }
+                      },
+                      {
+                        text: "Bloquer",
+                        style: "destructive",
+                        onPress: () => {
+                          Alert.alert("Bloquer", "Voulez-vous vraiment bloquer cet utilisateur ?");
+                        }
+                      },
+                      { text: "Annuler", style: "cancel" }
+                    ]
+                  );
+                }}
+              >
                 <Ionicons name="ellipsis-horizontal" size={20} color={theme.text} />
               </Pressable>
             </>
@@ -121,7 +286,7 @@ export default function ProfileScreen({ navigation, route }) {
           {!!profile?.location?.city && (
             <View style={styles.detailRow}>
               <Ionicons name="home" size={20} color={theme.textMuted} />
-              <Text style={[styles.detailText, { color: theme.text }]}>Habite à <Text style={styles.detailBold}>{profile.location.city}</Text></Text>
+              <Text style={[styles.detailText, { color: theme.text }]}>Habite à <Text style={[styles.detailBold, { color: theme.text }]}>{profile.location.city}</Text></Text>
             </View>
           )}
 
@@ -140,7 +305,7 @@ export default function ProfileScreen({ navigation, route }) {
 
           <Pressable style={styles.detailRow} onPress={() => setActiveTab('À propos')}>
              <Ionicons name="ellipsis-horizontal-circle" size={20} color={theme.textMuted} />
-             <Text style={[styles.detailText, { color: theme.text }]}>Voir les informations <Text style={styles.detailBold}>À propos</Text></Text>
+             <Text style={[styles.detailText, { color: theme.text }]}>Voir les informations <Text style={[styles.detailBold, { color: theme.text }]}>À propos</Text></Text>
           </Pressable>
         </View>
       </View>
@@ -150,13 +315,17 @@ export default function ProfileScreen({ navigation, route }) {
       {/* Tabs */}
       <View style={[styles.tabsContainer, { backgroundColor: theme.surface }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScrollContent}>
-          {['Publications', 'À propos', 'Photos'].map((tab) => (
+           {['Publications', 'À propos', 'Photos'].map((tab) => (
             <Pressable 
               key={tab} 
               style={[styles.tab, activeTab === tab && [styles.activeTab, { borderBottomColor: theme.primary }]]}
               onPress={() => setActiveTab(tab)}
             >
-              <Text style={[styles.tabText, activeTab === tab && [styles.activeTabText, { color: theme.primary }]]}>{tab}</Text>
+              <Text style={[
+                styles.tabText, 
+                { color: theme.textMuted },
+                activeTab === tab && [styles.activeTabText, { color: theme.primary }]
+              ]}>{tab}</Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -166,11 +335,32 @@ export default function ProfileScreen({ navigation, route }) {
       {/* Dynamic Tab Content */}
       <View style={styles.tabContentArea}>
         {activeTab === 'Publications' && (
-          <View style={[styles.emptyStateContainer, { backgroundColor: theme.surface }]}>
-            <View style={[styles.emptyIconContainer, { backgroundColor: theme.border }]}>
-              <Ionicons name="document-text" size={32} color={theme.textMuted} />
-            </View>
-            <Text style={[styles.emptyTitle, { color: theme.textMuted }]}>Aucune publication pour le moment</Text>
+          <View style={styles.postsList}>
+            {isMe && (
+              <View style={styles.createPostWrap}>
+                <CreatePost onPostCreated={handlePostCreated} />
+              </View>
+            )}
+            
+            {posts.length > 0 ? (
+              posts.map(post => (
+                <PostCard 
+                  key={post._id}
+                  post={post}
+                  currentUserId={user?._id}
+                  userRole={user?.role}
+                  onPostChanged={handlePostChanged}
+                  onPostDeleted={handlePostDeleted}
+                />
+              ))
+            ) : (
+              <View style={[styles.emptyStateContainer, { backgroundColor: theme.surface }]}>
+                <View style={[styles.emptyIconContainer, { backgroundColor: theme.border }]}>
+                  <Ionicons name="document-text" size={32} color={theme.textMuted} />
+                </View>
+                <Text style={[styles.emptyTitle, { color: theme.textMuted }]}>Aucune publication pour le moment</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -262,16 +452,27 @@ export default function ProfileScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: fbDark.bg },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: fbDark.bg },
+  container: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   
   coverContainer: {
     width: '100%',
     height: 250,
-    backgroundColor: fbDark.border,
+    backgroundColor: '#3E4042',
     position: 'relative',
   },
   cover: { width: '100%', height: '100%' },
+  backBtn: {
+    position: 'absolute',
+    left: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
   editCoverBtn: {
     position: 'absolute',
     bottom: 12,
@@ -284,7 +485,6 @@ const styles = StyleSheet.create({
   profileHeader: {
     paddingHorizontal: 16,
     paddingBottom: 20,
-    backgroundColor: fbDark.surface,
   },
   avatarContainer: {
     width: 170,
@@ -294,8 +494,34 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     position: 'relative',
     borderWidth: 4,
-    borderColor: fbDark.surface,
-    backgroundColor: fbDark.bg,
+  },
+  adminSection: {
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#f43f5e',
+    backgroundColor: 'rgba(244, 63, 94, 0.1)',
+  },
+  createPostWrap: {
+    padding: 10,
+  },
+  postsList: {
+    paddingBottom: 20,
+  },
+  matchBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginRight: 10,
+  },
+  matchBadgeText: {
+    fontWeight: 'bold',
+    marginLeft: 6,
+    fontSize: 13,
   },
   avatar: {
     width: '100%',
@@ -306,14 +532,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 4,
     right: 4,
-    backgroundColor: fbDark.border,
     width: 38,
     height: 38,
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: fbDark.surface,
   },
   onlineBadge: {
     position: 'absolute',
@@ -324,26 +548,22 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#31A24C',
     borderWidth: 3,
-    borderColor: fbDark.surface,
   },
   
   name: {
     fontSize: 28,
     fontWeight: '800',
-    color: fbDark.text,
     textAlign: 'center',
     marginTop: 8,
     letterSpacing: -0.5,
   },
   username: {
     fontSize: 15,
-    color: fbDark.textMuted,
     textAlign: 'center',
     marginTop: 2,
   },
   bio: {
     fontSize: 15,
-    color: fbDark.text,
     textAlign: 'center',
     marginTop: 12,
     lineHeight: 20,
@@ -371,10 +591,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   btnPrimary: {
-    backgroundColor: fbDark.primary,
   },
   btnSecondary: {
-    backgroundColor: fbDark.border,
   },
   btnPrimaryText: {
     color: '#fff',
@@ -382,7 +600,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   btnSecondaryText: {
-    color: fbDark.text,
     fontWeight: '600',
     fontSize: 15,
   },
@@ -399,7 +616,6 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 16,
-    color: fbDark.text,
   },
   detailBold: {
     fontWeight: 'bold',
@@ -418,26 +634,21 @@ const styles = StyleSheet.create({
   statVal: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: fbDark.text,
   },
   statKey: {
     fontSize: 15,
-    color: fbDark.textMuted,
   },
   dividerStat: {
     width: 1,
     height: 14,
-    backgroundColor: fbDark.border,
     marginHorizontal: 12,
   },
   
   sectionDivider: {
     height: 10,
-    backgroundColor: '#000',
   },
   
   tabsContainer: {
-    backgroundColor: fbDark.surface,
   },
   tabsScrollContent: {
     paddingHorizontal: 8,
@@ -449,15 +660,12 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 3,
-    borderBottomColor: fbDark.primary,
   },
   tabText: {
     fontSize: 15,
     fontWeight: '600',
-    color: fbDark.textMuted,
   },
   activeTabText: {
-    color: fbDark.primary,
   },
   
   tabContentArea: {
@@ -466,23 +674,19 @@ const styles = StyleSheet.create({
   
   aboutContainer: {
     padding: 16,
-    backgroundColor: fbDark.surface,
   },
   sectionHeading: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: fbDark.text,
     marginBottom: 12,
   },
   aboutText: {
     fontSize: 15,
-    color: fbDark.text,
     lineHeight: 22,
     marginBottom: 16,
   },
   aboutTextMuted: {
     fontSize: 15,
-    color: fbDark.textMuted,
     fontStyle: 'italic',
     marginBottom: 16,
   },
@@ -494,10 +698,8 @@ const styles = StyleSheet.create({
   },
   aboutLabel: {
     fontSize: 15,
-    color: fbDark.textMuted,
   },
   aboutValue: {
-    color: fbDark.text,
     fontWeight: '600',
   },
   tagsContainer: {
@@ -506,19 +708,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   interestTag: {
-    backgroundColor: fbDark.border,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
   },
   interestTagText: {
-    color: fbDark.text,
     fontSize: 13,
     fontWeight: '500',
   },
   
   photosContainer: {
-    backgroundColor: fbDark.surface,
     padding: 2,
   },
   photoGrid: {
@@ -539,26 +738,22 @@ const styles = StyleSheet.create({
   emptyStateContainer: {
     paddingVertical: 40,
     alignItems: 'center',
-    backgroundColor: fbDark.surface,
   },
   emptyIconContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: fbDark.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   emptyTitle: {
-    color: fbDark.textMuted,
     fontSize: 16,
     fontWeight: 'bold',
   },
   
   adminSection: {
     padding: 16,
-    backgroundColor: fbDark.surface,
     marginTop: 10,
   }
 });

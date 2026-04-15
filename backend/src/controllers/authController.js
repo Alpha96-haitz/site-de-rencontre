@@ -1,8 +1,4 @@
-/**
- * Auth controller
- */
 import jwt from 'jsonwebtoken';
-import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import { 
   sendVerificationEmail, 
@@ -145,9 +141,6 @@ export const login = async (req, res) => {
     if (!user) {
       return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
     }
-    if (user.googleId) {
-      return res.status(400).json({ message: 'Ce compte utilise Google. Connectez-vous avec Google.' });
-    }
     if (!(await user.comparePassword(password))) {
       return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
     }
@@ -231,7 +224,7 @@ export const forgotPassword = async (req, res) => {
     const genericMessage = 'Si l email existe, un code a ete envoye';
 
     const user = await User.findOne({ email });
-    if (!user || user.googleId) {
+    if (!user) {
       return res.json({ message: genericMessage });
     }
 
@@ -320,80 +313,6 @@ export const validateResetToken = async (req, res) => {
     return res.json({ valid: true });
   } catch (err) {
     return res.status(500).json({ message: 'Erreur serveur', valid: false });
-  }
-};
-
-export const googleAuth = async (req, res) => {
-  try {
-    const { credential } = req.body;
-    if (!credential) {
-      return res.status(400).json({ message: 'Token Google requis' });
-    }
-
-    const audiences = [
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_ANDROID_CLIENT_ID,
-      process.env.GOOGLE_IOS_CLIENT_ID,
-      process.env.GOOGLE_WEB_CLIENT_ID,
-      process.env.GOOGLE_EXPO_CLIENT_ID
-    ].filter(Boolean);
-
-    if (!audiences.length) {
-      return res.status(500).json({ message: 'Google OAuth non configure (client IDs manquants)' });
-    }
-
-    const googleClient = new OAuth2Client();
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: audiences
-    });
-    const payload = ticket.getPayload();
-    const { sub: googleId, email, given_name: firstName, family_name: lastName, picture: googlePhoto } = payload;
-
-    let user = await User.findOne({ $or: [{ googleId }, { email }] });
-    if (user) {
-      if (!user.googleId) {
-        user.googleId = googleId;
-        user.googlePhoto = googlePhoto;
-        user.emailVerified = true;
-        if (firstName) user.firstName = firstName;
-        if (lastName) user.lastName = lastName;
-        await user.save();
-      } else if (user.googleId !== googleId) {
-        return res.status(400).json({ message: 'Cet email est deja utilise avec un autre compte' });
-      }
-    } else {
-      const baseUsername = email.split('@')[0];
-      const randomString = Math.floor(Math.random() * 10000).toString();
-      const generatedUsername = `${baseUsername}${randomString}`;
-      user = await User.create({
-        username: generatedUsername,
-        email,
-        googleId,
-        googlePhoto,
-        firstName: firstName || 'Utilisateur',
-        lastName: lastName || '',
-        birthDate: new Date('2000-01-01'),
-        gender: 'other',
-        emailVerificationToken: undefined,
-        emailVerificationExpires: undefined,
-        emailVerified: true
-      });
-    }
-
-    if (user.isBanned) {
-      return res.status(403).json({ message: 'Compte desactive' });
-    }
-
-    await User.findByIdAndUpdate(user._id, { lastSeen: new Date(), isOnline: true });
-
-    const jwtToken = generateJWT(user._id);
-    res.cookie('token', jwtToken, jwtCookieOptions);
-    const { password: _, ...userData } = user.toObject();
-    res.json({ user: userData, token: jwtToken });
-  } catch (err) {
-    console.error('Erreur Google auth:', err);
-    res.status(500).json({ message: err.message || 'Erreur authentification Google' });
   }
 };
 

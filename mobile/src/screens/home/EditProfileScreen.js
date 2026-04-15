@@ -6,11 +6,13 @@ import AppInput from '../../components/AppInput';
 import AppButton from '../../components/AppButton';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { colors } from '../../theme/colors';
 import client from '../../api/client';
 
 export default function EditProfileScreen({ route, navigation }) {
   const { user, refreshUser } = useAuth();
+  const { theme, isDark, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
@@ -155,15 +157,15 @@ export default function EditProfileScreen({ route, navigation }) {
   ];
 
   return (
-    <View style={styles.container}>
-      <View style={styles.tabsWrapper}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <View style={[styles.tabsWrapper, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContainer}>
           {tabs.map(tab => {
             const isActive = activeTab === tab.id;
             return (
               <TouchableOpacity key={tab.id} style={[styles.tab, isActive && styles.activeTab]} onPress={() => setActiveTab(tab.id)}>
-                <Ionicons name={isActive ? tab.icon : `${tab.icon}-outline`} size={18} color={isActive ? 'white' : colors.textGhost} />
-                <Text style={[styles.tabText, isActive && styles.activeTabText]}>{tab.label}</Text>
+                <Ionicons name={isActive ? tab.icon : `${tab.icon}-outline`} size={18} color={isActive ? 'white' : theme.textGhost} />
+                <Text style={[styles.tabText, { color: theme.textGhost }, isActive && styles.activeTabText]}>{tab.label}</Text>
               </TouchableOpacity>
             )
           })}
@@ -172,28 +174,28 @@ export default function EditProfileScreen({ route, navigation }) {
 
       <ScrollView contentContainerStyle={styles.content}>
         {activeTab === 'general' && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Informations publiques</Text>
-            <AppInput placeholder="Prénom" value={form.firstName} onChangeText={(v) => setField('firstName', v)} />
-            <AppInput placeholder="Nom" value={form.lastName} onChangeText={(v) => setField('lastName', v)} />
-            <AppInput placeholder="Nom d'utilisateur" value={form.username} onChangeText={(v) => setField('username', v)} />
-            <AppInput placeholder="Age" keyboardType="numeric" value={form.age} onChangeText={(v) => setField('age', v)} />
-            <AppInput placeholder="Ville" value={form.location.city} onChangeText={(v) => setField('city', v)} />
-            <AppInput placeholder="Bio" value={form.bio} onChangeText={(v) => setField('bio', v)} multiline numberOfLines={3} />
-            <AppInput placeholder="Intérêts (ex: Sport, Cinéma...)" value={form.interests} onChangeText={(v) => setField('interests', v)} />
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.cardTitle, { color: theme.text, borderBottomColor: theme.border }]}>Informations publiques</Text>
+            <AppInput label="Prénom" icon="person" placeholder="Votre prénom" value={form.firstName} onChangeText={(v) => setField('firstName', v)} />
+            <AppInput label="Nom" icon="person" placeholder="Votre nom" value={form.lastName} onChangeText={(v) => setField('lastName', v)} />
+            <AppInput label="Nom d'utilisateur" icon="at" placeholder="Nom d'utilisateur" value={form.username} onChangeText={(v) => setField('username', v)} />
+            <AppInput label="Âge" icon="calendar" placeholder="Votre âge" keyboardType="numeric" value={form.age} onChangeText={(v) => setField('age', v)} />
+            <AppInput label="Ville" icon="location" placeholder="Où habitez-vous ?" value={form.location.city} onChangeText={(v) => setField('city', v)} />
+            <AppInput label="Bio" icon="document-text" placeholder="Parlez un peu de vous..." value={form.bio} onChangeText={(v) => setField('bio', v)} multiline numberOfLines={3} style={{ minHeight: 80, textAlignVertical: 'top' }} />
+            <AppInput label="Centres d'intérêt" icon="star" placeholder="ex: Sport, Cinéma..." value={form.interests} onChangeText={(v) => setField('interests', v)} />
             
             <AppButton title="Enregistrer les modifications" onPress={handleSaveGeneral} loading={loading} style={styles.saveBtn} />
           </View>
         )}
 
         {activeTab === 'photos' && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Photo de Couverture</Text>
-            <TouchableOpacity style={styles.coverBox} onPress={() => pickImage('cover')}>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.cardTitle, { color: theme.text, borderBottomColor: theme.border }]}>Photo de Couverture</Text>
+            <TouchableOpacity style={[styles.coverBox, { backgroundColor: theme.inputBg, borderColor: theme.border }]} onPress={() => pickImage('cover')}>
               {user?.coverPicture ? (
                 <Image source={{ uri: user.coverPicture }} style={styles.coverImage} />
               ) : (
-                <Ionicons name="image" size={40} color={colors.textGhost} />
+                <Ionicons name="image" size={40} color={theme.textGhost} />
               )}
               <View style={styles.coverOverlay}>
                 <Ionicons name="camera" size={20} color="white" />
@@ -201,7 +203,7 @@ export default function EditProfileScreen({ route, navigation }) {
               </View>
             </TouchableOpacity>
 
-            <Text style={[styles.cardTitle, { marginTop: 24 }]}>Votre Galerie</Text>
+            <Text style={[styles.cardTitle, { marginTop: 24, color: theme.text, borderBottomColor: theme.border }]}>Votre Galerie</Text>
             <View style={styles.grid}>
               {user?.photos?.map(photo => (
                 <View key={photo.publicId} style={styles.photoWrap}>
@@ -212,39 +214,47 @@ export default function EditProfileScreen({ route, navigation }) {
                   {photo.isPrimary && <View style={styles.primaryBadge}><Text style={styles.primaryBadgeText}>PROFIL</Text></View>}
                 </View>
               ))}
-              <TouchableOpacity style={styles.addPhotoWrap} onPress={() => pickImage('profile')}>
-                <Ionicons name="add" size={32} color={colors.textLight} />
+              <TouchableOpacity style={[styles.addPhotoWrap, { borderColor: theme.border, backgroundColor: theme.inputBg }]} onPress={() => pickImage('profile')}>
+                <Ionicons name="add" size={32} color={theme.textMuted} />
               </TouchableOpacity>
             </View>
           </View>
         )}
 
         {activeTab === 'security' && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Confidentialité et sécurité</Text>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.cardTitle, { color: theme.text, borderBottomColor: theme.border }]}>Confidentialité et sécurité</Text>
             
             <View style={styles.settingRow}>
               <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Afficher mon statut en ligne</Text>
-                <Text style={styles.settingDesc}>Les autres voient si vous êtes connecté.</Text>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>Afficher mon statut en ligne</Text>
+                <Text style={[styles.settingDesc, { color: theme.textMuted }]}>Les autres voient si vous êtes connecté.</Text>
               </View>
               <Switch 
                 value={privacySettings.showOnlineStatus} 
                 onValueChange={(v) => setPrivacySettings(p => ({...p, showOnlineStatus: v}))} 
-                trackColor={{ true: colors.primary, false: '#e2e8f0' }}
+                trackColor={{ true: theme.primary, false: '#e2e8f0' }}
               />
             </View>
             
             <View style={styles.settingRow}>
               <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Visibilité (Public)</Text>
-                <Text style={styles.settingDesc}>Tout le monde peut voir votre profil.</Text>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>Visibilité (Public)</Text>
+                <Text style={[styles.settingDesc, { color: theme.textMuted }]}>Tout le monde peut voir votre profil.</Text>
               </View>
               <Switch 
                 value={privacySettings.profileVisibility === 'public'} 
                 onValueChange={(v) => setPrivacySettings(p => ({...p, profileVisibility: v ? 'public' : 'matches'}))} 
-                trackColor={{ true: colors.primary, false: '#e2e8f0' }}
+                trackColor={{ true: theme.primary, false: '#e2e8f0' }}
               />
+            </View>
+
+            <View style={styles.settingRow}>
+              <View style={styles.settingText}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>Mode sombre</Text>
+                <Text style={[styles.settingDesc, { color: theme.textMuted }]}>Basculer entre mode clair et sombre.</Text>
+              </View>
+              <Switch value={isDark} onValueChange={toggleTheme} trackColor={{ true: theme.primary, false: '#e2e8f0' }} />
             </View>
 
             <AppButton title="Sauvegarder les paramètres" onPress={handleSaveSettings} loading={loading} style={styles.saveBtn} />
@@ -252,30 +262,30 @@ export default function EditProfileScreen({ route, navigation }) {
         )}
 
         {activeTab === 'notifications' && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Alertes et Notifications</Text>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.cardTitle, { color: theme.text, borderBottomColor: theme.border }]}>Alertes et Notifications</Text>
 
             <View style={styles.settingRow}>
               <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Notifications Push</Text>
-                <Text style={styles.settingDesc}>Alertes instantanées sur votre appareil.</Text>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>Notifications Push</Text>
+                <Text style={[styles.settingDesc, { color: theme.textMuted }]}>Alertes instantanées sur votre appareil.</Text>
               </View>
               <Switch 
                 value={notificationSettings.push} 
                 onValueChange={(v) => setNotificationSettings(p => ({...p, push: v}))} 
-                trackColor={{ true: colors.primary, false: '#e2e8f0' }}
+                trackColor={{ true: theme.primary, false: '#e2e8f0' }}
               />
             </View>
             
             <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
                <View style={styles.settingText}>
-                 <Text style={styles.settingLabel}>Notifications par Email</Text>
-                 <Text style={styles.settingDesc}>Messages, alertes et matchs.</Text>
+                 <Text style={[styles.settingLabel, { color: theme.text }]}>Notifications par Email</Text>
+                 <Text style={[styles.settingDesc, { color: theme.textMuted }]}>Messages, alertes et matchs.</Text>
                </View>
                <Switch 
                  value={notificationSettings.email} 
                  onValueChange={(v) => setNotificationSettings(p => ({...p, email: v}))} 
-                 trackColor={{ true: colors.primary, false: '#e2e8f0' }}
+                 trackColor={{ true: theme.primary, false: '#e2e8f0' }}
                />
             </View>
 

@@ -2,6 +2,7 @@ export const colors = {
   // Mode clair par défaut, mais avec des teintes plus sophistiquées "Slate" et "Pink" comme sur le web
   bg: '#F8FAFC',
   surface: '#FFFFFF',
+  surfaceLighter: '#F8FAFC',
   
   // Couleurs textes
   text: '#0F172A',
@@ -35,6 +36,7 @@ export const colors = {
     surfaceLighter: '#1F2937',
     border: '#334155',
     text: '#F1F5F9',
-    textMuted: '#94A3B8'
+    textMuted: '#94A3B8',
+    textGhost: '#64748B'
   }
 };

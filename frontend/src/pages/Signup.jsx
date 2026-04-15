@@ -4,7 +4,6 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
-import GoogleLoginButton from '../components/GoogleLoginButton';
 import { FiArrowRight, FiArrowLeft, FiCamera, FiCheck, FiUser, FiMail, FiLock, FiCalendar, FiMapPin, FiShield } from 'react-icons/fi';
 import logo from '../assets/logo.png';
 
@@ -18,35 +17,16 @@ export default function Signup() {
     lastName: '',
     birthDate: '',
     gender: '',
-    city: '',
-    verificationCode: ['', '', '', '', '', '']
+    city: ''
   });
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { signup, loginWithGoogle } = useAuth();
+  const { signup } = useAuth();
   const navigate = useNavigate();
-  const codeInputs = useRef([]);
 
   const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
-
-  const handleCodeChange = (index, value) => {
-    if (!/^\d*$/.test(value)) return;
-    const newCode = [...form.verificationCode];
-    newCode[index] = value.slice(-1);
-    setForm(f => ({ ...f, verificationCode: newCode }));
-
-    if (value && index < 5) {
-      codeInputs.current[index + 1].focus();
-    }
-  };
-
-  const handleKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !form.verificationCode[index] && index > 0) {
-      codeInputs.current[index - 1].focus();
-    }
-  };
 
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
@@ -59,53 +39,14 @@ export default function Signup() {
   const nextStep = () => {
     if (step === 1) {
       if (!form.username || !form.email || !form.password) return toast.error('Veuillez remplir tous les champs');
-      sendCodeStep();
-      return;
+      if (/\s/.test(form.username)) return toast.error("Le nom d'utilisateur ne doit pas contenir d'espaces");
+      if (form.username.length < 3) return toast.error('Le nom d\'utilisateur doit faire au moins 3 caractères');
+      if (form.password.length < 6) return toast.error('Le mot de passe doit faire au moins 6 caractères');
     }
     if (step === 2) {
-      const fullCode = form.verificationCode.join('');
-      if (fullCode.length !== 6) return toast.error('Veuillez entrer le code à 6 chiffres');
-      verifyCodeStep(fullCode);
-      return;
-    }
-    if (step === 3) {
       if (!form.firstName || !form.lastName || !form.birthDate || !form.city || !form.gender) return toast.error('Veuillez remplir toutes les informations');
     }
     setStep(s => s + 1);
-  };
-
-  const verifyCodeStep = async (code) => {
-    setLoading(true);
-    try {
-      await client.post('/auth/verify-signup-code', { 
-        email: form.email, 
-        code: code 
-      });
-      toast.success('Email vérifié !');
-      setStep(3);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Code invalide');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const sendCodeStep = async () => {
-    if (!form.username || !form.email || !form.password) return toast.error('Veuillez remplir tous les champs');
-    if (/\s/.test(form.username)) return toast.error("Le nom d'utilisateur ne doit pas contenir d'espaces");
-    if (form.username.length < 3) return toast.error('Le nom d\'utilisateur doit faire au moins 3 caractères');
-    if (form.password.length < 6) return toast.error('Le mot de passe doit faire au moins 6 caractères');
-
-    setLoading(true);
-    try {
-      await client.post('/auth/send-signup-code', { email: form.email });
-      toast.success('Un code a été envoyé à ' + form.email);
-      setStep(2);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Erreur lors de l\'envoi du code');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const prevStep = () => setStep(s => s - 1);
@@ -116,11 +57,10 @@ export default function Signup() {
     try {
       const signupData = {
         ...form,
-        location: { city: form.city },
-        verificationCode: form.verificationCode.join('')
+        location: { city: form.city }
       };
       
-      const data = await signup(signupData);
+      const res = await signup(signupData);
       
       if (photo) {
         const formData = new FormData();
@@ -133,22 +73,14 @@ export default function Signup() {
       }
       
       toast.success('Bienvenue sur HAITZ-RENCONTRE !');
-      navigate('/home');
+      // On laisse le middleware/AuthContext gérer la redirection ou on le fait ici
+      if (res.needsVerification) {
+        navigate('/verify-email-required');
+      } else {
+        navigate('/home');
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erreur lors de l\'inscription');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSuccess = async (credential) => {
-    setLoading(true);
-    try {
-      await loginWithGoogle(credential);
-      toast.success('Connexion réussie !');
-      navigate('/home');
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Erreur Google');
     } finally {
       setLoading(false);
     }
@@ -181,7 +113,7 @@ export default function Signup() {
               <FiArrowLeft className="text-white text-xl" />
             </button>
             <div className="flex gap-2">
-              {[1, 2, 3, 4, 5].map(s => (
+              {[1, 2, 3, 4].map(s => (
                 <div 
                   key={s} 
                   className={`h-1.5 rounded-full transition-all duration-500 ${step >= s ? 'w-8 bg-gradient-to-r from-pink-500 to-rose-500' : 'w-2 bg-white/10'}`}
@@ -194,17 +126,15 @@ export default function Signup() {
             <img src={logo} alt="HAITZ" className="h-20 object-contain mx-auto mb-6 drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]" />
             <h1 className="text-3xl font-black text-white tracking-tight mb-2">
               {step === 1 && "Commencez l'aventure"}
-              {step === 2 && "Sécurité"}
-              {step === 3 && "Qui êtes-vous ?"}
-              {step === 4 && "Montrez-vous"}
-              {step === 5 && "Prêt à partir ?"}
+              {step === 2 && "Qui êtes-vous ?"}
+              {step === 3 && "Montrez-vous"}
+              {step === 4 && "Prêt à partir ?"}
             </h1>
             <p className="text-slate-400 text-sm">
               {step === 1 && "Créez votre compte pour rencontrer des gens."}
-              {step === 2 && "Nous avons envoyé un code à 6 chiffres à " + form.email}
-              {step === 3 && "Dites-nous en plus sur vous."}
-              {step === 4 && "Une photo rend votre profil 7x plus attirant."}
-              {step === 5 && "Vérifiez vos informations avant de confirmer."}
+              {step === 2 && "Dites-nous en plus sur vous."}
+              {step === 3 && "Une photo rend votre profil 7x plus attirant."}
+              {step === 4 && "Vérifiez vos informations avant de confirmer."}
             </p>
           </div>
 
@@ -234,58 +164,15 @@ export default function Signup() {
                   </div>
                   <button 
                     onClick={nextStep} 
-                    disabled={loading}
-                    className="w-full py-4 mt-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl font-bold text-lg shadow-[0_10px_30px_rgba(244,63,94,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full py-4 mt-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl font-bold text-lg shadow-[0_10px_30px_rgba(244,63,94,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                   >
-                    {loading ? <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "Vérifier mon identité"}
+                    Continuer <FiArrowRight />
                   </button>
-                  <div className="relative my-8">
-                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5" /></div>
-                    <div className="relative flex justify-center text-xs uppercase tracking-widest text-slate-500 font-bold"><span className="px-4 bg-[#121212]">Ou inscrivez-vous avec</span></div>
-                  </div>
-                  <GoogleLoginButton onSuccess={handleGoogleSuccess} />
                 </div>
               )}
 
-              {/* Etape 2: 6-Digit Code */}
+              {/* Etape 2 */}
               {step === 2 && (
-                <div className="space-y-8">
-                  <div className="flex justify-between gap-2 md:gap-4">
-                    {form.verificationCode.map((digit, idx) => (
-                      <input
-                        key={idx}
-                        ref={el => codeInputs.current[idx] = el}
-                        type="text"
-                        maxLength="1"
-                        value={digit}
-                        onChange={(e) => handleCodeChange(idx, e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(idx, e)}
-                        className="w-full aspect-square text-center text-3xl font-black bg-white/5 border-2 border-white/10 text-white rounded-2xl focus:border-pink-500 focus:bg-pink-500/10 outline-none transition-all"
-                      />
-                    ))}
-                  </div>
-                  
-                  <div className="flex flex-col gap-4 pt-4">
-                    <button 
-                      onClick={nextStep} 
-                      disabled={loading || form.verificationCode.some(d => !d)}
-                      className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl font-bold shadow-[0_10px_30px_rgba(244,63,94,0.3)] disabled:opacity-30 transition-all flex items-center justify-center gap-2"
-                    >
-                      {loading ? <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Valider <FiCheck /></>}
-                    </button>
-                    <button 
-                      onClick={sendCodeStep} 
-                      disabled={loading}
-                      className="text-pink-500 text-sm font-bold hover:text-pink-400 transition-colors"
-                    >
-                      Pas reçu ? Renvoyer le code
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Etape 3 */}
-              {step === 3 && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <input name="firstName" placeholder="Prénom" value={form.firstName} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-white px-5 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all placeholder:text-slate-600" />
@@ -293,7 +180,7 @@ export default function Signup() {
                   </div>
                   <div className="group relative">
                     <FiCalendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-pink-500 transition-colors" />
-                    <input name="birthDate" type="date" value={form.birthDate} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-white pl-11 pr-4 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all" />
+                    <input name="birthDate" type="date" value={form.birthDate} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-white pl-11 pr-4 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all font-sans" />
                   </div>
                   <div className="group relative">
                     <FiMapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-pink-500 transition-colors" />
@@ -312,8 +199,8 @@ export default function Signup() {
                 </div>
               )}
 
-              {/* Etape 4 */}
-              {step === 4 && (
+              {/* Etape 3 */}
+              {step === 3 && (
                 <div className="space-y-8 text-center pt-4">
                   <div className="relative group mx-auto w-48 h-48">
                     <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/20 to-rose-500/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
@@ -337,8 +224,8 @@ export default function Signup() {
                 </div>
               )}
 
-              {/* Etape 5 */}
-              {step === 5 && (
+              {/* Etape 4 */}
+              {step === 4 && (
                 <div className="space-y-8">
                   <div className="bg-white/5 rounded-3xl p-6 border border-white/10 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><FiShield className="text-6xl text-white" /></div>
@@ -381,3 +268,4 @@ export default function Signup() {
     </div>
   );
 }
+

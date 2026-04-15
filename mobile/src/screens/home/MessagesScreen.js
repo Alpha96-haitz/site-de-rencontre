@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../../components/Avatar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { messageService } from '../../services/messageService';
 import { colors } from '../../theme/colors';
 
@@ -26,10 +28,14 @@ const senderIdOf = (msg) => (msg?.sender?._id || msg?.sender || '').toString();
 export default function MessagesScreen({ route }) {
   const { user } = useAuth();
   const { socket } = useSocket();
+  const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const flatListRef = useRef(null);
   const typingTimeout = useRef(null);
   const pendingTimeouts = useRef({});
   const convSyncTimeout = useRef(null);
+
+  const TAB_BAR_HEIGHT = 96; // 70 (height) + 16 (bottom) + grace
 
   const [conversations, setConversations] = useState([]);
   const [currentId, setCurrentId] = useState(route.params?.matchId || null);
@@ -220,6 +226,32 @@ export default function MessagesScreen({ route }) {
     currentConversation?.users?.find((u) => String(u._id) !== currentUserId) || currentConversation?.users?.[0];
   const isCurrentChatOnline = currentChatUser ? onlineUsers.has(currentChatUser._id) : false;
 
+  const handleDeleteConversation = (idToDel) => {
+    Alert.alert(
+      "Supprimer la conversation",
+      "Voulez-vous vraiment supprimer cette conversation ? Cette action est irréversible et supprimera l'historique.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Supprimer", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              await messageService.deleteConversation(idToDel);
+              setConversations(prev => prev.filter(c => String(c._id) !== String(idToDel)));
+              if (String(currentId) === String(idToDel)) {
+                setCurrentId(null);
+                setMessages([]);
+              }
+            } catch (err) {
+              Alert.alert("Erreur", "Impossible de supprimer cette conversation.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const handleChangeText = (value) => {
     setText(value);
     if (!socket || !currentId) return;
@@ -316,19 +348,19 @@ export default function MessagesScreen({ route }) {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-      keyboardVerticalOffset={90}
+      style={[styles.container, { backgroundColor: theme.bg }]}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <View style={styles.convListWrapper}>
-        <Text style={styles.sectionTitle}>Discussions</Text>
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={15} color={colors.textGhost} />
+      <View style={[styles.convListWrapper, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Discussions</Text>
+        <View style={[styles.searchBox, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
+          <Ionicons name="search" size={15} color={theme.textGhost} />
           <TextInput
             value={query}
             onChangeText={setQuery}
             placeholder="Rechercher une discussion..."
-            placeholderTextColor={colors.textGhost}
-            style={styles.searchInput}
+            placeholderTextColor={theme.textGhost}
+            style={[styles.searchInput, { color: theme.text }]}
           />
         </View>
 
@@ -343,12 +375,16 @@ export default function MessagesScreen({ route }) {
             const isOnline = other ? onlineUsers.has(other._id) : false;
             const isActive = String(item._id) === String(currentId);
             return (
-              <Pressable style={[styles.convItem, isActive && styles.convItemActive]} onPress={() => setCurrentId(item._id)}>
+              <Pressable 
+                style={[styles.convItem, isActive && styles.convItemActive]} 
+                onPress={() => setCurrentId(item._id)}
+                onLongPress={() => handleDeleteConversation(item._id)}
+              >
                 <View style={styles.avatarWrap}>
                   <Avatar uri={other?.photos?.find?.((p) => p.isPrimary)?.url || other?.googlePhoto} size={52} />
                   {isOnline && <View style={styles.onlineBadge} />}
                 </View>
-                <Text style={styles.convName} numberOfLines={1}>{other?.firstName || 'Chat'}</Text>
+                <Text style={[styles.convName, { color: theme.text }]} numberOfLines={1}>{other?.firstName || 'Chat'}</Text>
                 {!!item.unreadCount && <View style={styles.badge}><Text style={styles.badgeText}>{item.unreadCount}</Text></View>}
               </Pressable>
             );
@@ -356,13 +392,13 @@ export default function MessagesScreen({ route }) {
         />
       </View>
 
-      <View style={styles.chatBox}>
+      <View style={[styles.chatBox, { backgroundColor: theme.bg }]}>
         {currentId ? (
           <>
-            <View style={styles.chatHeader}>
+            <View style={[styles.chatHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
               <View style={styles.chatHeaderTitleGroup}>
-                <Text style={styles.chatHeaderName}>{currentChatUser?.firstName || 'Discussion'}</Text>
-                <Text style={styles.chatHeaderStatus}>
+                <Text style={[styles.chatHeaderName, { color: theme.text }]}>{currentChatUser?.firstName || 'Discussion'}</Text>
+                <Text style={[styles.chatHeaderStatus, { color: theme.textMuted }]}>
                   {typing
                     ? "en train d'ecrire..."
                     : isCurrentChatOnline
@@ -370,14 +406,20 @@ export default function MessagesScreen({ route }) {
                       : 'hors ligne'}
                 </Text>
               </View>
-              <Ionicons name="ellipsis-vertical" size={20} color={colors.textMuted} />
+              <Pressable onPress={() => handleDeleteConversation(currentId)}>
+                <Ionicons name="trash-outline" size={22} color={theme.danger || '#ef4444'} />
+              </Pressable>
             </View>
 
             <FlatList
               ref={flatListRef}
               data={messages}
               keyExtractor={(item, idx) => String(item._id || item.clientTempId || idx)}
-              contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 22 }}
+              contentContainerStyle={{ 
+                padding: 16, 
+                gap: 10, 
+                paddingBottom: currentId ? 20 : TAB_BAR_HEIGHT + insets.bottom 
+              }}
               onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
               renderItem={({ item }) => {
                 const mine = senderIdOf(item) === currentUserId;
@@ -386,10 +428,14 @@ export default function MessagesScreen({ route }) {
                     <Pressable
                       disabled={!item.__failed}
                       onPress={() => retryFailedMessage(item)}
-                      style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}
+                      style={[
+                        styles.bubble,
+                        mine ? styles.bubbleMine : styles.bubbleOther,
+                        !mine && isDark && { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }
+                      ]}
                     >
-                      <Text style={[styles.msgText, mine && styles.msgTextMine]}>{item.content}</Text>
-                      {mine && item.__pending && <Text style={styles.pendingText}>envoi...</Text>}
+                      <Text style={[styles.msgText, mine && styles.msgTextMine, !mine && isDark && { color: theme.text }]}>{item.content}</Text>
+                      {mine && item.__pending && <Text style={[styles.pendingText, { color: theme.textMuted }]}>envoi...</Text>}
                       {mine && item.__failed && <Text style={styles.failedText}>echec - toucher pour renvoyer</Text>}
                     </Pressable>
                   </View>
@@ -397,14 +443,21 @@ export default function MessagesScreen({ route }) {
               }}
             />
 
-            <View style={styles.inputRow}>
-              <View style={styles.inputContain}>
+            <View style={[
+              styles.inputRow, 
+              { 
+                backgroundColor: theme.surface, 
+                borderTopColor: theme.border,
+                paddingBottom: insets.bottom + (currentId ? TAB_BAR_HEIGHT - 10 : 10)
+              }
+            ]}>
+              <View style={[styles.inputContain, { backgroundColor: isDark ? theme.surface : '#fff', borderColor: theme.border }]}>
                 <TextInput
                   value={text}
                   onChangeText={handleChangeText}
                   placeholder="Message"
-                  placeholderTextColor={colors.textGhost}
-                  style={styles.input}
+                  placeholderTextColor={theme.textGhost}
+                  style={[styles.input, { color: theme.text }]}
                   multiline
                 />
               </View>
@@ -415,9 +468,9 @@ export default function MessagesScreen({ route }) {
           </>
         ) : (
           <View style={styles.emptyState}>
-            <Ionicons name="chatbubbles-outline" size={64} color={colors.border} style={{ marginBottom: 16 }} />
-            <Text style={styles.emptyTitle}>Vos messages</Text>
-            <Text style={styles.emptyText}>Selectionnez une discussion pour commencer.</Text>
+            <Ionicons name="chatbubbles-outline" size={64} color={theme.border} style={{ marginBottom: 16 }} />
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>Vos messages</Text>
+            <Text style={[styles.emptyText, { color: theme.textMuted }]}>Selectionnez une discussion pour commencer.</Text>
           </View>
         )}
       </View>

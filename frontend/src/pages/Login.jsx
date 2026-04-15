@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import GoogleLoginButton from '../components/GoogleLoginButton';
 import { FiArrowLeft, FiMail, FiLock, FiLogIn } from 'react-icons/fi';
 import logo from '../assets/logo.png';
 
@@ -11,7 +10,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, loginWithGoogle } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -23,19 +22,6 @@ export default function Login() {
       navigate('/home');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Identifiants invalides');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSuccess = async (credential) => {
-    setLoading(true);
-    try {
-      await loginWithGoogle(credential);
-      toast.success('Connexion réussie');
-      navigate('/home');
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Erreur Google');
     } finally {
       setLoading(false);
     }
@@ -102,17 +88,10 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-5 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl font-black text-lg shadow-[0_10px_30px_rgba(244,63,94,0.3)] hover:shadow-[0_15px_40px_rgba(244,63,94,0.4)] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 mt-4"
+              className="w-full py-5 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl font-black text-lg shadow-[0_10px_30px_rgba(244,63_94,0.3)] hover:shadow-[0_15px_40px_rgba(244,63_94,0.4)] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 mt-4"
             >
               {loading ? <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>SE CONNECTER <FiLogIn /></>}
             </button>
-
-            <div className="relative my-10">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5" /></div>
-              <div className="relative flex justify-center text-[10px] items-center uppercase tracking-[0.2em] font-black text-slate-600"><span className="px-4 bg-[#121212]">Connexion sociale</span></div>
-            </div>
-
-            <GoogleLoginButton onSuccess={handleGoogleSuccess} />
           </form>
 
           <p className="mt-12 text-center text-slate-500 text-sm font-medium">

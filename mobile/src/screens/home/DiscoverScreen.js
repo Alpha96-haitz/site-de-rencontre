@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Dimensions, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { userService } from '../../services/userService';
 import { matchService } from '../../services/matchService';
 import { colors } from '../../theme/colors';
 import { useTheme } from '../../contexts/ThemeContext';
-import TopHeader from '../../components/TopHeader';
+import { useAuth } from '../../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 120;
@@ -21,7 +22,7 @@ const LOVE_PARTICLES = [
 
 export default function DiscoverScreen({ navigation }) {
   const { user } = useAuth();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const [cards, setCards] = useState([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -29,6 +30,7 @@ export default function DiscoverScreen({ navigation }) {
   const [history, setHistory] = useState([]);
   const [feedback, setFeedback] = useState(null);
   const [matchBanner, setMatchBanner] = useState(null);
+  const insets = useSafeAreaInsets();
 
   const pos = useRef(new Animated.ValueXY()).current;
   const isActionRunning = useRef(false);
@@ -90,79 +92,83 @@ export default function DiscoverScreen({ navigation }) {
     return () => clearTimeout(t);
   }, [feedback]);
 
-  const registerSuccessAction = (actionType, userId) => {
-    setHistory((prev) => [...prev, { actionType, userId }]);
-    setIndex((prev) => prev + 1);
-  };
 
-  const runMatchAction = async (actionType) => {
-    if (!current?._id) return false;
+  const runMatchAction = async (actionType, cardToActOn) => {
+    if (!cardToActOn?._id) return;
     try {
       let response = null;
-      if (actionType === 'like') response = await matchService.like(current._id);
-      if (actionType === 'superlike') response = await matchService.superLike(current._id);
-      if (actionType === 'dislike') response = await matchService.dislike(current._id);
+      if (actionType === 'like') response = await matchService.like(cardToActOn._id);
+      if (actionType === 'superlike') response = await matchService.superLike(cardToActOn._id);
+      if (actionType === 'dislike') response = await matchService.dislike(cardToActOn._id);
+
+      if (response?.alreadyLiked) {
+        setFeedback({
+          type: 'info',
+          text: response.message || `Vous avez déjà liké ${cardToActOn.firstName}.`
+        });
+        return;
+      }
 
       if (response?.isMutual) {
         triggerLoveAnimation();
         setMatchBanner({
-          firstName: current.firstName,
-          userId: current.username || current._id,
+          firstName: cardToActOn.firstName,
+          userId: cardToActOn.username || cardToActOn._id,
           matchId: response?.match?._id || null
         });
         setFeedback({
           type: 'match',
-          text: `Vous et ${current.firstName} vous plaisez mutuellement.`
+          text: `Vous et ${cardToActOn.firstName} vous plaisez mutuellement.`
         });
       } else if (actionType === 'like') {
         triggerLoveAnimation();
         setFeedback({
           type: 'info',
-          text: `Like envoye a ${current.firstName}. En attente de confirmation.`
+          text: `Like envoyé à ${cardToActOn.firstName}.`
         });
       } else if (actionType === 'superlike') {
         triggerLoveAnimation();
         setFeedback({
           type: 'info',
-          text: `Super Like envoye a ${current.firstName}. En attente de confirmation.`
-        });
-      } else if (actionType === 'dislike') {
-        setFeedback({
-          type: 'neutral',
-          text: `${current.firstName} retire de vos suggestions.`
+          text: `Super Like envoyé à ${cardToActOn.firstName}.`
         });
       }
-
-      registerSuccessAction(actionType, current._id);
-      return true;
     } catch (err) {
-      Alert.alert('Erreur', "L'action a echoue. Reessaie.");
-      return false;
+      console.log('Match action error:', err);
     }
+  };
+
+  const registerSuccessAction = (actionType, userId) => {
+    setHistory((prev) => [...prev, { actionType, userId }]);
   };
 
   const animateOut = (toValue, actionType) => {
     if (isActionRunning.current || !current) return;
     isActionRunning.current = true;
 
+    const cardToActOn = current;
+
     Animated.timing(pos, {
       toValue,
-      duration: 240,
+      duration: 250,
       useNativeDriver: true
-    }).start(async () => {
-      const ok = await runMatchAction(actionType);
+    }).start(() => {
       pos.setValue({ x: 0, y: 0 });
-      if (!ok) {
-        // Keep card in place if API failed.
-        setIndex((prev) => prev);
-      }
+      setIndex((prev) => prev + 1);
+      registerSuccessAction(actionType, cardToActOn._id);
       isActionRunning.current = false;
+      runMatchAction(actionType, cardToActOn);
     });
   };
 
   const handleLike = () => animateOut({ x: width + 100, y: 0 }, 'like');
   const handleDislike = () => animateOut({ x: -width - 100, y: 0 }, 'dislike');
   const handleSuperLike = () => animateOut({ x: 0, y: -height - 100 }, 'superlike');
+
+  const handlersRef = useRef({ handleLike, handleDislike, handleSuperLike });
+  useEffect(() => {
+    handlersRef.current = { handleLike, handleDislike, handleSuperLike };
+  });
 
   const handleRewind = async () => {
     if (isActionRunning.current) return;
@@ -175,13 +181,10 @@ export default function DiscoverScreen({ navigation }) {
     setHistory((prev) => prev.slice(0, -1));
     setIndex((prev) => Math.max(prev - 1, 0));
 
-    // Try to rollback "like/superlike" when not mutual yet.
     if (last?.actionType === 'like' || last?.actionType === 'superlike') {
       try {
         await matchService.dislike(last.userId);
-      } catch (_) {
-        // no-op: UI rewind still works.
-      }
+      } catch (_) {}
     }
   };
 
@@ -212,23 +215,37 @@ export default function DiscoverScreen({ navigation }) {
 
   const panResponder = useRef(
     PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, g) =>
-        !isActionRunning.current &&
-        (Math.abs(g.dx) > 8 || g.dy < -8),
-      onMoveShouldSetPanResponderCapture: (_, g) =>
-        !isActionRunning.current &&
-        (Math.abs(g.dx) > 8 || g.dy < -8),
-      onPanResponderMove: (_, g) => pos.setValue({ x: g.dx, y: g.dy }),
+        !isActionRunning.current && (Math.abs(g.dx) > 10 || Math.abs(g.dy) > 10),
+      onPanResponderGrant: () => {
+        pos.stopAnimation();
+      },
+      onPanResponderMove: (_, g) => {
+        if (isActionRunning.current) return;
+        pos.setValue({ x: g.dx, y: g.dy });
+      },
       onPanResponderRelease: (_, g) => {
         if (isActionRunning.current) return;
-        const shouldSuperLike = g.dy < -SWIPE_THRESHOLD || g.vy < -SWIPE_VELOCITY;
-        const shouldLike = g.dx > SWIPE_THRESHOLD || g.vx > SWIPE_VELOCITY;
-        const shouldDislike = g.dx < -SWIPE_THRESHOLD || g.vx < -SWIPE_VELOCITY;
+        
+        const shouldSuperLike = g.dy < -SWIPE_THRESHOLD || (g.dy < -60 && g.vy < -SWIPE_VELOCITY);
+        const shouldLike = g.dx > SWIPE_THRESHOLD || (g.dx > 60 && g.vx > SWIPE_VELOCITY);
+        const shouldDislike = g.dx < -SWIPE_THRESHOLD || (g.dx < -60 && g.vx < -SWIPE_VELOCITY);
 
-        if (shouldSuperLike && Math.abs(g.dx) < 100) return handleSuperLike();
-        if (shouldLike) return handleLike();
-        if (shouldDislike) return handleDislike();
-        Animated.spring(pos, { toValue: { x: 0, y: 0 }, friction: 5, useNativeDriver: true }).start();
+        if (shouldSuperLike && Math.abs(g.dx) < 130) {
+          handlersRef.current.handleSuperLike();
+        } else if (shouldLike) {
+          handlersRef.current.handleLike();
+        } else if (shouldDislike) {
+          handlersRef.current.handleDislike();
+        } else {
+          Animated.spring(pos, {
+            toValue: { x: 0, y: 0 },
+            friction: 5,
+            tension: 40,
+            useNativeDriver: true
+          }).start();
+        }
       }
     })
   ).current;
@@ -236,7 +253,7 @@ export default function DiscoverScreen({ navigation }) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <Text style={styles.emptyText}>Recherche de profils...</Text>
+        <Text style={[styles.emptyText, { color: theme.textMuted }]}>Recherche de profils...</Text>
       </View>
     );
   }
@@ -247,7 +264,7 @@ export default function DiscoverScreen({ navigation }) {
         <View style={styles.radarBox}>
           <Image source={require('../../../assets/logo.png')} style={{ width: 60, height: 60, opacity: 0.2 }} contentFit="contain" />
         </View>
-        <Text style={styles.empty}>Vous avez vu tous les profils !</Text>
+        <Text style={[styles.empty, { color: theme.text }]}>Vous avez vu tous les profils !</Text>
         <Pressable style={styles.actionBtn} onPress={fetchCards}>
           <Text style={styles.actionText}>Chercher a nouveau</Text>
         </Pressable>
@@ -266,12 +283,6 @@ export default function DiscoverScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <TopHeader 
-        navigation={navigation} 
-        user={user} 
-        onShowProfileMenu={() => {}} 
-        unreadNotifications={user?.unreadNotifications || 0}
-      />
       <View pointerEvents="none" style={styles.loveLayer}>
         {LOVE_PARTICLES.map((particle, idx) => (
           <Animated.Text
@@ -314,7 +325,7 @@ export default function DiscoverScreen({ navigation }) {
             <Pressable
               style={[styles.matchBtn, styles.matchGhostBtn]}
               onPress={() => {
-                navigation.navigate('Profile', { screen: 'ProfileMain', params: { userId: matchBanner.userId } });
+                navigation.navigate('ProfileMain', { userId: matchBanner.userId });
                 setMatchBanner(null);
               }}
             >
@@ -366,7 +377,7 @@ export default function DiscoverScreen({ navigation }) {
             </View>
             <Pressable
               style={styles.infoBtn}
-              onPress={() => navigation.navigate('Profile', { screen: 'ProfileMain', params: { userId: current.username || current._id } })}
+              onPress={() => navigation.navigate('ProfileMain', { userId: current.username || current._id })}
             >
               <Ionicons name="information" size={20} color="#000" />
             </Pressable>
@@ -482,17 +493,13 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
     elevation: 2
   },
-  empty: { color: colors.textMuted, fontSize: 18, fontWeight: '700', marginBottom: 24 },
-  emptyText: { color: colors.textMuted, fontSize: 16 },
+  empty: { fontSize: 18, fontWeight: '700', marginBottom: 24 },
+  emptyText: { fontSize: 16 },
   actionBtn: {
     backgroundColor: colors.primary,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 30,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
     elevation: 4
   },
   actionText: { color: '#fff', fontWeight: '800', fontSize: 16, textTransform: 'uppercase' },
@@ -506,11 +513,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderRadius: 20,
     backgroundColor: '#000',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10
+    elevation: 4
   },
   nextCard: { zIndex: 1, transform: [{ scale: 0.96 }] },
   activeCard: { zIndex: 10 },

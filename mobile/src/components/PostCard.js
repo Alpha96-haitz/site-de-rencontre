@@ -151,10 +151,10 @@ function PostCard({
           />
 
           <View style={styles.headerText}>
-            <Text style={styles.name}>
+            <Text style={[styles.name, { color: theme.text }]}>
               {author?.firstName || ''} {author?.lastName || ''}
             </Text>
-            <Text style={styles.meta}>Publication</Text>
+            <Text style={[styles.meta, { color: theme.textMuted }]}>Publication</Text>
           </View>
         </Pressable>
 

@@ -175,3 +175,8 @@ export const notifyLike = (io, userId, likeData) => {
 export const notifyNotificationUnread = async (io, userId) => {
   await emitNotificationUnreadCount(io, userId);
 };
+
+export const notifyNewPost = (io, postData) => {
+  if (!io) return;
+  io.emit('post:new', postData);
+};

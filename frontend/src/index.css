@@ -3,8 +3,15 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
 
   .dark body,
@@ -12,9 +19,31 @@
     background-color: #0b1220;
     color: #e2e8f0;
   }
+
+  /* Optimize layout shifts and performance */
+  img {
+    content-visibility: auto;
+  }
 }
 
-/* Global dark mode overrides for existing utility-heavy UI */
+@layer components {
+  .glass {
+    @apply bg-white/70 backdrop-blur-xl border border-white/20;
+  }
+}
+
+/* Page transitions */
+.fade-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.fade-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* Global dark mode overrides */
 .dark .bg-white { background-color: #111827 !important; }
 .dark .bg-slate-50,
 .dark .bg-slate-50\/30,
@@ -54,3 +83,4 @@
 .dark .text-pink-600 { color: #f472b6 !important; }
 .dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.12) !important; }
 .dark .text-rose-600 { color: #fb7185 !important; }
+

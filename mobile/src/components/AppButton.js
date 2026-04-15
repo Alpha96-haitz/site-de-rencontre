@@ -1,9 +1,11 @@
 import React from 'react';
-import { Pressable, Text, ActivityIndicator, StyleSheet, Animated } from 'react-native';
+import { Pressable, Text, ActivityIndicator, StyleSheet, Animated, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function AppButton({ title, onPress, loading, variant = 'primary', style }) {
+  const { theme } = useTheme();
   const isSecondary = variant === 'secondary';
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
@@ -17,9 +19,9 @@ export default function AppButton({ title, onPress, loading, variant = 'primary'
   const content = (
     <>
       {loading ? (
-        <ActivityIndicator color={isSecondary ? colors.text : '#fff'} />
+        <ActivityIndicator color={isSecondary ? theme.text : '#fff'} />
       ) : (
-        <Text style={[styles.text, isSecondary ? styles.textSecondary : styles.textPrimary]}>{title}</Text>
+        <Text style={[styles.text, isSecondary ? styles.textSecondary : styles.textPrimary, isSecondary && { color: theme.text }]}>{title}</Text>
       )}
     </>
   );
@@ -35,14 +37,18 @@ export default function AppButton({ title, onPress, loading, variant = 'primary'
       >
         {!isSecondary ? (
           <LinearGradient
-            colors={[colors.primary, colors.accent]}
+            colors={[theme.primary, theme.accent]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.gradient}
           >
             {content}
           </LinearGradient>
-        ) : content}
+        ) : (
+          <View style={[styles.secondary, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {content}
+          </View>
+        )}
       </Pressable>
     </Animated.View>
   );
@@ -51,14 +57,7 @@ export default function AppButton({ title, onPress, loading, variant = 'primary'
 const styles = StyleSheet.create({
   btn: { borderRadius: 14, overflow: 'hidden' },
   gradient: { paddingVertical: 14, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
-  secondary: { 
-    backgroundColor: colors.surface, 
-    borderWidth: 1, 
-    borderColor: colors.border, 
-    paddingVertical: 14, 
-    paddingHorizontal: 16, 
-    alignItems: 'center' 
-  },
+  secondary: { borderWidth: 1, paddingVertical: 14, paddingHorizontal: 16, alignItems: 'center' },
   text: { fontWeight: '700', fontSize: 16 },
   textPrimary: { color: '#fff' },
   textSecondary: { color: colors.text }

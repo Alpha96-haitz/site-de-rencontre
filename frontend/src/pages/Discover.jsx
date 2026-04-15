@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { FiX, FiHeart, FiStar, FiInfo, FiRefreshCw, FiMapPin, FiNavigation, FiRotateCcw, FiChevronLeft, FiChevronRight, FiZap, FiMessageCircle, FiFlag } from 'react-icons/fi';
 import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -23,7 +23,7 @@ export default function Discover() {
   
   const navigate = useNavigate();
 
-  const fetchCards = async () => {
+  const fetchCards = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await client.get('/users/suggestions');
@@ -36,13 +36,13 @@ export default function Discover() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchCards();
-  }, []);
+  }, [fetchCards]);
 
-  const handleAction = async (type) => {
+  const handleAction = useCallback(async (type) => {
     if (currentIndex >= cards.length || direction) return;
     
     const currentCard = cards[currentIndex];
@@ -74,9 +74,9 @@ export default function Discover() {
       setDirection(null);
       setCurrentIndex(prev => prev + 1);
     }, 300);
-  };
+  }, [currentIndex, cards, direction]);
 
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     if (history.length === 0) {
       toast.error("Rien à annuler !");
       return;
@@ -84,19 +84,24 @@ export default function Discover() {
     const lastAction = history[history.length - 1];
     setHistory(prev => prev.slice(0, -1));
     setCurrentIndex(lastAction.index);
-  };
+  }, [history]);
+
+  const currentCard = useMemo(() => cards[currentIndex], [cards, currentIndex]);
+  
+  const myPhoto = useMemo(() => 
+    currentUserData?.photos?.find(p => p.isPrimary)?.url || currentUserData?.googlePhoto || 'https://placehold.co/150'
+  , [currentUserData]);
+
+  const matchPhoto = useMemo(() => 
+    matchData?.user?.photos?.find(p => p.isPrimary)?.url || matchData?.user?.googlePhoto || 'https://placehold.co/600x800?text=Profil'
+  , [matchData]);
 
   if (loading) return (
-    <div className="flex flex-col items-center justify-center p-20">
+    <div className="flex flex-col items-center justify-center p-20 min-h-[400px]">
       <div className="w-16 h-16 border-4 border-pink-100 border-t-pink-600 rounded-full animate-spin"></div>
       <p className="mt-4 text-slate-400 font-black uppercase text-[10px] tracking-[0.2em] animate-pulse">Recherche de profils...</p>
     </div>
   );
-
-  const currentCard = cards[currentIndex];
-  
-  const myPhoto = currentUserData?.photos?.find(p => p.isPrimary)?.url || currentUserData?.googlePhoto || 'https://placehold.co/150';
-  const matchPhoto = matchData?.user?.photos?.find(p => p.isPrimary)?.url || matchData?.user?.googlePhoto || 'https://placehold.co/600x800?text=Profil';
 
   return (
     <div className="max-w-md mx-auto p-4 flex flex-col h-[calc(100vh-80px)] md:h-[calc(100vh-64px)] justify-center font-sans relative">
@@ -113,11 +118,11 @@ export default function Discover() {
 
            <div className="flex items-center justify-center gap-4 mb-20 relative">
               <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-2xl overflow-hidden -rotate-6 animate-in slide-in-from-left-20 duration-700">
-                 <img src={myPhoto} alt="" className="w-full h-full object-cover" />
+                 <img src={myPhoto} alt="" className="w-full h-full object-cover" loading="lazy" />
               </div>
               <FiHeart className="absolute w-12 h-12 text-pink-500 fill-current z-10 animate-ping-slow drop-shadow-lg" />
               <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-2xl overflow-hidden rotate-6 animate-in slide-in-from-right-20 duration-700">
-                 <img src={matchPhoto} alt="" className="w-full h-full object-cover" />
+                 <img src={matchPhoto} alt="" className="w-full h-full object-cover" loading="lazy" />
               </div>
            </div>
 
@@ -160,6 +165,7 @@ export default function Discover() {
                 src={currentCard.photos?.find(p => p.isPrimary)?.url || currentCard.googlePhoto || 'https://placehold.co/600x800?text=Profil'} 
                 alt={currentCard.firstName} 
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                loading="lazy"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
               

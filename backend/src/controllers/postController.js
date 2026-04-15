@@ -2,6 +2,7 @@ import Post from '../models/Post.js';
 import cloudinary from '../config/cloudinary.js';
 import { createNotification } from './notificationController.js';
 import { getCached, setCached, clearCacheByPrefix } from '../utils/simpleCache.js';
+import { notifyNewPost } from '../socket/index.js';
 
 const escapeHtml = (str) => String(str || '').normalize('NFC')
   .replace(/&/g, '&amp;')
@@ -64,6 +65,12 @@ export const createPost = async (req, res) => {
       .populate('userId', 'firstName lastName username photos googlePhoto isOnline')
       .populate('comments.userId', 'firstName lastName username photos googlePhoto')
       .lean();
+
+    const io = req.app.get('io');
+    if (io) {
+      notifyNewPost(io, populatedPost || savedPost);
+    }
+
     res.status(201).json(populatedPost || savedPost);
   } catch (err) {
     res.status(500).json({ message: err.message });

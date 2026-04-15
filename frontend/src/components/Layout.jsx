@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
 import { FiHome, FiCompass, FiMessageCircle, FiHeart, FiUser, FiSearch, FiBell, FiLogOut, FiSettings, FiX, FiShield, FiUserPlus, FiUserCheck, FiMoon, FiSun } from 'react-icons/fi';
 import toast from 'react-hot-toast';
@@ -44,7 +44,7 @@ export default function Layout() {
     };
 
     fetchUnread();
-    const interval = setInterval(fetchUnread, 60000); // 60s
+    const interval = setInterval(fetchUnread, 300000); // 5 mins fallback
     return () => clearInterval(interval);
   }, [user?._id]);
   // Écouter les mises à jour de messages non lus via Socket
@@ -129,13 +129,13 @@ export default function Layout() {
     }
   }, [searchTerm, fetchResults]);
 
-  const nav = [
+  const nav = useMemo(() => [
     { to: '/home', icon: FiHome, label: 'Accueil' },
     { to: '/home/discover', icon: FiCompass, label: 'Découvrir' },
     { to: '/home/search', icon: FiSearch, label: 'Recherche' },
     { to: '/home/matches', icon: FiHeart, label: 'Matchs' },
     { to: '/home/messages', icon: FiMessageCircle, label: 'Messages', badge: unreadMessagesCount },
-  ];
+  ], [unreadMessagesCount]);
 
   const navItem = (item) => (
     <NavLink
@@ -322,7 +322,7 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <nav className="sm:hidden fixed bottom-1 left-4 right-4 bg-white/90 backdrop-blur-xl border border-white/20 flex justify-around py-3 px-2 z-40 pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-2xl rounded-[32px]">
+      <nav className="sm:hidden fixed bottom-1 left-4 right-4 glass shadow-2xl rounded-[32px] flex justify-around py-3 px-2 z-40 pb-[calc(env(safe-area-inset-bottom)+12px)]">
         {nav.map(({ to, icon: Icon, label, badge }) => (
           <NavLink
             key={to}

@@ -1,17 +1,19 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function LoadingScreen({ label = 'Chargement...' }) {
+  const { theme } = useTheme();
+
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color={colors.primary} />
-      <Text style={styles.text}>{label}</Text>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <ActivityIndicator size="large" color={theme.primary} />
+      <Text style={[styles.text, { color: theme.textMuted }]}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
-  text: { marginTop: 10, color: colors.textMuted }
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  text: { marginTop: 10 }
 });

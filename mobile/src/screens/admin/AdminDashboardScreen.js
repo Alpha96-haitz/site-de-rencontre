@@ -16,10 +16,13 @@ import { adminService } from '../../services/adminService';
 import { colors } from '../../theme/colors';
 import Avatar from '../../components/Avatar';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function AdminDashboardScreen({ navigation }) {
   const { user } = useAuth();
+  const { theme, isDark } = useTheme();
   const [users, setUsers] = useState([]);
+  // ... (rest of state)
   const [reports, setReports] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +31,65 @@ export default function AdminDashboardScreen({ navigation }) {
   const [search, setSearch] = useState('');
   const [notifTargetReport, setNotifTargetReport] = useState(null);
   const [notifMessage, setNotifMessage] = useState('');
+
+  // Styles dynamiques basés sur le thème
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.bg },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      height: 58,
+      backgroundColor: theme.surface,
+      paddingHorizontal: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border
+    },
+    headerTitle: { fontSize: 18, fontWeight: '800', color: theme.text },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
+    statBox: { width: '48%', backgroundColor: theme.surfaceLighter, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: theme.border },
+    statVal: { fontSize: 20, fontWeight: '900', color: theme.primary },
+    statLabel: { fontSize: 11, fontWeight: '700', color: theme.textMuted, textTransform: 'uppercase' },
+    tabRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+    tabBtn: { flex: 1, backgroundColor: theme.surface, borderRadius: 10, borderWidth: 1, borderColor: theme.border, paddingVertical: 10, alignItems: 'center' },
+    tabBtnActive: { backgroundColor: isDark ? '#3d162d' : '#fce7f3', borderColor: isDark ? '#be185d' : '#f9a8d4' },
+    tabText: { fontWeight: '800', color: theme.textMuted, fontSize: 12, textTransform: 'uppercase' },
+    tabTextActive: { color: isDark ? '#f472b6' : '#be185d' },
+    searchBox: { backgroundColor: theme.surface, borderRadius: 10, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 6, height: 42, marginBottom: 10 },
+    searchInput: { flex: 1, color: theme.text, fontSize: 14 },
+    rowCard: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 12, padding: 12, marginBottom: 10 },
+    userInfo: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+    userName: { color: theme.text, fontWeight: '800', fontSize: 15 },
+    userMeta: { color: theme.textMuted, fontSize: 12, marginTop: 2 },
+    actions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+    actionBtn: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+    actionBtnText: { color: '#fff', fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
+    danger: { backgroundColor: '#ef4444' },
+    good: { backgroundColor: '#16a34a' },
+    info: { backgroundColor: '#2563eb' },
+    neutral: { backgroundColor: theme.textMuted },
+    reportTitle: { color: theme.text, fontWeight: '900', fontSize: 14, marginBottom: 4 },
+    reportReason: { color: '#be123c', fontWeight: '800', fontSize: 13 },
+    reportDesc: { color: theme.text, marginTop: 6, lineHeight: 19, fontSize: 13 },
+    reportMeta: { color: theme.textMuted, marginTop: 8, fontSize: 12 },
+    reportActions: { flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' },
+    emptyBox: { paddingVertical: 34, alignItems: 'center' },
+    emptyText: { color: theme.textMuted, fontWeight: '700' },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
+    modalCard: { backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border, padding: 14 },
+    modalTitle: { color: theme.text, fontWeight: '900', fontSize: 16, marginBottom: 10 },
+    modalInput: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 10,
+      padding: 10,
+      color: theme.text,
+      minHeight: 90,
+      textAlignVertical: 'top',
+      backgroundColor: theme.surfaceLighter
+    },
+    modalActions: { flexDirection: 'row', gap: 8, marginTop: 12 }
+  }), [theme, isDark]);
 
   const loadData = useCallback(async () => {
     try {
@@ -133,7 +195,7 @@ export default function AdminDashboardScreen({ navigation }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={{ paddingRight: 16 }}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Controle Admin</Text>
       </View>
@@ -275,59 +337,5 @@ export default function AdminDashboardScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 58,
-    backgroundColor: '#fff',
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border
-  },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
-  statBox: { width: '48%', backgroundColor: '#fff', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border },
-  statVal: { fontSize: 20, fontWeight: '900', color: colors.primary },
-  statLabel: { fontSize: 11, fontWeight: '700', color: colors.textGhost, textTransform: 'uppercase' },
-  tabRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  tabBtn: { flex: 1, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingVertical: 10, alignItems: 'center' },
-  tabBtnActive: { backgroundColor: '#fce7f3', borderColor: '#f9a8d4' },
-  tabText: { fontWeight: '800', color: colors.textMuted, fontSize: 12, textTransform: 'uppercase' },
-  tabTextActive: { color: '#be185d' },
-  searchBox: { backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 6, height: 42, marginBottom: 10 },
-  searchInput: { flex: 1, color: colors.text, fontSize: 14 },
-  rowCard: { backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, marginBottom: 10 },
-  userInfo: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  userName: { color: colors.text, fontWeight: '800', fontSize: 15 },
-  userMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-  actions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  actionBtn: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
-  actionBtnText: { color: '#fff', fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
-  danger: { backgroundColor: '#ef4444' },
-  good: { backgroundColor: '#16a34a' },
-  info: { backgroundColor: '#2563eb' },
-  neutral: { backgroundColor: '#64748b' },
-  reportTitle: { color: colors.text, fontWeight: '900', fontSize: 14, marginBottom: 4 },
-  reportReason: { color: '#be123c', fontWeight: '800', fontSize: 13 },
-  reportDesc: { color: colors.text, marginTop: 6, lineHeight: 19, fontSize: 13 },
-  reportMeta: { color: colors.textMuted, marginTop: 8, fontSize: 12 },
-  reportActions: { flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' },
-  emptyBox: { paddingVertical: 34, alignItems: 'center' },
-  emptyText: { color: colors.textMuted, fontWeight: '700' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 20 },
-  modalCard: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: 14 },
-  modalTitle: { color: colors.text, fontWeight: '900', fontSize: 16, marginBottom: 10 },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 10,
-    color: colors.text,
-    minHeight: 90,
-    textAlignVertical: 'top'
-  },
-  modalActions: { flexDirection: 'row', gap: 8, marginTop: 12 }
-});
+// Fin des styles dynamiques
+

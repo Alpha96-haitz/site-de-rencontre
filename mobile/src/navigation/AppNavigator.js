@@ -1,12 +1,15 @@
 import React from 'react';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
+import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { useSocket } from '../contexts/SocketContext';
 import LoadingScreen from '../components/LoadingScreen';
-import { colors } from '../theme/colors';
+import TopHeader from '../components/TopHeader';
 
 const LoginScreen = lazy(() => import('../screens/auth/LoginScreen'));
 const SignupScreen = lazy(() => import('../screens/auth/SignupScreen'));
@@ -35,25 +38,44 @@ function AuthStack() {
   );
 }
 
-function ProfileStack() {
-  return (
-    <Stack.Navigator>
-      <Stack.Screen name="ProfileMain" component={ProfileScreen} options={{ title: 'Mon Profil', headerShown: false }} />
-      <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Modifier Profil' }} />
-    </Stack.Navigator>
-  );
-}
-
 function MainTabs() {
-  const { user } = useAuth();
+  const { user, updateLocalUser } = useAuth();
   const { theme, isDark } = useTheme();
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+    
+    const onNotifUpdate = (data) => {
+       if (typeof data?.count === 'number') {
+         updateLocalUser({ unreadNotifications: Math.max(0, data.count) });
+       }
+    };
+    
+    const onMsgUpdate = (data) => {
+       if (typeof data?.count === 'number') {
+         updateLocalUser({ unreadMessages: Math.max(0, data.count) });
+       } else if (typeof data?.delta === 'number') {
+         updateLocalUser(prev => ({ unreadMessages: Math.max(0, (prev.unreadMessages || 0) + data.delta) }));
+       }
+    };
+
+    socket.on('notification:unread-update', onNotifUpdate);
+    socket.on('message:unread-update', onMsgUpdate);
+
+    return () => {
+      socket.off('notification:unread-update', onNotifUpdate);
+      socket.off('message:unread-update', onMsgUpdate);
+    };
+  }, [socket, updateLocalUser]);
 
   return (
-    <Tab.Navigator screenOptions={({ route }) => ({
-      headerShown: false,
+    <Tab.Navigator screenOptions={({ route, navigation }) => ({
+      headerShown: true,
+      header: (props) => <TopHeader {...props} navigation={navigation} />,
       tabBarShowLabel: true,
       tabBarActiveTintColor: theme.primary,
-      tabBarInactiveTintColor: isDark ? theme.textGhost : theme.textGhost,
+      tabBarInactiveTintColor: theme.textGhost,
       tabBarLabelStyle: { fontSize: 10, fontWeight: '700', marginBottom: 8, marginTop: -4 },
       tabBarStyle: { 
         position: 'absolute',
@@ -77,11 +99,9 @@ function MainTabs() {
         const map = {
           Feed: focused ? 'home' : 'home-outline',
           Discover: focused ? 'compass' : 'compass-outline',
-          Search: focused ? 'search' : 'search-outline',
           Matches: focused ? 'heart' : 'heart-outline',
           Messages: focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline',
           Notifications: focused ? 'notifications' : 'notifications-outline',
-          Profile: focused ? 'person' : 'person-outline'
         };
         const iconName = map[route.name];
         if (!iconName) return null;
@@ -90,13 +110,22 @@ function MainTabs() {
     })}>
       <Tab.Screen name="Feed" component={FeedScreen} options={{ title: 'Accueil' }} />
       <Tab.Screen name="Discover" component={DiscoverScreen} options={{ title: 'Découvrir' }} />
-      <Tab.Screen name="Search" component={SearchScreen} options={{ tabBarItemStyle: { display: 'none' }, tabBarButton: () => null }} />
       <Tab.Screen name="Matches" component={MatchesScreen} options={{ title: 'Likes' }} />
       <Tab.Screen name="Messages" component={MessagesScreen} options={{ title: 'Messages', tabBarBadge: user?.unreadMessages > 0 ? user.unreadMessages : undefined, tabBarBadgeStyle: { backgroundColor: theme.danger, color: '#fff', fontSize: 11, minWidth: 18, height: 18, lineHeight: 18 } }} />
       <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Alertes', tabBarBadge: user?.unreadNotifications > 0 ? user.unreadNotifications : undefined, tabBarBadgeStyle: { backgroundColor: theme.danger, color: '#fff', fontSize: 11, minWidth: 18, height: 18, lineHeight: 18 } }} />
-      <Tab.Screen name="Profile" component={ProfileStack} options={{ tabBarItemStyle: { display: 'none' }, tabBarButton: () => null }} />
-      <Tab.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ tabBarItemStyle: { display: 'none' }, tabBarButton: () => null }} />
     </Tab.Navigator>
+  );
+}
+
+function HomeStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen name="Search" component={SearchScreen} options={{ animation: 'fade_from_bottom' }} />
+      <Stack.Screen name="ProfileMain" component={ProfileScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Modifier Profil', headerShown: true }} />
+      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+    </Stack.Navigator>
   );
 }
 
@@ -107,26 +136,28 @@ export default function AppNavigator() {
   if (loading) return <LoadingScreen />;
 
   const navTheme = {
-    ...DefaultTheme,
+    ...(isDark ? DarkTheme : DefaultTheme),
+    dark: isDark,
     colors: { 
-      ...DefaultTheme.colors, 
+      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
       background: theme.bg,
       card: theme.surface,
       text: theme.text,
       border: theme.border,
+      notification: theme.primary,
     }
   };
 
   return (
     <NavigationContainer theme={navTheme}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={theme.bg} translucent={false} />
       <Suspense fallback={<LoadingScreen />}>
         {!token ? (
           <AuthStack />
         ) : !isEmailVerified ? (
           <EmailVerificationScreen />
         ) : (
-          <MainTabs />
+          <HomeStack />
         )}
       </Suspense>
     </NavigationContainer>

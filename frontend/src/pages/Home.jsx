@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { getSocket } from '../socket/client';
 import PostForm from '../components/PostForm';
 import PostItem from '../components/PostItem';
+import debounce from 'lodash.debounce';
 
 export default function Home() {
   const { user, refreshUser } = useAuth();
@@ -16,35 +17,61 @@ export default function Home() {
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showMoreSuggestions, setShowMoreSuggestions] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
 
-  const fetchTimeline = useCallback(async () => {
+  const fetchTimeline = useCallback(async (pageNum = 1, shouldAppend = false) => {
+    if (pageNum === 1) setLoading(true);
+    else setIsFetchingMore(true);
+
     try {
-      const { data } = await client.get('/posts/timeline?limit=30&page=1');
-      setPosts(data);
+      const { data } = await client.get(`/posts/timeline?limit=10&page=${pageNum}`);
+      if (data.length < 10) setHasMore(false);
+      else setHasMore(true);
+      
+      setPosts((prev) => shouldAppend ? [...prev, ...data] : data);
     } catch (err) {
       toast.error('Erreur lors du chargement du fil d\'actualité');
     } finally {
       setLoading(false);
+      setIsFetchingMore(false);
     }
   }, []);
 
-  const fetchSuggestions = async (limit = 5) => {
+  const fetchSuggestions = useCallback(async (limit = 5) => {
     setLoadingSuggestions(true);
     try {
       const { data } = await client.get(`/users/suggestions?limit=${limit}`);
-      // On prend les 5 premières suggestions
       setSuggestions(data);
     } catch (err) {
       console.error("Erreur suggestions:", err);
     } finally {
       setLoadingSuggestions(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchTimeline();
+    fetchTimeline(1, false);
     fetchSuggestions();
-  }, []);
+  }, [fetchTimeline, fetchSuggestions]);
+
+  useEffect(() => {
+    const handleScroll = debounce(() => {
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 800) {
+        if (!loading && !isFetchingMore && hasMore) {
+          setPage((p) => {
+            const next = p + 1;
+            fetchTimeline(next, true);
+            return next;
+          });
+        }
+      }
+    }, 150);
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [loading, isFetchingMore, hasMore, fetchTimeline]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -60,46 +87,53 @@ export default function Home() {
       setSuggestions((prev) => prev.map((s) => (s._id === userId ? { ...s, isOnline: false } : s)));
     };
 
+    const handleNewPost = (newPost) => {
+      if (!newPost?._id) return;
+      setPosts((prev) => {
+        if (prev.some(p => p._id === newPost._id)) return prev;
+        return [newPost, ...prev];
+      });
+    };
+
     socket.on('user:online', handleOnline);
     socket.on('user:offline', handleOffline);
+    socket.on('post:new', handleNewPost);
 
     return () => {
       socket.off('user:online', handleOnline);
       socket.off('user:offline', handleOffline);
+      socket.off('post:new', handleNewPost);
     };
   }, []);
 
-  const handlePostCreated = (newPost) => {
+  const handlePostCreated = useCallback((newPost) => {
     setPosts((prev) => [newPost, ...prev]);
-  };
+  }, []);
 
-  const handlePostDeleted = (postId) => {
+  const handlePostDeleted = useCallback((postId) => {
     setPosts((prev) => prev.filter((p) => p._id !== postId));
-  };
+  }, []);
 
-  const handlePostUpdated = (updatedPost) => {
+  const handlePostUpdated = useCallback((updatedPost) => {
     setPosts((prev) => prev.map((p) => (p._id === updatedPost._id ? updatedPost : p)));
-  };
+  }, []);
 
-  const handleFollow = async (suggestedId) => {
+  const handleFollow = useCallback(async (suggestedId) => {
     try {
       await client.put(`/users/${suggestedId}/follow`);
       toast.success("Abonné !");
       refreshUser().catch(() => {});
-      // On retire la suggestion de la liste locale
       setSuggestions((prev) => prev.filter((s) => s._id !== suggestedId));
-      // Optionnel: rafraîchir le feed pour voir ses posts
-      fetchTimeline();
     } catch (err) {
       toast.error(err.response?.data?.message || "Erreur lors de l'abonnement");
     }
-  };
+  }, [refreshUser]);
 
-  const handleToggleMoreSuggestions = async () => {
+  const handleToggleMoreSuggestions = useCallback(async () => {
     const next = !showMoreSuggestions;
     setShowMoreSuggestions(next);
     await fetchSuggestions(next ? 30 : 5);
-  };
+  }, [showMoreSuggestions, fetchSuggestions]);
 
   const primaryPhoto = user?.photos?.find((p) => p.isPrimary) || user?.photos?.[0];
   const avatarUrl = primaryPhoto?.url || user?.googlePhoto || 'https://placehold.co/150';
@@ -220,6 +254,14 @@ export default function Home() {
             {posts.map(post => (
               <PostItem key={post._id} post={post} onDelete={handlePostDeleted} onUpdate={handlePostUpdated} showFollowAction />
             ))}
+            {hasMore ? (
+              <div className="py-12 flex flex-col items-center gap-2">
+                 <div className="w-8 h-8 border-4 border-pink-100 border-t-pink-500 rounded-full animate-spin"></div>
+                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Chargement...</p>
+              </div>
+            ) : posts.length > 0 && (
+              <p className="py-16 text-center text-slate-400 italic text-sm">Vous avez vu toutes les publications du jour !</p>
+            )}
           </div>
         )}
       </div>
@@ -247,7 +289,7 @@ export default function Home() {
                       <div className="truncate">
                         <p className="text-sm font-bold text-slate-800 truncate">{s.firstName} {s.lastName}</p>
                         <div className="flex items-center gap-1">
-                           <div className={`w-2 h-2 rounded-full ${s.isOnline ? 'bg-emerald-500 animate-pulse shadow-[0_0_0_3px_rgba(16,185,129,0.15)]' : 'bg-slate-300'}`}></div>
+                           <div className={`w-2 h-2 rounded-full ${s.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
                            <p className={`text-[10px] font-black uppercase tracking-widest ${s.isOnline ? 'text-emerald-500' : 'text-slate-400'}`}>
                               {s.isOnline ? 'en ligne' : 'hors ligne'}
                            </p>
@@ -257,15 +299,14 @@ export default function Home() {
                     <button 
                       onClick={() => handleFollow(s._id)}
                       className="p-2 bg-pink-50 text-pink-600 rounded-full hover:bg-pink-600 hover:text-white transition-all group shadow-sm shadow-pink-100"
-                      title="S'abonner"
                     >
-                      <FiUserPlus className="w-4 h-4 group-active:scale-125 transition-transform" />
+                      <FiUserPlus className="w-4 h-4" />
                     </button>
                   </div>
                 );
               })
             ) : (
-              <p className="text-sm text-slate-500">Aucune suggestion pour le moment.</p>
+              <p className="text-sm text-slate-500">Aucune suggestion.</p>
             )}
           </div>
           
@@ -282,5 +323,3 @@ export default function Home() {
     </div>
   );
 }
-
-

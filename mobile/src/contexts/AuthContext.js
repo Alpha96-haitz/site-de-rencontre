@@ -1,13 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import { Platform } from 'react-native';
-import { GOOGLE_IDS } from '../config/env';
 import { authService } from '../services/authService';
 import { setApiToken } from '../api/client';
-
-WebBrowser.maybeCompleteAuthSession();
 
 const STORAGE_KEY = 'haitz_token';
 const AuthContext = createContext(null);
@@ -23,16 +17,6 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
-
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: GOOGLE_IDS.webClientId,
-    expoClientId: GOOGLE_IDS.expoClientId || GOOGLE_IDS.webClientId,
-    androidClientId: GOOGLE_IDS.androidClientId || GOOGLE_IDS.webClientId,
-    iosClientId: GOOGLE_IDS.iosClientId || GOOGLE_IDS.webClientId,
-    webClientId: GOOGLE_IDS.webClientId,
-    scopes: ['openid', 'profile', 'email'],
-    responseType: 'id_token'
-  });
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -53,21 +37,6 @@ export const AuthProvider = ({ children }) => {
     };
     bootstrap();
   }, []);
-
-  useEffect(() => {
-    const exchangeGoogle = async () => {
-      if (response?.type !== 'success') return;
-      const idToken = response.params?.id_token || response.authentication?.idToken;
-      if (!idToken) return;
-      const data = await authService.google(idToken);
-      await AsyncStorage.setItem(STORAGE_KEY, data.token);
-      setApiToken(data.token);
-      setToken(data.token);
-      setUser(data.user);
-      setIsEmailVerified(Boolean(data.user?.emailVerified));
-    };
-    exchangeGoogle().catch(() => {});
-  }, [response]);
 
   const login = async (email, password) => {
     const data = await authService.login({ email, password });
@@ -132,12 +101,14 @@ export const AuthProvider = ({ children }) => {
     return await authService.resetPassword(token, password);
   };
 
-  const loginWithGoogle = async () => {
-    try {
-      await promptAsync();
-    } catch (err) {
-      console.warn("Erreur Google Auth:", err);
-    }
+  const updateLocalUser = (updater) => {
+    setUser(prev => {
+      if (!prev) return null;
+      if (typeof updater === 'function') {
+        return { ...prev, ...updater(prev) };
+      }
+      return { ...prev, ...updater };
+    });
   };
 
   const value = useMemo(
@@ -149,16 +120,15 @@ export const AuthProvider = ({ children }) => {
       signup,
       logout,
       refreshUser,
-      loginWithGoogle,
       checkEmailVerification,
       isEmailVerified,
       verifyEmail,
       forgotPassword,
       verifyResetCode,
       resetPassword,
-      googleEnabled: Boolean(request)
+      updateLocalUser
     }),
-    [user, token, loading, request, isEmailVerified]
+    [user, token, loading, isEmailVerified]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

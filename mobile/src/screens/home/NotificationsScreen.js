@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../../components/Avatar';
 import { notificationService } from '../../services/notificationService';
 import { useSocket } from '../../contexts/SocketContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { colors } from '../../theme/colors';
 
 const formatRelativeTime = (value) => {
@@ -29,6 +31,8 @@ const getTypeConfig = (type) => {
 
 export default function NotificationsScreen({ navigation }) {
   const { socket } = useSocket();
+  const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionBusy, setActionBusy] = useState(false);
@@ -92,25 +96,25 @@ export default function NotificationsScreen({ navigation }) {
 
     const senderId = item?.sender?.username || item?.sender?._id;
     if (senderId) {
-      navigation.navigate('Profile', { screen: 'ProfileMain', params: { userId: senderId } });
+      navigation.navigate('ProfileMain', { userId: senderId });
     }
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View>
-          <Text style={styles.title}>Notifications</Text>
-          <Text style={styles.subtitle}>{unreadCount} non lue(s)</Text>
+          <Text style={[styles.title, { color: theme.text }]}>Notifications</Text>
+          <Text style={[styles.subtitle, { color: theme.textMuted }]}>{unreadCount} non lue(s)</Text>
         </View>
-        <Pressable style={styles.markAll} onPress={markAll} disabled={actionBusy}>
-          <Text style={styles.markAllText}>{actionBusy ? '...' : 'Tout marquer lu'}</Text>
+        <Pressable style={[styles.markAll, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={markAll} disabled={actionBusy}>
+          <Text style={[styles.markAllText, { color: theme.primary }]}>{actionBusy ? '...' : 'Tout marquer lu'}</Text>
         </Pressable>
       </View>
 
       {loading ? (
         <View style={styles.loaderBox}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={theme.primary} />
         </View>
       ) : (
         <FlatList
@@ -119,9 +123,9 @@ export default function NotificationsScreen({ navigation }) {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyBox}>
-              <Ionicons name="notifications-off-outline" size={42} color={colors.textGhost} />
-              <Text style={styles.emptyTitle}>Aucune notification</Text>
-              <Text style={styles.emptyText}>Vos likes, commentaires et matchs apparaitront ici.</Text>
+              <Ionicons name="notifications-off-outline" size={42} color={theme.textGhost} />
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>Aucune notification</Text>
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>Vos likes, commentaires et matchs apparaitront ici.</Text>
             </View>
           }
           renderItem={({ item }) => {
@@ -130,7 +134,11 @@ export default function NotificationsScreen({ navigation }) {
             return (
               <Pressable
                 onPress={() => handleOpenNotification(item)}
-                style={[styles.item, !item.read && styles.unreadItem]}
+                style={[
+                  styles.item,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                  !item.read && [styles.unreadItem, { borderColor: isDark ? theme.primaryDark : '#fbcfe8', backgroundColor: isDark ? '#1f172a' : '#fff9fb' }]
+                ]}
               >
                 <Avatar
                   uri={
@@ -141,13 +149,13 @@ export default function NotificationsScreen({ navigation }) {
                   size={46}
                 />
                 <View style={styles.itemBody}>
-                  <Text style={styles.content}>
-                    <Text style={styles.senderName}>
+                  <Text style={[styles.content, { color: theme.text }]}>
+                    <Text style={[styles.senderName, { color: theme.text }]}>
                       {sender?.firstName || ''} {sender?.lastName || ''}
                     </Text>{' '}
                     {item?.content || cfg.label}
                   </Text>
-                  <Text style={styles.timeText}>{formatRelativeTime(item?.createdAt)}</Text>
+                  <Text style={[styles.timeText, { color: theme.textGhost }]}>{formatRelativeTime(item?.createdAt)}</Text>
                 </View>
                 <View style={[styles.typeIconWrap, { backgroundColor: `${cfg.color}22` }]}>
                   <Ionicons name={cfg.icon} size={16} color={cfg.color} />

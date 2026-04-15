@@ -19,7 +19,12 @@ const processLike = async (req, res, { isSuperLike = false } = {}) => {
   // If current user already liked this profile, return existing relation.
   const direct = await Match.findOne({ likedBy: currentUser, likedUser: userId });
   if (direct) {
-    return res.status(200).json({ match: direct, isMutual: direct.isMutual });
+    return res.status(200).json({ 
+      match: direct, 
+      isMutual: direct.isMutual,
+      alreadyLiked: true,
+      message: 'Vous avez deja liké cet utilisateur'
+    });
   }
 
   // If reverse like exists, convert to a mutual match.
