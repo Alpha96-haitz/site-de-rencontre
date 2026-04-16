@@ -16,26 +16,37 @@ export const AuthProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : null;
   });
   const [loading, setLoading] = useState(!user);
-  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(() => {
+    const saved = localStorage.getItem('haitz_user_skeleton');
+    if (!saved) return false;
+    try {
+      return !!JSON.parse(saved).emailVerified;
+    } catch {
+      return false;
+    }
+  });
 
   const fetchUser = useCallback(async (retryCount = 0) => {
     const token = localStorage.getItem('token');
     if (!token) {
       setUser(null);
+      setIsEmailVerified(false);
       setLoading(false);
       return;
     }
     try {
       const { data } = await client.get('/auth/me');
       setUser(data);
-      setIsEmailVerified(Boolean(data.emailVerified));
+      const verified = Boolean(data.emailVerified);
+      setIsEmailVerified(verified);
       localStorage.setItem('haitz_user_skeleton', JSON.stringify({
         _id: data._id,
         username: data.username,
         firstName: data.firstName,
         lastName: data.lastName,
         photos: data.photos,
-        role: data.role
+        role: data.role,
+        emailVerified: verified
       }));
     } catch (err) {
       const status = err?.response?.status;

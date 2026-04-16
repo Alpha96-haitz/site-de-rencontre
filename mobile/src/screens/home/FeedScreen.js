@@ -47,13 +47,34 @@ export default function FeedScreen({ navigation }) {
   useEffect(() => {
     if (!socket) return;
 
+    const handleLikeUpdated = ({ postId, likes }) => {
+      setPosts((prev) => prev.map((p) => (p._id === postId ? { ...p, likes } : p)));
+    };
+
+    const handleCommentAdded = ({ postId, comment }) => {
+      setPosts((prev) => prev.map((p) => {
+        if (p._id !== postId) return p;
+        if (p.comments?.some(c => c._id === comment._id)) return p;
+        return { ...p, comments: [...(p.comments || []), comment] };
+      }));
+    };
+
     const handleNewPost = (newPost) => {
-      setPosts((prev) => [newPost, ...prev]);
+      if (!newPost?._id) return;
+      setPosts((prev) => {
+        if (prev.some(p => p._id === newPost._id)) return prev;
+        return [newPost, ...prev];
+      });
     };
 
     socket.on('post:new', handleNewPost);
+    socket.on('post:like-updated', handleLikeUpdated);
+    socket.on('post:comment-added', handleCommentAdded);
+
     return () => {
       socket.off('post:new', handleNewPost);
+      socket.off('post:like-updated', handleLikeUpdated);
+      socket.off('post:comment-added', handleCommentAdded);
     };
   }, [socket]);
 
@@ -63,7 +84,11 @@ export default function FeedScreen({ navigation }) {
   };
 
   const handlePostCreated = (newPost) => {
-    setPosts((prev) => [newPost, ...prev]);
+    if (!newPost?._id) return;
+    setPosts((prev) => {
+      if (prev.some(p => p._id === newPost._id)) return prev;
+      return [newPost, ...prev];
+    });
   };
 
   const handlePostChanged = useCallback((updatedPost) => {

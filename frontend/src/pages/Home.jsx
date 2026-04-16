@@ -99,15 +99,33 @@ export default function Home() {
     socket.on('user:offline', handleOffline);
     socket.on('post:new', handleNewPost);
 
+    socket.on('post:like-updated', ({ postId, likes }) => {
+      setPosts((prev) => prev.map((p) => (p._id === postId ? { ...p, likes } : p)));
+    });
+
+    socket.on('post:comment-added', ({ postId, comment }) => {
+      setPosts((prev) => prev.map((p) => {
+        if (p._id !== postId) return p;
+        if (p.comments.some(c => c._id === comment._id)) return p;
+        return { ...p, comments: [...p.comments, comment] };
+      }));
+    });
+
     return () => {
       socket.off('user:online', handleOnline);
       socket.off('user:offline', handleOffline);
       socket.off('post:new', handleNewPost);
+      socket.off('post:like-updated');
+      socket.off('post:comment-added');
     };
   }, []);
 
   const handlePostCreated = useCallback((newPost) => {
-    setPosts((prev) => [newPost, ...prev]);
+    if (!newPost?._id) return;
+    setPosts((prev) => {
+      if (prev.some(p => p._id === newPost._id)) return prev;
+      return [newPost, ...prev];
+    });
   }, []);
 
   const handlePostDeleted = useCallback((postId) => {

@@ -80,7 +80,11 @@ export default function Profile() {
   }, [username, user?._id, isOwnProfile]);
 
   const handlePostCreated = (newPost) => {
-    setPosts([newPost, ...posts]);
+    if (!newPost?._id) return;
+    setPosts((prev) => {
+      if (prev.some(p => p._id === newPost._id)) return prev;
+      return [newPost, ...prev];
+    });
   };
 
   const handlePostUpdated = (updatedPost) => {
@@ -108,6 +112,31 @@ export default function Profile() {
       toast.error(err.response?.data?.message || 'Erreur');
     }
   };
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleLikeUpdated = ({ postId, likes }) => {
+      setPosts((prev) => prev.map((p) => (p._id === postId ? { ...p, likes } : p)));
+    };
+
+    const handleCommentAdded = ({ postId, comment }) => {
+      setPosts((prev) => prev.map((p) => {
+        if (p._id !== postId) return p;
+        if (p.comments.some(c => c._id === comment._id)) return p;
+        return { ...p, comments: [...p.comments, comment] };
+      }));
+    };
+
+    socket.on('post:like-updated', handleLikeUpdated);
+    socket.on('post:comment-added', handleCommentAdded);
+
+    return () => {
+      socket.off('post:like-updated', handleLikeUpdated);
+      socket.off('post:comment-added', handleCommentAdded);
+    };
+  }, []);
 
   const handleLike = async () => {
     if (!profile || isLiked || hasMatch) return;

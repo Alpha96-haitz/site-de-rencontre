@@ -112,7 +112,11 @@ export default function EditProfile() {
       await refreshUser();
       toast.success('Profil mis à jour');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Erreur');
+      console.error("Update error:", err);
+      const errorMsg = err.response?.data?.errors?.[0]?.msg || 
+                      err.response?.data?.message || 
+                      'Erreur lors de la mise à jour';
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }

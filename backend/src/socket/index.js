@@ -180,3 +180,13 @@ export const notifyNewPost = (io, postData) => {
   if (!io) return;
   io.emit('post:new', postData);
 };
+
+export const notifyPostLike = (io, postId, likes, userId) => {
+  if (!io) return;
+  io.emit('post:like-updated', { postId, likes, userId });
+};
+
+export const notifyPostComment = (io, postId, comment) => {
+  if (!io) return;
+  io.emit('post:comment-added', { postId, comment });
+};

@@ -21,7 +21,7 @@ export const getProfile = async (req, res) => {
     } else {
       const dbQuery = queryId.toString().match(/^[0-9a-fA-F]{24}$/) ? { _id: queryId } : { username: queryId };
       user = await User.findOne(dbQuery)
-        .select('username profilePicture coverPicture followers following firstName lastName age gender bio photos googlePhoto interests location privacy notificationPreferences lastSeen isOnline createdAt')
+        .select('username profilePicture coverPicture followers following firstName lastName age gender bio photos googlePhoto interests location privacy notificationPreferences lastSeen isOnline emailVerified createdAt')
         .populate('photos')
         .populate('followers following', 'firstName lastName photos googlePhoto username');
       

@@ -213,6 +213,9 @@ export const verifyEmail = async (req, res) => {
     user.emailVerificationExpires = undefined;
     await user.save({ validateBeforeSave: false });
 
+    // Nettoyer le cache pour éviter que le profil affiche encore "non vérifié"
+    deleteCached(`profile:${user._id}`);
+
     console.log(`Email verified successfully for user: ${user.email}`);
     res.json({ message: 'Email vérifié avec succès' });
   } catch (error) {

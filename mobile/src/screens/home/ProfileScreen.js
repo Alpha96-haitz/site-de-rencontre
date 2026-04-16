@@ -12,6 +12,7 @@ import { postService } from '../../services/postService';
 import { useTheme } from '../../contexts/ThemeContext';
 import PostCard from '../../components/PostCard';
 import CreatePost from '../../components/CreatePost';
+import { useSocket } from '../../contexts/SocketContext';
 
 import client from '../../api/client';
 
@@ -31,6 +32,7 @@ const fbDark = {
 export default function ProfileScreen({ navigation, route }) {
   const { user, logout, refreshUser } = useAuth();
   const { theme, isDark } = useTheme();
+  const { socket } = useSocket();
   const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -64,6 +66,30 @@ export default function ProfileScreen({ navigation, route }) {
   useEffect(() => {
     fetchProfileData();
   }, [fetchProfileData]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleLikeUpdated = ({ postId, likes }) => {
+      setPosts((prev) => prev.map((p) => (p._id === postId ? { ...p, likes } : p)));
+    };
+
+    const handleCommentAdded = ({ postId, comment }) => {
+      setPosts((prev) => prev.map((p) => {
+        if (p._id !== postId) return p;
+        if (p.comments?.some(c => c._id === comment._id)) return p;
+        return { ...p, comments: [...(p.comments || []), comment] };
+      }));
+    };
+
+    socket.on('post:like-updated', handleLikeUpdated);
+    socket.on('post:comment-added', handleCommentAdded);
+
+    return () => {
+      socket.off('post:like-updated', handleLikeUpdated);
+      socket.off('post:comment-added', handleCommentAdded);
+    };
+  }, [socket]);
 
   const handlePostCreated = (newPost) => {
     setPosts(prev => [newPost, ...prev]);

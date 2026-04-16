@@ -51,11 +51,11 @@ export const changePasswordValidation = [
 ];
 
 export const profileValidation = [
-  body('username').optional({ checkFalsy: true }).trim().isLength({ min: 3, max: 32 }).matches(/^[a-zA-Z0-9_]+$/),
-  body('firstName').optional().trim().customSanitizer(normalizeText).escape(),
-  body('lastName').optional().trim().customSanitizer(normalizeText).escape(),
-  body('bio').optional().trim().customSanitizer(normalizeText).isLength({ max: 500 }).escape(),
-  body('interests').optional().isArray(),
+  body('username').optional({ checkFalsy: true }).trim().isLength({ min: 3, max: 32 }).matches(/^[a-zA-Z0-9_]+$/).withMessage('Nom d\'utilisateur invalide'),
+  body('firstName').optional().trim().customSanitizer(normalizeText),
+  body('lastName').optional().trim().customSanitizer(normalizeText),
+  body('bio').optional().trim().customSanitizer(normalizeText).isLength({ max: 500 }).withMessage('La bio ne doit pas dépasser 500 caractères'),
+  body('interests').optional().isArray().withMessage('Les intérêts doivent être une liste'),
   body('privacy').optional().isObject(),
   body('notificationPreferences').optional().isObject()
 ];

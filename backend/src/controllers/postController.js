@@ -2,7 +2,7 @@ import Post from '../models/Post.js';
 import cloudinary from '../config/cloudinary.js';
 import { createNotification } from './notificationController.js';
 import { getCached, setCached, clearCacheByPrefix } from '../utils/simpleCache.js';
-import { notifyNewPost } from '../socket/index.js';
+import { notifyNewPost, notifyPostLike, notifyPostComment } from '../socket/index.js';
 
 const escapeHtml = (str) => String(str || '').normalize('NFC')
   .replace(/&/g, '&amp;')
@@ -125,10 +125,19 @@ export const getUserPosts = async (req, res) => {
 export const likePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: 'Post non trouve' });
+    if (!post) return res.status(404).json({ message: 'Publication introuvable' });
 
-    if (!post.likes.includes(req.user._id)) {
-      await post.updateOne({ $push: { likes: req.user._id } });
+    const isLiked = post.likes.some(id => id.toString() === req.user._id.toString());
+    const io = req.app.get('io');
+
+    if (!isLiked) {
+      // Utiliser $addToSet pour etre sur a 100% de l unicite au niveau DB
+      const updatedPost = await Post.findByIdAndUpdate(
+        req.params.id, 
+        { $addToSet: { likes: req.user._id } }, 
+        { new: true }
+      );
+      
       clearCacheByPrefix('timeline:');
 
       createNotification({
@@ -138,12 +147,26 @@ export const likePost = async (req, res) => {
         post: post._id
       });
 
-      return res.json({ message: 'Le post a ete like' });
-    }
+      if (io) {
+        notifyPostLike(io, post._id, updatedPost.likes, req.user._id);
+      }
 
-    await post.updateOne({ $pull: { likes: req.user._id } });
-    clearCacheByPrefix('timeline:');
-    return res.json({ message: 'Le like a ete retire' });
+      return res.json({ message: 'J\'aime ajouté', likes: updatedPost.likes });
+    } else {
+      const updatedPost = await Post.findByIdAndUpdate(
+        req.params.id, 
+        { $pull: { likes: req.user._id } }, 
+        { new: true }
+      );
+      
+      clearCacheByPrefix('timeline:');
+
+      if (io) {
+        notifyPostLike(io, post._id, updatedPost.likes, req.user._id);
+      }
+
+      return res.json({ message: 'J\'aime retiré', likes: updatedPost.likes });
+    }
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
@@ -152,7 +175,7 @@ export const likePost = async (req, res) => {
 export const commentPost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: 'Post non trouve' });
+    if (!post) return res.status(404).json({ message: 'Publication introuvable' });
 
     const newComment = {
       userId: req.user._id,
@@ -163,7 +186,12 @@ export const commentPost = async (req, res) => {
     await post.save();
     clearCacheByPrefix('timeline:');
 
-    const savedComment = post.comments[post.comments.length - 1];
+    // On recupere le commentaire avec les infos utilisateur pour le socket
+    const populated = await Post.findById(post._id)
+      .select('comments')
+      .populate('comments.userId', 'firstName lastName username photos googlePhoto');
+    
+    const lastComment = populated.comments[populated.comments.length - 1];
 
     createNotification({
       recipient: post.userId,
@@ -173,10 +201,12 @@ export const commentPost = async (req, res) => {
       content: req.body.text
     });
 
-    // Populate the user info for the new comment
-    await post.populate('comments.userId', 'firstName lastName username photos googlePhoto');
+    const io = req.app.get('io');
+    if (io) {
+      notifyPostComment(io, post._id, lastComment);
+    }
 
-    res.json({ message: 'Commentaire ajoute', comment: post.comments[post.comments.length - 1] });
+    res.json({ message: 'Commentaire ajouté', comment: lastComment });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

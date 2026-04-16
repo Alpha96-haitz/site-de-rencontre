@@ -19,18 +19,52 @@ export const AuthProvider = ({ children }) => {
   const [isEmailVerified, setIsEmailVerified] = useState(false);
 
   useEffect(() => {
+    const loadSkeletonData = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('haitz_user_skeleton');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.emailVerified !== undefined) {
+             setIsEmailVerified(!!parsed.emailVerified);
+          }
+          if (!user) {
+             setUser(parsed);
+          }
+        }
+      } catch (err) {}
+    };
+    loadSkeletonData();
+  }, []);
+
+  useEffect(() => {
     const bootstrap = async () => {
       try {
         const storedToken = await AsyncStorage.getItem(STORAGE_KEY);
-        if (!storedToken) return;
+        if (!storedToken) {
+          setLoading(false);
+          return;
+        }
         setApiToken(storedToken);
-        const me = await authService.me();
         setToken(storedToken);
+        const me = await authService.me();
         setUser(me);
-        setIsEmailVerified(Boolean(me?.emailVerified));
-      } catch {
+        const verified = Boolean(me?.emailVerified);
+        setIsEmailVerified(verified);
+
+        // Cache persistent info
+        await AsyncStorage.setItem('haitz_user_skeleton', JSON.stringify({
+          _id: me._id,
+          username: me.username,
+          emailVerified: verified
+        }));
+      } catch (err) {
+        console.warn('Bootstrap auth error:', err);
         await AsyncStorage.removeItem(STORAGE_KEY);
+        await AsyncStorage.removeItem('haitz_user_skeleton');
         setApiToken(null);
+        setUser(null);
+        setToken(null);
+        setIsEmailVerified(false);
       } finally {
         setLoading(false);
       }
