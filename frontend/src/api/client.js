@@ -37,8 +37,12 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (res) => res,
   (err) => {
-    // Ne pas deconnecter globalement sur un 401 ponctuel (ex: endpoint secondaire)
-    // La validation de session se fait deja via /auth/me dans AuthContext.
+    // Si on n'a pas de réponse du tout, c'est un problème de connexion ou de CORS
+    if (!err.response) {
+      err.message = 'Connexion au serveur impossible. Vérifiez votre connexion internet ou réessayez plus tard.';
+      if (err.data) err.data.message = err.message;
+      else err.data = { message: err.message };
+    }
     return Promise.reject(err);
   }
 );

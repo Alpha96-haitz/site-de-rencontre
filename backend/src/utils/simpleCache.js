@@ -17,6 +17,10 @@ export const setCached = (key, value, ttlMs = 15000) => {
   });
 };
 
+export const deleteCached = (key) => {
+  cacheStore.delete(key);
+};
+
 export const clearCacheByPrefix = (prefix) => {
   for (const key of cacheStore.keys()) {
     if (key.startsWith(prefix)) cacheStore.delete(key);

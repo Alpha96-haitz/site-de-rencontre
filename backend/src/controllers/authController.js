@@ -7,7 +7,7 @@ import {
   isSmtpConfigured 
 } from '../utils/email.js';
 import { generateToken, hashToken } from '../utils/tokenUtils.js';
-import { setCached, getCached } from '../utils/simpleCache.js';
+import { setCached, getCached, deleteCached } from '../utils/simpleCache.js';
 
 const generateJWT = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES || '7d' });
 
@@ -19,9 +19,21 @@ const jwtCookieOptions = {
 };
 
 const getBaseFrontendUrl = (req) => {
+  // En production, on essaie d'abord de récupérer l'origine de la requête
+  // pour éviter que le lien d'email soit bloqué sur localhost.
+  const origin = req.get('origin');
   const envFrontend = process.env.FRONTEND_URL?.split(',')?.[0]?.trim();
-  if (envFrontend) return envFrontend;
-  return req.get('origin') || 'http://localhost:5173';
+
+  if (process.env.NODE_ENV === 'production') {
+    if (origin && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+      return origin;
+    }
+    if (envFrontend && !envFrontend.includes('localhost') && !envFrontend.includes('127.0.0.1')) {
+      return envFrontend;
+    }
+  }
+
+  return envFrontend || origin || 'http://localhost:5173';
 };
 
 const generateSixDigitCode = () => String(Math.floor(100000 + Math.random() * 900000));
@@ -102,16 +114,20 @@ export const signup = async (req, res) => {
       gender,
       location,
       emailVerified: isVerified,
-      emailVerificationToken: token,
+      emailVerificationToken: token ? hashToken(token) : undefined,
       emailVerificationExpires: isVerified ? undefined : Date.now() + 24 * 60 * 60 * 1000
     });
+
+    deleteCached(`signup_code_${email}`);
+    deleteCached(`signup_verified_${email}`);
 
     const baseUrl = getBaseFrontendUrl(req);
     if (!isVerified) {
       try {
         await sendVerificationEmail(email, token, baseUrl);
+        console.log(`Verification email sent to ${email} with baseUrl: ${baseUrl}`);
       } catch (emailErr) {
-        console.warn('Verification email not sent:', emailErr.message);
+        console.error('Error sending verification email:', emailErr);
       }
     }
 
@@ -174,23 +190,34 @@ export const logout = async (req, res) => {
 export const verifyEmail = async (req, res) => {
   try {
     const { token } = req.query;
+    if (!token) {
+      console.warn('VerifyEmail: Token missing in request');
+      return res.status(400).json({ message: 'Token manquant' });
+    }
+
+    const hashedToken = hashToken(token);
+    console.log('Verifying email with token signature:', hashedToken.substring(0, 8) + '...');
+
     const user = await User.findOne({
-      emailVerificationToken: token,
+      emailVerificationToken: hashedToken,
       emailVerificationExpires: { $gt: Date.now() }
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Token invalide ou expire' });
+      console.warn('VerifyEmail: Invalid or expired token');
+      return res.status(400).json({ message: 'Lien invalide ou expiré' });
     }
 
     user.emailVerified = true;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
-    await user.save();
+    await user.save({ validateBeforeSave: false });
 
-    res.json({ message: 'Email verifie avec succes' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.log(`Email verified successfully for user: ${user.email}`);
+    res.json({ message: 'Email vérifié avec succès' });
+  } catch (error) {
+    console.error('VerifyEmail Error:', error);
+    res.status(500).json({ message: 'Erreur lors de la vérification' });
   }
 };
 
