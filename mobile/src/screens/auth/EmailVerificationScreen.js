@@ -11,13 +11,31 @@ export default function EmailVerificationScreen() {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
 
+  // Vérification automatique toutes les quelques secondes
+  useEffect(() => {
+    let interval;
+    if (user && !user.emailVerified) {
+      interval = setInterval(async () => {
+        try {
+          const updatedUser = await refreshUser();
+          if (updatedUser?.emailVerified) {
+            clearInterval(interval);
+          }
+        } catch (err) {
+          // Ignorer les erreurs silencieuses en arrière-plan
+        }
+      }, 5000);
+    }
+    return () => clearInterval(interval);
+  }, [user]);
+
   const handleResendEmail = async () => {
     setResending(true);
     try {
       await authService.resendVerification();
       Alert.alert('E-mail envoyé', 'Un nouveau lien de validation a été envoyé à votre adresse e-mail.');
     } catch (err) {
-      Alert.alert('Erreur', 'Impossible de renvoyer l\'e-mail. Veuillez réessayer plus tard.');
+      Alert.alert('Erreur', err.message || 'Impossible de renvoyer l\'e-mail.');
     } finally {
       setResending(false);
     }
@@ -28,12 +46,15 @@ export default function EmailVerificationScreen() {
     try {
       const updatedUser = await refreshUser();
       if (updatedUser?.emailVerified) {
-        Alert.alert('Succès', 'Votre adresse e-mail a bien été validée !');
+        Alert.alert('Succès', 'Votre adresse e-mail a bien été validée ! Bienvenue sur HAITZ.');
       } else {
-        Alert.alert('En attente', "Votre adresse e-mail n'est pas encore validée. Veuillez vérifier votre boîte de réception et cliquer sur le lien.");
+        Alert.alert(
+          'En attente', 
+          "Votre adresse e-mail n'est pas encore validée. Veuillez ouvrir l'e-mail que nous vous avons envoyé et cliquer sur le lien."
+        );
       }
     } catch (err) {
-      Alert.alert('Erreur', 'Impossible de vérifier le statut. Veuillez réessayer.');
+      Alert.alert('Erreur', err.message || 'Impossible de vérifier le statut. Réessayez.');
     } finally {
       setLoading(false);
     }
@@ -48,34 +69,34 @@ export default function EmailVerificationScreen() {
           </View>
           <Text style={styles.title}>Vérifiez votre e-mail</Text>
           <Text style={styles.subtitle}>
-            Nous vous avons envoyé un lien d'activation à l'adresse{"\\n"}
+            Un lien d'activation a été envoyé à :{"\n"}
             <Text style={styles.email}>{user?.email}</Text>
           </Text>
           
           <View style={styles.instructionBox}>
-            <Ionicons name="information-circle-outline" size={24} color={colors.primary} style={styles.infoIcon} />
+            <Ionicons name="sparkles-outline" size={24} color={colors.primary} style={styles.infoIcon} />
             <Text style={styles.instructionText}>
-              Veuillez ouvrir cet e-mail et cliquer sur le lien pour activer votre compte.
+              Une fois que vous avez cliqué sur le lien dans votre e-mail, revenez ici pour continuer.
             </Text>
           </View>
         </View>
 
         <View style={styles.footer}>
           <AppButton 
-            title="J'ai validé mon adresse e-mail" 
+            title="J'AI DÉJÀ VALIDÉ MON E-MAIL" 
             onPress={handleCheckVerification} 
             loading={loading}
             style={styles.primaryBtn}
           />
           <AppButton 
-            title="Renvoyer l'e-mail de validation" 
+            title="REVOYER LE LIEN" 
             onPress={handleResendEmail} 
             loading={resending}
             variant="secondary"
             style={styles.resendBtn}
           />
           <Pressable onPress={logout} style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>Utiliser un autre compte / Se déconnecter</Text>
+            <Text style={styles.logoutText}>Se déconnecter ou changer de compte</Text>
           </Pressable>
         </View>
       </ScrollView>

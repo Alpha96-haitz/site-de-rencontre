@@ -19,4 +19,17 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Si on n'a pas de réponse du tout (problème réseau ou serveur éteint)
+    if (!error.response) {
+      error.message = "Connexion impossible. Vérifiez votre connexion internet ou réessayez plus tard.";
+      if (error.data) error.data.message = error.message;
+      else error.data = { message: error.message };
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
