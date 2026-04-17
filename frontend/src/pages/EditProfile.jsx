@@ -420,106 +420,134 @@ export default function EditProfile() {
 
             {activeSettingsTab === 'security' && (
                 <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-6">
+                    {/* Password Change Form */}
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
+                            <FiLock className="text-pink-500" /> Modifier le mot de passe
+                        </h2>
+                        <form onSubmit={handleChangePassword} className="space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Ancien mot de passe</label>
+                                    <input 
+                                        type="password"
+                                        name="oldPassword" 
+                                        value={passwordForm.oldPassword} 
+                                        onChange={handlePasswordChangeInput} 
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all outline-none font-bold text-slate-800" 
+                                        placeholder="••••••••"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nouveau mot de passe</label>
+                                    <input 
+                                        type="password"
+                                        name="newPassword" 
+                                        value={passwordForm.newPassword} 
+                                        onChange={handlePasswordChangeInput} 
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all outline-none font-bold text-slate-800" 
+                                        placeholder="••••••••"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Confirmer</label>
+                                    <input 
+                                        type="password"
+                                        name="confirmPassword" 
+                                        value={passwordForm.confirmPassword} 
+                                        onChange={handlePasswordChangeInput} 
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all outline-none font-bold text-slate-800"
+                                        placeholder="••••••••"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <button type="submit" disabled={loading} className="px-8 py-3 bg-slate-900 text-white rounded-xl font-black hover:bg-slate-800 transition-all shadow-lg active:scale-95 disabled:opacity-50">
+                                {loading ? 'Mise à jour...' : 'Mettre à jour le mot de passe'}
+                            </button>
+                        </form>
+                    </div>
+
+                    {/* Privacy and Security Settings */}
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                         <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
                             <FiShield className="text-blue-500" /> Confidentialité et sécurité
                         </h2>
                         <div className="space-y-5">
-                            <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50">
-                                <p className="text-sm font-bold text-slate-900 mb-2">Visibilité de votre profil</p>
-                                <select
-                                  value={privacySettings.profileVisibility}
-                                  onChange={(e) => setPrivacySettings((prev) => ({ ...prev, profileVisibility: e.target.value }))}
-                                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-pink-100 transition-all outline-none"
-                                >
-                                  <option value="public">Public - tout le monde peut voir mon profil</option>
-                                  <option value="matches">Matchs seulement - seuls les matchs peuvent voir mon profil</option>
-                                  <option value="private">Privé - seuls mes abonnements peuvent voir mon profil</option>
-                                </select>
-                            </div>
-
-                            <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50">
-                                <p className="text-sm font-bold text-slate-900 mb-2">Statut en ligne</p>
-                                <div className="flex items-center justify-between gap-4">
-                                    <div>
-                                        <p className="font-bold text-slate-800">Afficher mon statut en ligne</p>
-                                        <p className="text-sm text-slate-500">Contrôle si les autres voient si vous êtes connecté.</p>
-                                    </div>
+                            <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50 shadow-inner">
+                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">Visibilité de mon profil</label>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                  {['public', 'matches', 'private'].map((v) => (
                                     <button
-                                      onClick={() => setPrivacySettings((prev) => ({ ...prev, showOnlineStatus: !prev.showOnlineStatus }))}
-                                      className={`px-4 py-2 rounded-full font-bold transition-colors ${privacySettings.showOnlineStatus ? 'bg-pink-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
+                                      key={v}
+                                      onClick={() => setPrivacySettings(p => ({ ...p, profileVisibility: v }))}
+                                      className={`p-3 rounded-xl border-2 font-black transition-all text-sm ${privacySettings.profileVisibility === v ? 'bg-pink-600 border-pink-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-pink-200'}`}
                                     >
-                                      {privacySettings.showOnlineStatus ? 'Activé' : 'Désactivé'}
+                                      {v === 'public' ? 'Public' : v === 'matches' ? 'Matchs' : 'Privé'}
                                     </button>
+                                  ))}
                                 </div>
+                                <p className="text-[12px] text-slate-400 font-bold mt-2 ml-1 italic">
+                                  {privacySettings.profileVisibility === 'public' && "Tout le monde peut voir votre profil."}
+                                  {privacySettings.profileVisibility === 'matches' && "Seuls les membres avec qui vous avez un match voient votre profil."}
+                                  {privacySettings.profileVisibility === 'private' && "Votre profil n'apparaît pas dans la découverte."}
+                                </p>
                             </div>
 
-                            <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50">
-                                <p className="text-sm font-bold text-slate-900 mb-2">Messages de nouveaux contacts</p>
-                                <select
-                                  value={privacySettings.allowMessagesFrom}
-                                  onChange={(e) => setPrivacySettings((prev) => ({ ...prev, allowMessagesFrom: e.target.value }))}
-                                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-pink-100 transition-all outline-none"
-                                >
-                                  <option value="everyone">Tout le monde</option>
-                                  <option value="matches">Matchs seulement</option>
-                                  <option value="no-one">Personne</option>
-                                </select>
-                                <p className="text-sm text-slate-500 mt-2">Contrôle qui peut initier une conversation avec vous.</p>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              {[
-                                { key: 'email', label: 'Notifications par email', description: 'Reçois des alertes de nouveaux messages et matchs.' },
-                                { key: 'push', label: 'Notifications push', description: 'Alertes instantanées sur votre appareil.' },
-                              ].map(item => (
-                                <div key={item.key} className="p-4 rounded-2xl border border-slate-200 bg-slate-50">
-                                  <p className="font-bold text-slate-900 mb-1">{item.label}</p>
-                                  <p className="text-sm text-slate-500 mb-3">{item.description}</p>
-                                  <button
-                                    onClick={() => setNotificationSettings((prev) => ({
-                                      ...prev,
-                                      [item.key]: !prev[item.key]
-                                    }))}
-                                    className={`px-4 py-2 rounded-full font-bold transition-colors ${notificationSettings[item.key] ? 'bg-pink-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
-                                  >
-                                    {notificationSettings[item.key] ? 'Activé' : 'Désactivé'}
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-
-                            <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50">
-                                <p className="text-sm font-bold text-slate-900 mb-2">Apparence</p>
-                                <p className="text-sm text-slate-500 mb-4">Choisissez le mode d'affichage qui vous convient.</p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                                  <button
-                                    onClick={() => setTheme('light')}
-                                    className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-colors border ${theme === 'light' ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'}`}
-                                  >
-                                    <FiSun className="w-4 h-4" /> Mode clair
-                                  </button>
-                                  <button
-                                    onClick={() => setTheme('dark')}
-                                    className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-colors border ${theme === 'dark' ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'}`}
-                                  >
-                                    <FiMoon className="w-4 h-4" /> Mode sombre
-                                  </button>
+                            <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
+                                <div>
+                                    <p className="font-black text-slate-900">Statut en ligne</p>
+                                    <p className="text-sm font-bold text-slate-400">Afficher si je suis actuellement connecté</p>
                                 </div>
                                 <button
-                                  onClick={toggleTheme}
-                                  className="w-full px-4 py-2 rounded-xl font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 transition-colors"
+                                  onClick={() => setPrivacySettings((prev) => ({ ...prev, showOnlineStatus: !prev.showOnlineStatus }))}
+                                  className={`w-14 h-8 rounded-full transition-all relative ${privacySettings.showOnlineStatus ? 'bg-pink-600' : 'bg-slate-300'}`}
                                 >
-                                  Basculer rapidement ({isDark ? 'actuellement sombre' : 'actuellement clair'})
+                                  <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-sm transition-all ${privacySettings.showOnlineStatus ? 'right-1' : 'left-1'}`} />
+                                </button>
+                            </div>
+
+                            <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50 shadow-inner">
+                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">Conversations autorisées</label>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                  {['everyone', 'matches', 'no-one'].map((v) => (
+                                    <button
+                                      key={v}
+                                      onClick={() => setPrivacySettings(p => ({ ...p, allowMessagesFrom: v }))}
+                                      className={`p-3 rounded-xl border-2 font-black transition-all text-sm ${privacySettings.allowMessagesFrom === v ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-200'}`}
+                                    >
+                                      {v === 'everyone' ? 'Public' : v === 'matches' ? 'Matchs' : 'Fermé'}
+                                    </button>
+                                  ))}
+                                </div>
+                                <p className="text-[12px] text-slate-400 font-bold mt-2 ml-1 italic">
+                                  {privacySettings.allowMessagesFrom === 'everyone' && "Tout le monde peut vous envoyer un message."}
+                                  {privacySettings.allowMessagesFrom === 'matches' && "Seuls vos matchs peuvent vous contacter."}
+                                  {privacySettings.allowMessagesFrom === 'no-one' && "Personne ne peut initier de message."}
+                                </p>
+                            </div>
+
+                            <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
+                                <div>
+                                    <p className="font-black text-slate-900">Mode Sombre</p>
+                                    <p className="text-sm font-bold text-slate-400">Activer l'interface à thème sombre</p>
+                                </div>
+                                <button
+                                  onClick={() => setTheme(isDark ? 'light' : 'dark')}
+                                  className={`w-14 h-8 rounded-full transition-all relative ${isDark ? 'bg-slate-800' : 'bg-slate-300'}`}
+                                >
+                                  <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-sm transition-all ${isDark ? 'right-1' : 'left-1'}`} />
                                 </button>
                             </div>
 
                             <button
-                              onClick={handleSaveSettings}
-                              disabled={settingsLoading}
-                              className="w-full py-4 bg-pink-600 text-white rounded-xl font-black hover:bg-pink-700 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                                onClick={handleSaveSettings}
+                                disabled={settingsLoading}
+                                className="w-full py-4 bg-pink-600 text-white rounded-xl font-black hover:bg-pink-700 transition-all shadow-xl shadow-pink-100 flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                              {settingsLoading ? 'Sauvegarde...' : 'Sauvegarder les paramètres'}
+                                <FiSave /> {settingsLoading ? 'Sauvegarde...' : 'Sauvegarder les préférences de sécurité'}
                             </button>
                         </div>
                     </div>

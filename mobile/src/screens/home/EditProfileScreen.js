@@ -142,11 +142,52 @@ export default function EditProfileScreen({ route, navigation }) {
       { text: 'Annuler', style: 'cancel' },
       { text: 'Supprimer', style: 'destructive', onPress: async () => {
         try {
-          await client.delete(`/users/photos/${publicId}`);
+          await userService.deletePhoto(publicId);
           await refreshUser();
         } catch(e) {}
       }}
     ]);
+  };
+
+  const handleSetPrimary = async (publicId) => {
+    try {
+      setPhotoLoading(true);
+      await userService.setPrimaryPhoto(publicId);
+      await refreshUser();
+      Alert.alert('Succès', 'Photo de profil mise à jour');
+    } catch (err) {
+      Alert.alert('Erreur', 'Impossible de définir cette photo comme principale');
+    } finally {
+      setPhotoLoading(false);
+    }
+  };
+
+  const [passwordForm, setPasswordForm] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  const handlePasswordChange = async () => {
+    if (!passwordForm.oldPassword || !passwordForm.newPassword) {
+      return Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      return Alert.alert('Erreur', 'Les mots de passe ne correspondent pas');
+    }
+    try {
+      setLoading(true);
+      await client.put('/users/change-password', {
+        oldPassword: passwordForm.oldPassword,
+        newPassword: passwordForm.newPassword
+      });
+      Alert.alert('Succès', 'Mot de passe modifié');
+      setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      Alert.alert('Erreur', err?.response?.data?.message || 'Échec de la modification');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const tabs = [
@@ -155,6 +196,23 @@ export default function EditProfileScreen({ route, navigation }) {
     { id: 'security', label: 'Sécurité', icon: 'shield-checkmark' },
     { id: 'notifications', label: 'Alertes', icon: 'notifications' }
   ];
+
+  const SelectionGroup = ({ label, options, current, onSelect }) => (
+    <View style={styles.selectionGroup}>
+      <Text style={[styles.groupLabel, { color: theme.textMuted }]}>{label.toUpperCase()}</Text>
+      <View style={styles.optionsRow}>
+        {options.map(opt => (
+          <TouchableOpacity 
+            key={opt.value} 
+            style={[styles.optionBtn, { borderColor: theme.border }, current === opt.value && { backgroundColor: theme.primary, borderColor: theme.primary }]}
+            onPress={() => onSelect(opt.value)}
+          >
+            <Text style={[styles.optionText, { color: theme.textGhost }, current === opt.value && { color: 'white' }]}>{opt.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -184,6 +242,17 @@ export default function EditProfileScreen({ route, navigation }) {
             <AppInput label="Bio" icon="document-text" placeholder="Parlez un peu de vous..." value={form.bio} onChangeText={(v) => setField('bio', v)} multiline numberOfLines={3} style={{ minHeight: 80, textAlignVertical: 'top' }} />
             <AppInput label="Centres d'intérêt" icon="star" placeholder="ex: Sport, Cinéma..." value={form.interests} onChangeText={(v) => setField('interests', v)} />
             
+            <SelectionGroup 
+              label="Genre"
+              options={[
+                { label: 'Homme', value: 'male' },
+                { label: 'Femme', value: 'female' },
+                { label: 'Autre', value: 'other' }
+              ]}
+              current={form.gender}
+              onSelect={(v) => setField('gender', v)}
+            />
+
             <AppButton title="Enregistrer les modifications" onPress={handleSaveGeneral} loading={loading} style={styles.saveBtn} />
           </View>
         )}
@@ -206,13 +275,23 @@ export default function EditProfileScreen({ route, navigation }) {
             <Text style={[styles.cardTitle, { marginTop: 24, color: theme.text, borderBottomColor: theme.border }]}>Votre Galerie</Text>
             <View style={styles.grid}>
               {user?.photos?.map(photo => (
-                <View key={photo.publicId} style={styles.photoWrap}>
+                <TouchableOpacity 
+                  key={photo.publicId} 
+                  style={styles.photoWrap}
+                  onPress={() => {
+                    Alert.alert('Gérer la photo', 'Que souhaitez-vous faire ?', [
+                      { text: 'Définir comme photo de profil', onPress: () => handleSetPrimary(photo.publicId) },
+                      { text: 'Supprimer', style: 'destructive', onPress: () => handleDeletePhoto(photo.publicId) },
+                      { text: 'Annuler', style: 'cancel' }
+                    ]);
+                  }}
+                >
                   <Image source={{ uri: photo.url }} style={styles.photoImg} />
                   <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeletePhoto(photo.publicId)}>
                     <Ionicons name="trash" size={16} color="white" />
                   </TouchableOpacity>
                   {photo.isPrimary && <View style={styles.primaryBadge}><Text style={styles.primaryBadgeText}>PROFIL</Text></View>}
-                </View>
+                </TouchableOpacity>
               ))}
               <TouchableOpacity style={[styles.addPhotoWrap, { borderColor: theme.border, backgroundColor: theme.inputBg }]} onPress={() => pickImage('profile')}>
                 <Ionicons name="add" size={32} color={theme.textMuted} />
@@ -223,11 +302,65 @@ export default function EditProfileScreen({ route, navigation }) {
 
         {activeTab === 'security' && (
           <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={[styles.cardTitle, { color: theme.text, borderBottomColor: theme.border }]}>Confidentialité et sécurité</Text>
+            <Text style={[styles.cardTitle, { color: theme.text, borderBottomColor: theme.border }]}>Mot de passe</Text>
+            <AppInput 
+              label="Ancien mot de passe" 
+              icon="lock-closed" 
+              placeholder="••••••••" 
+              secureTextEntry 
+              value={passwordForm.oldPassword} 
+              onChangeText={(v) => setPasswordForm(p => ({...p, oldPassword: v}))} 
+            />
+            <AppInput 
+              label="Nouveau mot de passe" 
+              icon="lock-closed" 
+              placeholder="••••••••" 
+              secureTextEntry 
+              value={passwordForm.newPassword} 
+              onChangeText={(v) => setPasswordForm(p => ({...p, newPassword: v}))} 
+            />
+            <AppInput 
+              label="Confirmer le nouveau" 
+              icon="lock-closed" 
+              placeholder="••••••••" 
+              secureTextEntry 
+              value={passwordForm.confirmPassword} 
+              onChangeText={(v) => setPasswordForm(p => ({...p, confirmPassword: v}))} 
+            />
+            <AppButton 
+              title="Modifier le mot de passe" 
+              onPress={handlePasswordChange} 
+              loading={loading} 
+              style={[styles.saveBtn, { backgroundColor: '#1e293b' }]} 
+            />
+
+            <Text style={[styles.cardTitle, { color: theme.text, borderBottomColor: theme.border, marginTop: 32 }]}>Confidentialité</Text>
             
+            <SelectionGroup 
+              label="Visibilité du profil"
+              options={[
+                { label: 'Public', value: 'public' },
+                { label: 'Matchs', value: 'matches' },
+                { label: 'Privé', value: 'private' }
+              ]}
+              current={privacySettings.profileVisibility}
+              onSelect={(v) => setPrivacySettings(p => ({...p, profileVisibility: v}))}
+            />
+
+            <SelectionGroup 
+              label="Messages autorisés"
+              options={[
+                { label: 'Tous', value: 'everyone' },
+                { label: 'Matchs', value: 'matches' },
+                { label: 'Aucun', value: 'no-one' }
+              ]}
+              current={privacySettings.allowMessagesFrom}
+              onSelect={(v) => setPrivacySettings(p => ({...p, allowMessagesFrom: v}))}
+            />
+
             <View style={styles.settingRow}>
               <View style={styles.settingText}>
-                <Text style={[styles.settingLabel, { color: theme.text }]}>Afficher mon statut en ligne</Text>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>Statut en ligne</Text>
                 <Text style={[styles.settingDesc, { color: theme.textMuted }]}>Les autres voient si vous êtes connecté.</Text>
               </View>
               <Switch 
@@ -236,28 +369,15 @@ export default function EditProfileScreen({ route, navigation }) {
                 trackColor={{ true: theme.primary, false: '#e2e8f0' }}
               />
             </View>
-            
-            <View style={styles.settingRow}>
-              <View style={styles.settingText}>
-                <Text style={[styles.settingLabel, { color: theme.text }]}>Visibilité (Public)</Text>
-                <Text style={[styles.settingDesc, { color: theme.textMuted }]}>Tout le monde peut voir votre profil.</Text>
-              </View>
-              <Switch 
-                value={privacySettings.profileVisibility === 'public'} 
-                onValueChange={(v) => setPrivacySettings(p => ({...p, profileVisibility: v ? 'public' : 'matches'}))} 
-                trackColor={{ true: theme.primary, false: '#e2e8f0' }}
-              />
-            </View>
 
             <View style={styles.settingRow}>
               <View style={styles.settingText}>
                 <Text style={[styles.settingLabel, { color: theme.text }]}>Mode sombre</Text>
-                <Text style={[styles.settingDesc, { color: theme.textMuted }]}>Basculer entre mode clair et sombre.</Text>
               </View>
               <Switch value={isDark} onValueChange={toggleTheme} trackColor={{ true: theme.primary, false: '#e2e8f0' }} />
             </View>
 
-            <AppButton title="Sauvegarder les paramètres" onPress={handleSaveSettings} loading={loading} style={styles.saveBtn} />
+            <AppButton title="Sauvegarder les préférences" onPress={handleSaveSettings} loading={loading} style={styles.saveBtn} />
           </View>
         )}
 
@@ -467,5 +587,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textGhost,
     lineHeight: 18,
-  }
+  },
+  selectionGroup: {
+    marginVertical: 12,
+  },
+  groupLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 10,
+    marginLeft: 4,
+  },
+  optionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  optionBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    backgroundColor: 'white',
+  },
+  optionText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
 });

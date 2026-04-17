@@ -21,7 +21,7 @@ export const getProfile = async (req, res) => {
     } else {
       const dbQuery = queryId.toString().match(/^[0-9a-fA-F]{24}$/) ? { _id: queryId } : { username: queryId };
       user = await User.findOne(dbQuery)
-        .select('username profilePicture coverPicture followers following firstName lastName age gender bio photos googlePhoto interests location privacy notificationPreferences lastSeen isOnline emailVerified createdAt')
+        .select('username profilePicture coverPicture followers following firstName lastName age gender bio photos googlePhoto interests location privacy notificationPreferences lastSeen isOnline emailVerified createdAt birthDate')
         .populate('photos')
         .populate('followers following', 'firstName lastName photos googlePhoto username');
       
@@ -249,18 +249,17 @@ export const search = async (req, res) => {
     }
     
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    let users = await User.find(query)
+
+    // Filtrer les utilisateurs déjà likés ou dislikés
+    const settledMatches = await Match.find({ likedBy: currentUser }).select('likedUser');
+    const settledIds = settledMatches.map(m => m.likedUser.toString());
+    query._id = { ...query._id, $nin: settledIds };
+
+    const users = await User.find(query)
       .select('firstName lastName age gender bio photos googlePhoto interests username')
       .limit(parseInt(limit))
       .skip(skip)
       .lean();
-    
-    // Désactivation de l'exclusion des utilisateurs déjà likés/dislikés selon la demande de l'utilisateur
-    /*
-    const likes = await Match.find({ likedBy: currentUser }).select('likedUser');
-    const likedIds = likes.map(m => m.likedUser.toString());
-    users = users.filter(u => !likedIds.includes(u._id.toString()));
-    */
     
     res.json(users);
   } catch (err) {
@@ -272,11 +271,48 @@ export const search = async (req, res) => {
 export const getSuggestions = async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
-    const query = { _id: { $ne: req.user._id }, isBanned: false };
-    const users = await User.find(query)
+    const recycle = req.query.recycle === 'true';
+    const currentUser = req.user._id;
+
+    // Récupérer les IDs des personnes déjà "traitées" (like ou dislike)
+    const settledMatches = await Match.find({ likedBy: currentUser }).select('likedUser isMutual');
+    const settledIds = settledMatches.map(m => m.likedUser.toString());
+
+    let query = { 
+      _id: { $ne: currentUser, $nin: settledIds }, 
+      isBanned: false 
+    };
+
+    let users = await User.find(query)
       .select('firstName lastName age gender bio photos googlePhoto interests username')
       .limit(limit)
       .lean();
+      
+    // Si l'utilisateur demande à recycler et qu'il y a très peu de nouveaux utilisateurs
+    if (recycle && users.length < 5) {
+      // Nous allons rechercher les anciens "dislikes" pour les réafficher.
+      // Dans notre app, un match est toujours soit en cours (like), soit mutual (mutuel), soit sans suite (dislike supprimé).
+      // On va recupérer une liste d'IDs que l'on A DEJÀ vu. On exclut ceux avec qui le match est mutuel.
+      const ignoreIds = settledMatches.filter(m => m.isMutual).map(m => m.likedUser.toString());
+      // On récupère tous ceux qui sont dans settledMatches ET NON isMutual
+      // En l'occurence, dans cette logique, si likedBy nous, c'est traité. 
+      // Donc on va piocher dans ceux qui sont traités mais pas matched.
+      const passedIds = settledMatches.filter(m => !m.isMutual).map(m => m.likedUser.toString());
+      
+      if (passedIds.length > 0) {
+        const recycledUsers = await User.find({
+          _id: { $ne: currentUser, $in: passedIds },
+          isBanned: false
+        })
+          .select('firstName lastName age gender bio photos googlePhoto interests username')
+          .limit(30)
+          .lean();
+          
+        // Taguer les utilisateurs recyclés pour que le front puisse empêcher de liker
+        const taggedRecycled = recycledUsers.map(u => ({ ...u, isRecycled: true }));
+        users = [...users, ...taggedRecycled];
+      }
+    }
     
     res.json(users);
   } catch (err) {

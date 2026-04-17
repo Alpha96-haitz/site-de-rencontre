@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
     const saved = localStorage.getItem('haitz_user_skeleton');
     return saved ? JSON.parse(saved) : null;
   });
-  const [loading, setLoading] = useState(!user);
+  const [loading, setLoading] = useState(true);
   const [isEmailVerified, setIsEmailVerified] = useState(() => {
     const saved = localStorage.getItem('haitz_user_skeleton');
     if (!saved) return false;

@@ -19,8 +19,8 @@ const normalizeApiUrl = (value) => {
   }
 };
 
-const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL) ||
-  (import.meta.env.PROD ? PROD_API_FALLBACK : 'http://localhost:5000/api');
+const API_URL = import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? PROD_API_FALLBACK : '/api');
 
 const client = axios.create({
   baseURL: API_URL,
@@ -29,14 +29,25 @@ const client = axios.create({
 });
 
 client.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('api-request-start'));
+  }
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
 client.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('api-request-end'));
+    }
+    return res;
+  },
   (err) => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('api-request-end'));
+    }
     // Si on n'a pas de réponse du tout, c'est un problème de connexion ou de CORS
     if (!err.response) {
       err.message = 'Connexion au serveur impossible. Vérifiez votre connexion internet ou réessayez plus tard.';

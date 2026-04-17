@@ -23,7 +23,7 @@ const processLike = async (req, res, { isSuperLike = false } = {}) => {
       match: direct, 
       isMutual: direct.isMutual,
       alreadyLiked: true,
-      message: 'Vous avez deja liké cet utilisateur'
+      message: 'Vous avez déjà like ce utilisateur'
     });
   }
 
@@ -78,14 +78,14 @@ const processLike = async (req, res, { isSuperLike = false } = {}) => {
     } catch (createErr) {
       // Prevent duplicates on race conditions.
       if (createErr?.code === 11000) {
-        const concurrent = await Match.findOne({
-          $or: [
-            { likedBy: currentUser, likedUser: userId },
-            { likedBy: userId, likedUser: currentUser }
-          ]
-        });
+        const concurrent = await Match.findOne({ likedBy: currentUser, likedUser: userId });
         if (concurrent) {
-          return res.status(200).json({ match: concurrent, isMutual: concurrent.isMutual });
+          return res.status(200).json({ 
+            match: concurrent, 
+            isMutual: concurrent.isMutual,
+            alreadyLiked: true,
+            message: 'Vous avez déjà like ce utilisateur'
+          });
         }
       }
       throw createErr;

@@ -36,14 +36,11 @@ const normalizeSocketUrl = (value) => {
 };
 
 const getSocketBaseUrl = () => {
-  const explicitSocketUrl = normalizeSocketUrl(import.meta.env.VITE_SOCKET_URL);
-  if (explicitSocketUrl) return explicitSocketUrl;
-
-  const apiUrl = import.meta.env.VITE_API_URL;
-  if (apiUrl) {
-    const normalized = normalizeSocketUrl(apiUrl);
-    if (normalized) return normalized;
+  const explicitSocketUrl = import.meta.env.VITE_SOCKET_URL;
+  if (explicitSocketUrl && explicitSocketUrl.startsWith('http')) {
+    return normalizeSocketUrl(explicitSocketUrl);
   }
+  if (explicitSocketUrl) return explicitSocketUrl;
 
   return import.meta.env.PROD
     ? PROD_SOCKET_FALLBACK
@@ -60,6 +57,7 @@ export const getSocket = () => {
       auth: { token },
       path: '/socket.io',
       transports: ['websocket', 'polling'],
+      withCredentials: true,
       reconnection: true,
       reconnectionAttempts: 8,
       reconnectionDelay: 1200,

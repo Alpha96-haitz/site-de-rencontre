@@ -20,9 +20,63 @@ const LOVE_PARTICLES = [
   { x: 34, delay: 120, size: 15, color: '#be185d' }
 ];
 
+const DiscoveryCard = React.memo(({ item, isNext, navigation, isDark, theme }) => (
+  <View style={[styles.card, isNext ? styles.nextCard : styles.activeCard, { backgroundColor: isDark ? '#1e293b' : '#fff' }]}>
+    <Image
+      source={item.photos?.find?.((p) => p.isPrimary)?.url || item.googlePhoto || 'https://placehold.co/600x800?text=Profil'}
+      style={styles.image}
+      contentFit="cover"
+      transition={300}
+    />
+    
+    {/* Cinematic Gradient Overlay */}
+    <LinearGradient
+      colors={['transparent', 'rgba(15, 23, 42, 0.2)', 'rgba(15, 23, 42, 0.95)']}
+      style={styles.gradient}
+    >
+      <View style={styles.cardInfoPanel}>
+        <View style={styles.infoHeader}>
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>{item.firstName}, {item.age || '22'}</Text>
+            {item.isOnline && (
+              <View style={styles.onlineBadgeContainer}>
+                <View style={styles.onlineInner} />
+              </View>
+            )}
+          </View>
+          
+          <Pressable
+            style={styles.infoBtn}
+            onPress={() => navigation.navigate('ProfileMain', { userId: item.username || item._id })}
+          >
+            <Ionicons name="information-circle" size={28} color="rgba(255,255,255,0.9)" />
+          </Pressable>
+        </View>
+
+        <View style={styles.locationBadge}>
+          <Ionicons name="location" size={14} color="#ec4899" />
+          <Text style={styles.locationText}>{item.location?.city || 'Ville inconnue'}</Text>
+        </View>
+
+        <Text style={styles.bioText} numberOfLines={2}>
+          {item.bio || "Cet utilisateur n'a pas encore de bio."}
+        </Text>
+
+        <View style={styles.interestsRow}>
+          {item.interests?.slice(0, 3).map((interest, idx) => (
+            <View key={idx} style={styles.interestChip}>
+              <Text style={styles.interestText}>{interest}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </LinearGradient>
+  </View>
+));
+
 export default function DiscoverScreen({ navigation }) {
   const { user } = useAuth();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const [cards, setCards] = useState([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -104,7 +158,7 @@ export default function DiscoverScreen({ navigation }) {
       if (response?.alreadyLiked) {
         setFeedback({
           type: 'info',
-          text: response.message || `Vous avez déjà liké ${cardToActOn.firstName}.`
+          text: "Vous avez déjà like ce utilisateur"
         });
         return;
       }
@@ -334,7 +388,12 @@ export default function DiscoverScreen({ navigation }) {
             <Pressable
               style={styles.matchBtn}
               onPress={() => {
-                if (matchBanner.matchId) navigation.navigate('Messages', { matchId: matchBanner.matchId });
+                if (matchBanner.matchId) {
+                  navigation.navigate('MainTabs', {
+                    screen: 'Messages',
+                    params: { matchId: matchBanner.matchId }
+                  });
+                }
                 setMatchBanner(null);
               }}
             >
@@ -346,43 +405,15 @@ export default function DiscoverScreen({ navigation }) {
 
       <View style={styles.cardContainer}>
         {nextCard && (
-          <View style={[styles.card, styles.nextCard]}>
-            <Image
-              source={nextCard.photos?.find?.((p) => p.isPrimary)?.url || nextCard.googlePhoto || 'https://placehold.co/600x800'}
-              style={styles.image}
-              contentFit="cover"
-            />
-          </View>
+          <DiscoveryCard item={nextCard} isNext navigation={navigation} isDark={isDark} theme={theme} />
         )}
 
         <Animated.View
           {...panResponder.panHandlers}
           style={[styles.card, styles.activeCard, { transform: [{ translateX: pos.x }, { translateY: pos.y }, { rotate }] }]}
         >
-          <Image
-            source={current?.photos?.find?.((p) => p.isPrimary)?.url || current?.googlePhoto || 'https://placehold.co/600x800'}
-            style={styles.image}
-            contentFit="cover"
-            transition={180}
-          />
-          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.9)']} style={styles.gradient}>
-            <View style={styles.infoContent}>
-              <Text style={styles.name}>
-                {current.firstName} <Text style={styles.age}>{current.age || '22'}</Text>
-              </Text>
-              <View style={styles.locationRow}>
-                <Ionicons name="location" size={16} color="#fff" />
-                <Text style={styles.locationText}>{current.location?.city || 'Pres de chez vous'}</Text>
-              </View>
-            </View>
-            <Pressable
-              style={styles.infoBtn}
-              onPress={() => navigation.navigate('ProfileMain', { userId: current.username || current._id })}
-            >
-              <Ionicons name="information" size={20} color="#000" />
-            </Pressable>
-          </LinearGradient>
-
+          <DiscoveryCard item={current} navigation={navigation} isDark={isDark} theme={theme} />
+          
           <Animated.View style={[styles.labelWrap, styles.nopeLabelWrap, { opacity: nopeOpacity }]}>
             <Text style={styles.nopeLabel}>NOPE</Text>
           </Animated.View>
@@ -395,14 +426,7 @@ export default function DiscoverScreen({ navigation }) {
         </Animated.View>
       </View>
 
-      <View style={styles.actionRow}>
-        <View style={styles.tipsRow}>
-          <Text style={styles.tip}>Annuler</Text>
-          <Text style={styles.tip}>Passer</Text>
-          <Text style={styles.tip}>Super</Text>
-          <Text style={styles.tip}>Like</Text>
-          <Text style={styles.tip}>Boost</Text>
-        </View>
+      <View style={[styles.actionRow, { paddingBottom: insets.bottom + 10 }]}>
         <View style={styles.actionButtonsRow}>
           <Pressable style={[styles.btnSmall, styles.shadow]} onPress={handleRewind}>
             <Ionicons name="refresh" size={24} color="#F5B748" />
@@ -504,92 +528,197 @@ const styles = StyleSheet.create({
   },
   actionText: { color: '#fff', fontWeight: '800', fontSize: 16, textTransform: 'uppercase' },
 
-  cardContainer: { flex: 1, paddingHorizontal: 8, paddingTop: 16, paddingBottom: 10 },
+  cardContainer: { 
+    flex: 1, 
+    paddingHorizontal: 16, 
+    paddingTop: 10, 
+    paddingBottom: 10 
+  },
   card: {
     position: 'absolute',
-    top: 16,
-    left: 8,
-    right: 8,
+    top: 0,
+    left: 12,
+    right: 12,
     bottom: 0,
-    borderRadius: 20,
-    backgroundColor: '#000',
-    elevation: 4
+    borderRadius: 35,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
   },
-  nextCard: { zIndex: 1, transform: [{ scale: 0.96 }] },
+  nextCard: { zIndex: 1, transform: [{ scale: 0.94 }, { translateY: 10 }] },
   activeCard: { zIndex: 10 },
-  image: { width: '100%', height: '100%', borderRadius: 20 },
+  image: { width: '100%', height: '100%' },
   gradient: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: '40%',
-    borderRadius: 20,
+    height: '65%',
+    justifyContent: 'flex-end',
     padding: 20,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between'
   },
-  infoContent: { flex: 1 },
+  cardInfoPanel: {
+    width: '100%',
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 8,
+  },
+  nameRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 10,
+    flex: 1 
+  },
   name: {
     color: '#fff',
-    fontSize: 34,
-    fontWeight: '800',
-    textShadowColor: 'rgba(0,0,0,0.4)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 4
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
-  age: { fontSize: 24, fontWeight: '400' },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  locationText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  infoBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#fff',
-    alignItems: 'center',
+  onlineBadgeContainer: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
     justifyContent: 'center',
-    marginBottom: 8
+    alignItems: 'center',
+  },
+  onlineInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#22c55e',
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 5,
+  },
+  locationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  locationText: { 
+    color: '#fff', 
+    fontSize: 12, 
+    fontWeight: '800', 
+    textTransform: 'uppercase', 
+    letterSpacing: 1 
+  },
+  bioText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 15,
+    fontWeight: '500',
+    fontStyle: 'italic',
+    lineHeight: 20,
+    marginBottom: 18,
+  },
+  interestsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  interestChip: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  interestText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  infoBtn: {
+    padding: 4,
   },
 
   labelWrap: {
     position: 'absolute',
     top: 60,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 4,
-    borderRadius: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 6,
+    borderWidth: 6,
+    borderRadius: 15,
     transform: [{ rotate: '-15deg' }]
   },
-  nopeLabelWrap: { right: 40, borderColor: '#FF4458', transform: [{ rotate: '15deg' }] },
-  likeLabelWrap: { left: 40, borderColor: '#17E08F' },
-  superLabelWrap: { bottom: 200, left: '30%', borderColor: '#2DB1FF', transform: [{ rotate: '-15deg' }] },
-  nopeLabel: { color: '#FF4458', fontSize: 38, fontWeight: '900', letterSpacing: 2 },
-  likeLabel: { color: '#17E08F', fontSize: 38, fontWeight: '900', letterSpacing: 2 },
-  superLabel: { color: '#2DB1FF', fontSize: 34, fontWeight: '900', letterSpacing: 2 },
+  nopeLabelWrap: { right: 40, borderColor: '#f43f5e', transform: [{ rotate: '15deg' }] },
+  likeLabelWrap: { left: 40, borderColor: '#10b981' },
+  superLabelWrap: { bottom: 200, left: '30%', borderColor: '#3b82f6', transform: [{ rotate: '-15deg' }] },
+  nopeLabel: { color: '#f43f5e', fontSize: 44, fontWeight: '900', letterSpacing: 3 },
+  likeLabel: { color: '#10b981', fontSize: 44, fontWeight: '900', letterSpacing: 3 },
+  superLabel: { color: '#3b82f6', fontSize: 40, fontWeight: '900', letterSpacing: 3 },
 
-  actionRow: { justifyContent: 'center', alignItems: 'center', paddingBottom: 100, paddingTop: 16 },
-  tipsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    width: '100%',
-    paddingHorizontal: 10,
-    marginBottom: 8
+  actionRow: { 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    paddingTop: 10 
   },
   tip: {
-    backgroundColor: '#fff',
-    color: colors.textMuted,
-    fontWeight: '700',
+    color: 'rgba(255,255,255,0.4)',
+    fontWeight: '900',
     fontSize: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
   },
-  actionButtonsRow: { flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', width: '100%' },
-  btnSmall: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  btnMedium: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  btnLarge: { width: 66, height: 66, borderRadius: 33, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', shadowColor: '#17E08F' },
-  shadow: { elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8 }
+  actionButtonsRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-evenly', 
+    alignItems: 'center', 
+    width: '100%',
+    paddingHorizontal: 10
+  },
+  btnSmall: { 
+    width: 48, 
+    height: 48, 
+    borderRadius: 24, 
+    backgroundColor: '#334155', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)' 
+  },
+  btnMedium: { 
+    width: 58, 
+    height: 58, 
+    borderRadius: 29, 
+    backgroundColor: '#334155', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)' 
+  },
+  btnLarge: { 
+    width: 74, 
+    height: 74, 
+    borderRadius: 37, 
+    backgroundColor: '#334155', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)' 
+  },
+  shadow: { 
+    elevation: 10, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 6 }, 
+    shadowOpacity: 0.4, 
+    shadowRadius: 10 
+  }
 });

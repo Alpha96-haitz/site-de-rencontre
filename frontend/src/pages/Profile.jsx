@@ -8,6 +8,7 @@ import PostForm from '../components/PostForm';
 import ReportModal from '../components/ReportModal';
 import { FiEdit2, FiUserPlus, FiCheck, FiHeart, FiMessageCircle, FiMapPin, FiCamera, FiMoreHorizontal, FiPlus, FiBriefcase, FiHome, FiClock, FiGrid, FiUsers, FiImage, FiStar, FiMail, FiFlag, FiShield, FiTrash2 } from 'react-icons/fi';
 import MatchModal from '../components/MatchModal';
+import { getSocket } from '../socket/client';
 
 export default function Profile() {
   const { username } = useParams();
@@ -415,7 +416,11 @@ export default function Profile() {
              </div>
              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {profile.photos?.map((p, i) => (
-                   <div key={i} className="aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm group cursor-pointer border-transparent hover:border-pink-300">
+                   <div 
+                     key={i} 
+                     className="aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm group cursor-pointer border-transparent hover:border-pink-300"
+                     onClick={() => setViewPhotoUrl(p.url)}
+                   >
                       <img src={p.url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                    </div>
                 ))}
@@ -433,78 +438,78 @@ export default function Profile() {
         <div className="max-w-5xl mx-auto px-0 md:px-4">
            {/* Cover Photo */}
            <div className="relative group">
-              <div className="h-[200px] md:h-[350px] w-full relative bg-slate-200 md:rounded-b-xl overflow-hidden">
+              <div className="h-[200px] md:h-[350px] w-full relative bg-slate-200 md:rounded-b-xl overflow-hidden cursor-pointer" onClick={() => setViewPhotoUrl(coverUrl)}>
                 <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/5"></div>
               </div>
               
-              {isOwnProfile && (
-                <div className="absolute bottom-4 right-4 z-30">
-                  <button 
-                    onClick={() => setShowCoverMenu(!showCoverMenu)}
-                    className="bg-white hover:bg-slate-50 text-slate-800 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-sm transition-all border border-slate-100"
-                  >
-                    <FiCamera className="text-xl" /> <span className="hidden md:inline">Modifier la couverture</span>
-                  </button>
-                  {showCoverMenu && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowCoverMenu(false)}></div>
-                      <div className="absolute bottom-full right-0 mb-2 w-64 bg-white rounded-xl shadow-2xl border border-slate-100 z-50 py-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                        <button 
-                          onClick={() => { setViewPhotoUrl(coverUrl); setShowCoverMenu(false); }}
-                          className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-slate-700 flex items-center gap-3 transition-colors text-sm"
-                        >
-                          <FiImage className="text-xl text-slate-400" /> Voir la photo de couverture
-                        </button>
+              <div className="absolute bottom-4 right-4 z-30">
+                <button 
+                  onClick={() => setShowCoverMenu(!showCoverMenu)}
+                  className="bg-white hover:bg-slate-50 text-slate-800 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-sm transition-all border border-slate-100"
+                >
+                  <FiCamera className="text-xl" /> <span className="hidden md:inline">{isOwnProfile ? 'Modifier la couverture' : 'Afficher'}</span>
+                </button>
+                {showCoverMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowCoverMenu(false)}></div>
+                    <div className="absolute bottom-full right-0 mb-2 w-64 bg-white rounded-xl shadow-2xl border border-slate-100 z-50 py-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                      <button 
+                        onClick={() => { setViewPhotoUrl(coverUrl); setShowCoverMenu(false); }}
+                        className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-slate-700 flex items-center gap-3 transition-colors text-sm"
+                      >
+                        <FiImage className="text-xl text-slate-400" /> Voir la photo de couverture
+                      </button>
+                      {isOwnProfile && (
                         <button 
                           onClick={() => { navigate('/home/profile/edit?tab=photos'); setShowCoverMenu(false); }}
                           className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-slate-700 flex items-center gap-3 transition-colors text-sm"
                         >
                           <FiCamera className="text-xl text-slate-400" /> Importer une photo
                         </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
            </div>
 
            {/* Profile Header Info */}
            <div className="px-4 md:px-8 relative mb-2">
               <div className="flex flex-col md:flex-row items-center md:items-end gap-5 -mt-12 md:-mt-16 sm:gap-4 relative z-10 mb-4 pb-2 border-b border-slate-100">
                  <div className="relative">
-                    <div className="w-40 h-40 md:w-44 md:h-44 rounded-full border-[5px] border-white shadow-sm overflow-hidden bg-white">
+                    <div className="w-40 h-40 md:w-44 md:h-44 rounded-full border-[5px] border-white shadow-sm overflow-hidden bg-white cursor-pointer" onClick={() => setViewPhotoUrl(avatarUrl)}>
                        <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
                     </div>
-                    {isOwnProfile && (
-                       <div className="absolute bottom-3 right-3">
-                          <button 
-                            onClick={() => setShowProfileMenu(!showProfileMenu)}
-                            className="bg-slate-100 hover:bg-slate-200 p-2.5 rounded-full text-slate-800 shadow-md border border-white transition-all"
-                          >
-                              <FiCamera className="text-lg" />
-                          </button>
-                          {showProfileMenu && (
-                            <>
-                              <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)}></div>
-                              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-slate-100 z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
-                                <button 
-                                  onClick={() => { setViewPhotoUrl(avatarUrl); setShowProfileMenu(false); }}
-                                  className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-slate-700 flex items-center gap-3 transition-colors"
-                                >
-                                  <FiUsers className="text-xl text-slate-400" /> Voir la photo de profil
-                                </button>
+                    <div className="absolute bottom-3 right-3">
+                        <button 
+                          onClick={() => setShowProfileMenu(!showProfileMenu)}
+                          className="bg-slate-100 hover:bg-slate-200 p-2.5 rounded-full text-slate-800 shadow-md border border-white transition-all"
+                        >
+                            <FiCamera className="text-lg" />
+                        </button>
+                        {showProfileMenu && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)}></div>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-slate-100 z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
+                              <button 
+                                onClick={() => { setViewPhotoUrl(avatarUrl); setShowProfileMenu(false); }}
+                                className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-slate-700 flex items-center gap-3 transition-colors"
+                              >
+                                <FiImage className="text-xl text-slate-400" /> Voir la photo de profil
+                              </button>
+                              {isOwnProfile && (
                                 <button 
                                   onClick={() => { navigate('/home/profile/edit?tab=photos'); setShowProfileMenu(false); }}
                                   className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-slate-700 flex items-center gap-3 transition-colors text-sm"
                                 >
                                   <FiPlus className="text-xl text-slate-400" /> Importer une nouvelle photo
                                 </button>
-                              </div>
-                            </>
-                          )}
-                       </div>
-                    )}
+                              )}
+                            </div>
+                          </>
+                        )}
+                    </div>
                  </div>
                  
                  <div className="flex-1 text-center md:text-left md:mb-4">

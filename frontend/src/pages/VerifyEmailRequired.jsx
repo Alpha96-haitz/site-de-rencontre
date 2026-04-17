@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { FiMail, FiRefreshCw, FiLogOut, FiCheckCircle, FiArrowLeft, FiShield } from 'react-icons/fi';
@@ -7,9 +7,15 @@ import toast from 'react-hot-toast';
 import logo from '../assets/logo.png';
 
 export default function VerifyEmailRequired() {
-  const { user, logout, refreshVerificationStatus } = useAuth();
+  const { user, logout, refreshVerificationStatus, isEmailVerified } = useAuth();
   const [checking, setChecking] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isEmailVerified) {
+      navigate('/home', { replace: true });
+    }
+  }, [isEmailVerified, navigate]);
 
   const handleLogout = async () => {
     await logout();

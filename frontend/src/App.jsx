@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import PageLoader from './components/PageLoader';
+import NetworkLoader from './components/NetworkLoader';
 
 const Layout = lazy(() => import('./components/Layout'));
 const Login = lazy(() => import('./pages/Login'));
@@ -42,6 +43,7 @@ const AdminRoute = ({ children }) => {
 export default function App() {
   return (
     <Suspense fallback={<PageLoader />}>
+      <NetworkLoader />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />

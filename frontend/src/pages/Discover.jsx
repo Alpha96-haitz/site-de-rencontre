@@ -56,6 +56,12 @@ export default function Discover() {
     try {
       if (type === 'like') {
         const { data } = await client.post(`/matches/like/${targetId}`);
+        if (data.alreadyLiked) {
+          toast.info(data.message || "Vous avez déjà liké cet utilisateur");
+          setDirection(null);
+          setCurrentIndex(prev => prev + 1);
+          return;
+        }
         if (data.isMutual) {
           setMatchData({
             user: currentCard,
@@ -149,14 +155,14 @@ export default function Discover() {
            </button>
         </div>
       )}
-
+      
       {/* Main Swipe Interface */}
-      <div className="relative flex-1 max-h-[600px] w-full perspective-1000">
+      <div className="relative flex-1 max-h-[700px] w-full perspective-2000 px-4 md:px-0">
         {currentCard ? (
           <div 
-            className={`absolute inset-0 bg-white rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 transition-all duration-300 transform origin-bottom
-              ${direction === 'right' ? 'translate-x-[150%] rotate-[30deg] opacity-0' : ''}
-              ${direction === 'left' ? '-translate-x-[150%] -rotate-[30deg] opacity-0' : ''}
+            className={`absolute inset-0 bg-slate-900 rounded-[50px] shadow-[0_30px_100px_rgba(0,0,0,0.5)] overflow-hidden border border-white/10 transition-all duration-500 ease-out transform-gpu
+              ${direction === 'right' ? 'translate-x-[200%] rotate-[45deg] scale-110 opacity-0' : ''}
+              ${direction === 'left' ? '-translate-x-[200%] -rotate-[45deg] scale-110 opacity-0' : ''}
             `}
           >
             {/* Image & Overlay */}
@@ -164,52 +170,70 @@ export default function Discover() {
               <img 
                 src={currentCard.photos?.find(p => p.isPrimary)?.url || currentCard.googlePhoto || 'https://placehold.co/600x800?text=Profil'} 
                 alt={currentCard.firstName} 
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                loading="lazy"
+                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                loading="eager"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
               
-              {/* Profile Info Overlay */}
-              <div className="absolute bottom-0 p-8 text-white w-full">
-                <div className="flex items-center gap-3 mb-2">
-                  <h2 className="text-3xl font-black tracking-tight">{currentCard.firstName}, {currentCard.age}</h2>
-                  {currentCard.isOnline && <div className="w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-lg animate-pulse"></div>}
-                </div>
-                <div className="flex items-center gap-2 text-sm font-bold opacity-80 mb-4 bg-black/20 backdrop-blur-md w-fit px-3 py-1 rounded-full">
-                  <FiMapPin className="w-4 h-4 text-pink-500" /> {currentCard.location?.city || 'Près de vous'}
-                </div>
-                <p className="text-[15px] line-clamp-3 font-medium mb-6 opacity-90 leading-relaxed">{currentCard.bio || 'Cet utilisateur n\'a pas encore de bio.'}</p>
-                
-                {/* Interests chips */}
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {currentCard.interests?.slice(0, 3).map(i => (
-                    <span key={i} className="px-3.5 py-1.5 bg-white/10 backdrop-blur-xl rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/10">
-                      {i}
-                    </span>
-                  ))}
+              {/* Dynamic Gradient with better mix-blend */}
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
+              
+              {/* Profile Info Overlay - Glassmorphism style */}
+              <div className="absolute bottom-0 p-10 text-white w-full">
+                <div className="backdrop-blur-3xl bg-white/5 border border-white/10 rounded-[35px] p-8 shadow-2xl relative overflow-hidden group/info">
+                  <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-pink-500 to-rose-500"></div>
+                  
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-4xl font-black tracking-tight drop-shadow-lg">{currentCard.firstName}, {currentCard.age}</h2>
+                      {currentCard.isOnline && (
+                        <div className="flex items-center gap-2 px-3 py-1 bg-green-500/20 rounded-full border border-green-500/30">
+                          <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-green-400">Online</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-sm font-black text-white/60 mb-6 bg-white/5 w-fit px-4 py-2 rounded-2xl border border-white/5">
+                    <FiMapPin className="w-4 h-4 text-pink-500" /> 
+                    <span className="uppercase tracking-[0.1em]">{currentCard.location?.city || 'Ville inconnue'}</span>
+                  </div>
+
+                  <p className="text-lg font-medium mb-8 text-white/80 leading-relaxed italic line-clamp-2">
+                    "{currentCard.bio || 'Cet utilisateur n\'a pas encore de bio.'}"
+                  </p>
+                  
+                  {/* Interests chips - Premium style */}
+                  <div className="flex flex-wrap gap-3">
+                    {currentCard.interests?.slice(0, 4).map(i => (
+                      <span key={i} className="px-5 py-2 bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-md rounded-full text-[11px] font-bold text-white/90 border border-white/10 hover:border-pink-500/40 transition-colors cursor-default">
+                        {i}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white rounded-[40px] border-2 border-dashed border-slate-200 p-8 text-center shadow-inner">
-             <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-8 shadow-xl">
-               <FiRefreshCw className="w-10 h-10 text-slate-300 animate-spin-slow" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 rounded-[50px] border border-white/5 p-12 text-center shadow-2xl">
+             <div className="w-32 h-32 bg-white/5 rounded-full flex items-center justify-center mb-10 shadow-[0_0_50px_rgba(236,72,153,0.1)] border border-white/10">
+               <FiRefreshCw className="w-14 h-14 text-pink-500 animate-spin-slow opacity-50" />
              </div>
-             <h2 className="text-3xl font-black text-slate-800 mb-3 tracking-tighter">C'est tout pour aujourd'hui !</h2>
-             <p className="text-slate-400 font-bold mb-10 max-w-xs mx-auto leading-relaxed">Vous avez découvert tous les profils de votre secteur. Revenez demain !</p>
-             <button onClick={fetchCards} className="px-10 py-4 bg-gradient-to-r from-pink-600 to-rose-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-2xl shadow-pink-200 hover:scale-105 active:scale-95 transition-all">
-               Recharger tout
+             <h2 className="text-4xl font-black text-white mb-4 tracking-tighter">Deck terminé !</h2>
+             <p className="text-white/40 font-bold mb-12 max-w-sm mx-auto leading-relaxed text-lg italic">Vous avez exploré tous les profils de votre zone. Revenez un peu plus tard pour de nouvelles rencontres.</p>
+             <button onClick={fetchCards} className="px-12 py-5 bg-gradient-to-r from-pink-600 to-rose-600 text-white rounded-[25px] font-black uppercase tracking-[0.2em] shadow-[0_20px_40px_rgba(236,72,153,0.3)] hover:scale-105 active:scale-95 transition-all duration-300">
+               Actualiser
              </button>
           </div>
         )}
 
-        {/* Swipe Indicators */}
+        {/* Improved Swipe Indicator Stencils */}
         {direction === 'right' && (
-          <div className="absolute top-12 left-12 border-4 border-[#2ecc71] text-[#2ecc71] px-6 py-2 rounded-2xl font-black text-5xl uppercase rotate-[-25deg] z-50 animate-in zoom-in duration-100 tracking-tighter">LIKE</div>
+          <div className="absolute top-20 left-20 border-[6px] border-[#2ecc71] text-[#2ecc71] px-10 py-4 rounded-[30px] font-black text-6xl uppercase rotate-[-25deg] z-[60] animate-in zoom-in duration-150 tracking-tighter shadow-2xl skew-x-[-10deg]">VIBE</div>
         )}
         {direction === 'left' && (
-          <div className="absolute top-12 right-12 border-4 border-[#e74c3c] text-[#e74c3c] px-6 py-2 rounded-2xl font-black text-5xl uppercase rotate-[25deg] z-50 animate-in zoom-in duration-100 tracking-tighter">NOPE</div>
+          <div className="absolute top-20 right-20 border-[6px] border-[#f43f5e] text-[#f43f5e] px-10 py-4 rounded-[30px] font-black text-6xl uppercase rotate-[25deg] z-[60] animate-in zoom-in duration-150 tracking-tighter shadow-2xl skew-x-[10deg]">PASS</div>
         )}
       </div>
 

@@ -76,8 +76,8 @@ export default function MatchesScreen({ navigation }) {
               style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}
               onPress={() =>
                 tab === 'matches'
-                  ? navigation.navigate('Messages', { matchId: item._id })
-                  : navigation.navigate('Profile', { screen: 'ProfileMain', params: { userId: user.username || user._id } })
+                  ? navigation.navigate('MainTabs', { screen: 'Messages', params: { matchId: item._id } })
+                  : navigation.navigate('ProfileMain', { userId: user.username || user._id })
               }
             >
               <View style={styles.avatarWrapper}>

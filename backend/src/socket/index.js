@@ -111,6 +111,11 @@ export const initSocket = (io) => {
 
         const payload = {
           ...message.toObject(),
+          match: String(matchId),
+          sender: {
+            ...message.sender.toObject(),
+            _id: String(message.sender._id)
+          },
           clientTempId: clientTempId || null
         };
 
