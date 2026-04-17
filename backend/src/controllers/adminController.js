@@ -82,18 +82,72 @@ export const deleteUser = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
 
     if (user.role === 'root') {
-      return res.status(403).json({ message: 'Suppression d un compte root interdite' });
+      return res.status(403).json({ message: 'Suppression d\'un compte root interdite' });
     }
 
+    // 1. Récupérer les IDs des matches pour nettoyer les messages associés
+    const matchesIds = await Match.find({ users: userId }).distinct('_id');
+
+    // On récupère aussi les personnes affectées par la suppression des abonnements pour les notifier
+    const affectedFollowers = await User.find({ following: userId }).select('_id following');
+    const affectedFollowing = await User.find({ followers: userId }).select('_id followers');
+
     await Promise.all([
+      // Suppression du compte
       User.findByIdAndDelete(userId),
+      
+      // Suppression des contenus créés
       Post.deleteMany({ userId }),
-      Match.deleteMany({ $or: [{ users: userId }, { likedBy: userId }, { likedUser: userId }] }),
-      Report.deleteMany({ $or: [{ reporter: userId }, { reportedUser: userId }] }),
-      Notification.deleteMany({ $or: [{ recipient: userId }, { sender: userId }] })
+      Message.deleteMany({ $or: [
+        { sender: userId }, 
+        { match: { $in: matchesIds } }
+      ]}),
+      Match.deleteMany({ $or: [
+        { users: userId }, 
+        { likedBy: userId }, 
+        { likedUser: userId }
+      ]}),
+      Report.deleteMany({ $or: [
+        { reporter: userId }, 
+        { reportedUser: userId }
+      ]}),
+      Notification.deleteMany({ $or: [
+        { recipient: userId }, 
+        { sender: userId }
+      ]}),
+      
+      // Nettoyage des interactions sur d'autres utilisateurs (followers/following)
+      User.updateMany({ followers: userId }, { $pull: { followers: userId } }),
+      User.updateMany({ following: userId }, { $pull: { following: userId } }),
+      
+      // Nettoyage des interactions sur d'autres posts (likes/commentaires)
+      Post.updateMany({ likes: userId }, { $pull: { likes: userId } }),
+      Post.updateMany(
+        { 'comments.userId': userId }, 
+        { $pull: { comments: { userId: userId } } }
+      )
     ]);
 
-    res.json({ message: 'Utilisateur supprime' });
+    // Émettre les mises à jour socket pour les compteurs
+    const io = req.app.get('io');
+    if (io) {
+      const { notifyUserStats, notifyUserDeleted } = await import('../socket/index.js');
+      
+      // Notifier la suppression de l'utilisateur
+      notifyUserDeleted(io, userId);
+
+      // Notifier ceux qui le suivaient (leur followingCount diminue)
+      affectedFollowers.forEach(u => {
+        notifyUserStats(io, u._id, { followingCount: Math.max(0, u.following.length - 1) });
+      });
+
+      // Notifier ceux qu'il suivait (leur followersCount diminue)
+      affectedFollowing.forEach(u => {
+        notifyUserStats(io, u._id, { followersCount: Math.max(0, u.followers.length - 1) });
+      });
+    }
+
+    res.json({ message: 'Utilisateur et toutes ses données associées ont été définitivement supprimés' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

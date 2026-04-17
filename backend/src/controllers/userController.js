@@ -357,6 +357,15 @@ export const followUser = async (req, res) => {
       await currentUser.updateOne({ $push: { following: req.params.id } });
       clearCacheByPrefix('profile:');
       
+      const io = req.app.get('io');
+      if (io) {
+        const { notifyUserStats } = await import('../socket/index.js');
+        // Notify targeted user about new follower count
+        notifyUserStats(io, req.params.id, { followersCount: user.followers.length + 1 });
+        // Notify current user about their new following count
+        notifyUserStats(io, req.user._id, { followingCount: currentUser.following.length + 1 });
+      }
+
       // Notification
       const { createNotification } = await import('./notificationController.js');
       createNotification({
@@ -387,6 +396,14 @@ export const unfollowUser = async (req, res) => {
       await user.updateOne({ $pull: { followers: req.user._id } });
       await currentUser.updateOne({ $pull: { following: req.params.id } });
       clearCacheByPrefix('profile:');
+
+      const io = req.app.get('io');
+      if (io) {
+        const { notifyUserStats } = await import('../socket/index.js');
+        notifyUserStats(io, req.params.id, { followersCount: Math.max(0, user.followers.length - 1) });
+        notifyUserStats(io, req.user._id, { followingCount: Math.max(0, currentUser.following.length - 1) });
+      }
+
       res.json({ message: "Vous n'êtes plus abonné à cet utilisateur" });
     } else {
       res.status(403).json({ message: "Vous n'êtes pas abonné à cet utilisateur" });
@@ -400,18 +417,79 @@ export const unfollowUser = async (req, res) => {
 // Supprimer son compte
 export const deleteAccount = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const userId = req.user._id;
+    const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
     
     // Supprimer les photos sur Cloudinary
-    for (const photo of user.photos) {
-      if (photo.publicId) await cloudinary.uploader.destroy(photo.publicId).catch(() => {});
+    if (user.photos) {
+      for (const photo of user.photos) {
+        if (photo.publicId) await cloudinary.uploader.destroy(photo.publicId).catch(() => {});
+      }
     }
     
-    await User.findByIdAndDelete(req.user._id);
-    // On pourrait aussi supprimer ses matchs, ses messages, ses notifications, ses posts...
-    await Match.deleteMany({ users: req.user._id });
-    
+    // 1. Récupérer les IDs des matches pour nettoyer les messages associés
+    const matchesIds = await Match.find({ users: userId }).distinct('_id');
+
+    // On récupère aussi les personnes affectées par la suppression des abonnements pour les notifier
+    const affectedFollowers = await User.find({ following: userId }).select('_id following');
+    const affectedFollowing = await User.find({ followers: userId }).select('_id followers');
+
+    await Promise.all([
+      // Suppression du compte
+      User.findByIdAndDelete(userId),
+      
+      // Suppression des contenus créés
+      Post.deleteMany({ userId }),
+      Message.deleteMany({ $or: [
+        { sender: userId }, 
+        { match: { $in: matchesIds } }
+      ]}),
+      Match.deleteMany({ $or: [
+        { users: userId }, 
+        { likedBy: userId }, 
+        { likedUser: userId }
+      ]}),
+      Report.deleteMany({ $or: [
+        { reporter: userId }, 
+        { reportedUser: userId }
+      ]}),
+      Notification.deleteMany({ $or: [
+        { recipient: userId }, 
+        { sender: userId }
+      ]}),
+      
+      // Nettoyage des interactions sur d'autres utilisateurs (followers/following)
+      User.updateMany({ followers: userId }, { $pull: { followers: userId } }),
+      User.updateMany({ following: userId }, { $pull: { following: userId } }),
+      
+      // Nettoyage des interactions sur d'autres posts (likes/commentaires)
+      Post.updateMany({ likes: userId }, { $pull: { likes: userId } }),
+      Post.updateMany(
+        { 'comments.userId': userId }, 
+        { $pull: { comments: { userId: userId } } }
+      )
+    ]);
+
+    // Émettre les mises à jour socket pour les compteurs
+    const io = req.app.get('io');
+    if (io) {
+      const { notifyUserStats, notifyUserDeleted } = await import('../socket/index.js');
+      
+      // Notifier la suppression de l'utilisateur
+      notifyUserDeleted(io, userId);
+
+      // Notifier ceux qui le suivaient (leur followingCount diminue)
+      affectedFollowers.forEach(u => {
+        notifyUserStats(io, u._id, { followingCount: Math.max(0, u.following.length - 1) });
+      });
+
+      // Notifier ceux qu'il suivait (leur followersCount diminue)
+      affectedFollowing.forEach(u => {
+        notifyUserStats(io, u._id, { followersCount: Math.max(0, u.followers.length - 1) });
+      });
+    }
+
     res.json({ message: 'Compte supprimé avec succès' });
   } catch (err) {
     res.status(500).json({ message: err.message });

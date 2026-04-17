@@ -215,16 +215,7 @@ export default function DiscoverScreen({ navigation }) {
 
   const animateOut = (toValue, actionType) => {
     if (isActionRunning.current || !current) return;
-
-    if (actionType === 'like' && current.isRecycled) {
-      Alert.alert(
-        "Action impossible",
-        "Vous avez déjà ignoré ce profil. Like impossible sur un profil recyclé.",
-        [{ text: "OK" }]
-      );
-      return;
-    }
-
+    
     isActionRunning.current = true;
     const cardToActOn = current;
 

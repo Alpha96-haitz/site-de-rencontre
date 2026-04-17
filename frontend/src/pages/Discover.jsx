@@ -54,15 +54,6 @@ export default function Discover() {
     const activeCard = cards[currentIndex];
     const targetId = activeCard._id;
 
-    // Protection recyclage : Interdire le like si le profil est recyclé
-    if (type === 'like' && activeCard.isRecycled) {
-      toast.error("Vous avez déjà ignoré ce profil. Like impossible sur un profil recyclé.", { 
-        icon: '🚫',
-        duration: 4000 
-      });
-      return;
-    }
-
     // Sauvegarder dans l'historique pour le Undo
     setHistory(prev => [...prev, { card: activeCard, index: currentIndex, type }]);
     setDirection(type === 'like' ? 'right' : 'left');
@@ -71,7 +62,7 @@ export default function Discover() {
       if (type === 'like') {
         const { data } = await client.post(`/matches/like/${targetId}`);
         if (data.alreadyLiked) {
-          toast.info(data.message || "Vous avez déjà liké cet utilisateur");
+          toast(data.message || "Vous avez déjà liké cet utilisateur", { icon: 'ℹ️' });
           setDirection(null);
           setCurrentIndex(prev => prev + 1);
           return;
@@ -278,7 +269,7 @@ export default function Discover() {
         </button>
 
         <button 
-          onClick={() => toast.info("Fonctionnalité Super Like bientôt disponible !")}
+          onClick={() => toast("Fonctionnalité Super Like bientôt disponible !", { icon: '⭐' })}
           className="w-12 h-12 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-xl text-[#3498db] hover:scale-110 active:scale-90 transition-all hover:bg-[#3498db] hover:text-white hover:shadow-[#3498db]/30"
           title="Super Like (Premium)"
         >
@@ -287,18 +278,14 @@ export default function Discover() {
 
         <button 
           onClick={() => handleAction('like')}
-          className={`w-16 h-16 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-2xl transition-all disabled:opacity-50 
-            ${currentCard?.isRecycled 
-              ? 'text-slate-300 cursor-not-allowed grayscale' 
-              : 'text-[#2ecc71] hover:scale-110 active:scale-95 hover:bg-[#2ecc71] hover:text-white hover:shadow-[#2ecc71]/30'}`}
-          title={currentCard?.isRecycled ? "Like impossible (recyclé)" : "J'aime"}
-          disabled={currentCard?.isRecycled}
+          className="w-16 h-16 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-2xl transition-all disabled:opacity-50 text-[#2ecc71] hover:scale-110 active:scale-95 hover:bg-[#2ecc71] hover:text-white hover:shadow-[#2ecc71]/30"
+          title="J'aime"
         >
           <FiHeart className="w-9 h-9 fill-current" />
         </button>
 
         <button 
-          onClick={() => toast.info("Mode Boost bientôt disponible !")}
+          onClick={() => toast("Mode Boost bientôt disponible !", { icon: '⚡' })}
           className="w-12 h-12 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-xl text-[#9b59b6] hover:scale-110 active:scale-90 transition-all hover:bg-[#9b59b6] hover:text-white hover:shadow-[#9b59b6]/30"
           title="Boost de visibilité (Premium)"
         >
@@ -316,7 +303,7 @@ export default function Discover() {
              <FiFlag className="w-5 h-5" />
            </button>
            <button 
-             onClick={() => toast.info("Navigation désactivée - Utilisez le swipe !")}
+             onClick={() => toast("Navigation désactivée - Utilisez le swipe !", { icon: '🚫' })}
              className="w-10 h-10 bg-slate-800/40 backdrop-blur-md border border-slate-600/30 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-300 transition-all opacity-50 cursor-not-allowed"
              title="Navigation désactivée"
              disabled
@@ -331,7 +318,7 @@ export default function Discover() {
              <FiInfo className="w-4 h-4" /> Profil
            </Link>
            <button 
-             onClick={() => toast.info("Navigation désactivée - Utilisez le swipe !")}
+             onClick={() => toast("Navigation désactivée - Utilisez le swipe !", { icon: '🚫' })}
              className="w-10 h-10 bg-slate-800/40 backdrop-blur-md border border-slate-600/30 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-300 transition-all opacity-50 cursor-not-allowed"
              title="Navigation désactivée"
              disabled

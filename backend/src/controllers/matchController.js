@@ -18,7 +18,7 @@ const processLike = async (req, res, { isSuperLike = false } = {}) => {
 
   // If current user already liked this profile, return existing relation.
   const direct = await Match.findOne({ likedBy: currentUser, likedUser: userId });
-  if (direct) {
+  if (direct && direct.type === 'like') {
     return res.status(200).json({ 
       match: direct, 
       isMutual: direct.isMutual,
@@ -28,7 +28,7 @@ const processLike = async (req, res, { isSuperLike = false } = {}) => {
   }
 
   // If reverse like exists, convert to a mutual match.
-  const reverseLike = await Match.findOne({ likedBy: userId, likedUser: currentUser });
+  const reverseLike = await Match.findOne({ likedBy: userId, likedUser: currentUser, type: 'like' });
   let match;
   let isMutual = false;
 
@@ -69,13 +69,18 @@ const processLike = async (req, res, { isSuperLike = false } = {}) => {
     }
   } else {
     try {
-      match = await Match.create({
-        users: [currentUser, userId],
-        likedBy: currentUser,
-        likedUser: userId,
-        isMutual: false,
-        type: 'like'
-      });
+      if (direct && direct.type === 'dislike') {
+        direct.type = 'like';
+        match = await direct.save();
+      } else {
+        match = await Match.create({
+          users: [currentUser, userId],
+          likedBy: currentUser,
+          likedUser: userId,
+          isMutual: false,
+          type: 'like'
+        });
+      }
     } catch (createErr) {
       // Prevent duplicates on race conditions.
       if (createErr?.code === 11000) {

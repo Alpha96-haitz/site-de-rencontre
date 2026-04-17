@@ -41,7 +41,7 @@ const formatRelativeTime = (date) => {
 };
 
 function PostCard({
-  post,
+  post: initialPost,
   currentUserId,
   userRole,
   isFollowingAuthor,
@@ -52,6 +52,12 @@ function PostCard({
 }) {
   const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const [post, setLocalPost] = useState(initialPost);
+
+  React.useEffect(() => {
+    setLocalPost(initialPost);
+  }, [initialPost]);
+
   const author = post?.userId || {};
   const authorId = author?._id;
   const myId = currentUserId ? String(currentUserId) : '';
@@ -80,15 +86,21 @@ function PostCard({
   const handleLike = async () => {
     if (likeBusy) return;
     setLikeBusy(true);
+
     const currentLikes = Array.isArray(post.likes) ? post.likes : [];
     const nextLikes = hasLiked
       ? currentLikes.filter((id) => String(id) !== myId)
       : [...currentLikes, myId];
 
-    onPostChanged?.({ ...post, likes: nextLikes });
+    // Optimistic Update local
+    const optimisticPost = { ...post, likes: nextLikes };
+    setLocalPost(optimisticPost);
+    onPostChanged?.(optimisticPost);
+
     try {
       await postService.like(post._id);
     } catch (err) {
+      setLocalPost(post);
       onPostChanged?.(post);
       Alert.alert('Erreur', 'Impossible de liker cette publication.');
     } finally {
@@ -105,10 +117,12 @@ function PostCard({
       const result = await postService.comment(post._id, clean);
       const newComment = result?.comment;
       if (newComment) {
-        onPostChanged?.({
+        const updatedPost = {
           ...post,
           comments: [...(post.comments || []), newComment]
-        });
+        };
+        setLocalPost(updatedPost);
+        onPostChanged?.(updatedPost);
       }
       setCommentText('');
       setCommentsOpen(true);

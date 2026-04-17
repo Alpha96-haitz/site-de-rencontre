@@ -195,3 +195,13 @@ export const notifyPostComment = (io, postId, comment) => {
   if (!io) return;
   io.emit('post:comment-added', { postId, comment });
 };
+
+export const notifyUserStats = (io, userId, stats) => {
+  if (!io) return;
+  io.emit('user:stats-updated', { userId, ...stats });
+};
+
+export const notifyUserDeleted = (io, userId) => {
+  if (!io) return;
+  io.emit('user:deleted', { userId });
+};

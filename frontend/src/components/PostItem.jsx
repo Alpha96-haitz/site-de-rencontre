@@ -61,18 +61,25 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
   const showFollowButton = showFollowAction && Boolean(authorId) && !isOwner && !isFollowing && !followedLocally;
 
   const toggleLike = useCallback(async () => {
+    if (!user?._id) return;
+    const previousPost = { ...post };
+    const isLiked = post.likes?.includes(user._id);
+    const nextLikes = isLiked
+      ? (post.likes || []).filter(id => id !== user._id)
+      : [...(post.likes || []), user._id];
+
+    // Mise à jour optimiste
+    setPost(prev => ({ ...prev, likes: nextLikes }));
+
     try {
       await client.put(`/posts/${post._id}/like`);
-      setPost(prev => {
-        const likes = prev.likes.includes(user._id)
-          ? prev.likes.filter(id => id !== user._id)
-          : [...prev.likes, user._id];
-        return { ...prev, likes };
-      });
     } catch (err) {
       console.error(err);
+      // Retour en arrière si erreur
+      setPost(previousPost);
+      toast.error("Impossible de liker pour le moment");
     }
-  }, [post._id, user?._id]);
+  }, [post, user?._id]);
 
   const handleComment = useCallback(async (e) => {
     e.preventDefault();

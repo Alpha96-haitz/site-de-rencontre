@@ -130,14 +130,35 @@ export default function Profile() {
       }));
     };
 
+    const handleUserStatsUpdated = ({ userId, followersCount, followingCount }) => {
+      setProfile((prev) => {
+        if (!prev || prev._id !== userId) return prev;
+        const newProfile = { ...prev };
+        if (followersCount !== undefined) newProfile.followers = new Array(followersCount).fill(null);
+        if (followingCount !== undefined) newProfile.following = new Array(followingCount).fill(null);
+        return newProfile;
+      });
+    };
+
+    const handleUserDeleted = ({ userId }) => {
+      if (profile?._id === userId) {
+        toast.error("Ce compte a été supprimé par un administrateur.");
+        navigate('/home');
+      }
+    };
+
     socket.on('post:like-updated', handleLikeUpdated);
     socket.on('post:comment-added', handleCommentAdded);
+    socket.on('user:stats-updated', handleUserStatsUpdated);
+    socket.on('user:deleted', handleUserDeleted);
 
     return () => {
       socket.off('post:like-updated', handleLikeUpdated);
       socket.off('post:comment-added', handleCommentAdded);
+      socket.off('user:stats-updated', handleUserStatsUpdated);
+      socket.off('user:deleted', handleUserDeleted);
     };
-  }, []);
+  }, [profile?._id, navigate]);
 
   const handleLike = async () => {
     if (!profile || isLiked || hasMatch) return;
