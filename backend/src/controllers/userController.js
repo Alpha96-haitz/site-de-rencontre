@@ -256,7 +256,7 @@ export const search = async (req, res) => {
     query._id = { ...query._id, $nin: settledIds };
 
     const users = await User.find(query)
-      .select('firstName lastName age gender bio photos googlePhoto interests username')
+      .select('firstName lastName age gender bio photos googlePhoto interests username location')
       .limit(parseInt(limit))
       .skip(skip)
       .lean();
@@ -274,42 +274,65 @@ export const getSuggestions = async (req, res) => {
     const recycle = req.query.recycle === 'true';
     const currentUser = req.user._id;
 
-    // Récupérer les IDs des personnes déjà "traitées" (like ou dislike)
-    const settledMatches = await Match.find({ likedBy: currentUser }).select('likedUser isMutual');
+    // Récupérer les IDs des personnes déjà traitées
+    const settledMatches = await Match.find({ likedBy: currentUser }).select('likedUser');
     const settledIds = settledMatches.map(m => m.likedUser.toString());
+
+    const userPref = await User.findById(currentUser).select('interestedIn');
+    const preferences = userPref?.interestedIn || ['all'];
 
     let query = { 
       _id: { $ne: currentUser, $nin: settledIds }, 
       isBanned: false 
     };
 
+    if (!preferences.includes('all')) {
+      query.gender = { $in: preferences };
+    }
+
     let users = await User.find(query)
-      .select('firstName lastName age gender bio photos googlePhoto interests username')
+      .select('firstName lastName birthDate gender bio photos googlePhoto interests username location')
       .limit(limit)
       .lean();
+    
+    // Calcul de l'âge car lean() ne supporte pas les virtuals
+    users = users.map(u => {
+      let age = null;
+      if (u.birthDate) {
+        const today = new Date();
+        const birth = new Date(u.birthDate);
+        age = today.getFullYear() - birth.getFullYear();
+        const m = today.getMonth() - birth.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+      }
+      return { ...u, age };
+    });
       
-    // Si l'utilisateur demande à recycler et qu'il y a très peu de nouveaux utilisateurs
     if (recycle && users.length < 5) {
-      // Nous allons rechercher les anciens "dislikes" pour les réafficher.
-      // Dans notre app, un match est toujours soit en cours (like), soit mutual (mutuel), soit sans suite (dislike supprimé).
-      // On va recupérer une liste d'IDs que l'on A DEJÀ vu. On exclut ceux avec qui le match est mutuel.
-      const ignoreIds = settledMatches.filter(m => m.isMutual).map(m => m.likedUser.toString());
-      // On récupère tous ceux qui sont dans settledMatches ET NON isMutual
-      // En l'occurence, dans cette logique, si likedBy nous, c'est traité. 
-      // Donc on va piocher dans ceux qui sont traités mais pas matched.
-      const passedIds = settledMatches.filter(m => !m.isMutual).map(m => m.likedUser.toString());
+      // Recycler uniquement ceux avec type 'dislike'
+      const passedMatches = await Match.find({ likedBy: currentUser, type: 'dislike' }).select('likedUser');
+      const passedIds = passedMatches.map(m => m.likedUser.toString());
       
       if (passedIds.length > 0) {
         const recycledUsers = await User.find({
           _id: { $ne: currentUser, $in: passedIds },
           isBanned: false
         })
-          .select('firstName lastName age gender bio photos googlePhoto interests username')
+          .select('firstName lastName birthDate gender bio photos googlePhoto interests username location')
           .limit(30)
           .lean();
           
-        // Taguer les utilisateurs recyclés pour que le front puisse empêcher de liker
-        const taggedRecycled = recycledUsers.map(u => ({ ...u, isRecycled: true }));
+        const taggedRecycled = recycledUsers.map(u => {
+          let age = null;
+          if (u.birthDate) {
+            const today = new Date();
+            const birth = new Date(u.birthDate);
+            age = today.getFullYear() - birth.getFullYear();
+            const m = today.getMonth() - birth.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+          }
+          return { ...u, age, isRecycled: true };
+        });
         users = [...users, ...taggedRecycled];
       }
     }

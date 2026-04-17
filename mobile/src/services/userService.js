@@ -1,7 +1,8 @@
 import api from '../api/client';
 
 export const userService = {
-  suggestions: (limit = 20) => api.get(`/users/suggestions?limit=${limit}`).then((r) => r.data),
+  suggestions: (limit = 20, recycle = false) => 
+    api.get(`/users/suggestions?limit=${limit}${recycle ? '&recycle=true' : ''}`).then((r) => r.data),
   search: (q) => api.get(`/users/search?q=${encodeURIComponent(q)}&limit=30`).then((r) => r.data),
   getProfile: (idOrUsername) => api.get(`/users/${idOrUsername}`).then((r) => r.data),
   follow: (userId) => api.put(`/users/${userId}/follow`).then((r) => r.data),

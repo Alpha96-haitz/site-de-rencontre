@@ -73,7 +73,8 @@ const processLike = async (req, res, { isSuperLike = false } = {}) => {
         users: [currentUser, userId],
         likedBy: currentUser,
         likedUser: userId,
-        isMutual: false
+        isMutual: false,
+        type: 'like'
       });
     } catch (createErr) {
       // Prevent duplicates on race conditions.
@@ -131,7 +132,18 @@ export const dislike = async (req, res) => {
     const { userId } = req.params;
     const currentUser = req.user._id;
 
-    await Match.findOneAndDelete({ likedBy: currentUser, likedUser: userId, isMutual: false });
+    // Au lieu de supprimer, on crée ou met à jour avec le type 'dislike'
+    await Match.findOneAndUpdate(
+      { likedBy: currentUser, likedUser: userId },
+      { 
+        likedBy: currentUser, 
+        likedUser: userId, 
+        users: [currentUser, userId],
+        type: 'dislike',
+        isMutual: false 
+      },
+      { upsert: true, new: true }
+    );
     res.json({ message: 'OK' });
   } catch (err) {
     res.status(500).json({ message: err.message });

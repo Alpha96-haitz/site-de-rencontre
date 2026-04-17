@@ -28,7 +28,7 @@ const DiscoveryCard = React.memo(({ item, isNext, navigation, isDark, theme }) =
       contentFit="cover"
       transition={300}
     />
-    
+
     {/* Cinematic Gradient Overlay */}
     <LinearGradient
       colors={['transparent', 'rgba(15, 23, 42, 0.2)', 'rgba(15, 23, 42, 0.95)']}
@@ -38,13 +38,19 @@ const DiscoveryCard = React.memo(({ item, isNext, navigation, isDark, theme }) =
         <View style={styles.infoHeader}>
           <View style={styles.nameRow}>
             <Text style={styles.name}>{item.firstName}, {item.age || '22'}</Text>
+            {item.isRecycled && (
+              <View style={[styles.onlineBadgeContainer, { backgroundColor: '#f59e0b20', borderColor: '#f59e0b40', paddingHorizontal: 6, width: 'auto', marginLeft: 8 }]}>
+                <Ionicons name="refresh" size={10} color="#f59e0b" style={{ marginRight: 2 }} />
+                <Text style={{ color: '#f59e0b', fontSize: 8, fontWeight: '900', textTransform: 'uppercase' }}>Recyclé</Text>
+              </View>
+            )}
             {item.isOnline && (
               <View style={styles.onlineBadgeContainer}>
                 <View style={styles.onlineInner} />
               </View>
             )}
           </View>
-          
+
           <Pressable
             style={styles.infoBtn}
             onPress={() => navigation.navigate('ProfileMain', { userId: item.username || item._id })}
@@ -124,10 +130,15 @@ export default function DiscoverScreen({ navigation }) {
     });
   };
 
-  const fetchCards = async () => {
+  const fetchCards = async (isRecycling = false) => {
     setLoading(true);
     try {
-      const data = await userService.suggestions(30);
+      const data = await userService.suggestions(30, isRecycling);
+
+      if (data?.length === 0 && !isRecycling) {
+        return fetchCards(true);
+      }
+
       setCards(data || []);
       setIndex(0);
       setHistory([]);
@@ -145,6 +156,12 @@ export default function DiscoverScreen({ navigation }) {
     const t = setTimeout(() => setFeedback(null), 3200);
     return () => clearTimeout(t);
   }, [feedback]);
+
+  useEffect(() => {
+    if (!matchBanner) return undefined;
+    const t = setTimeout(() => setMatchBanner(null), 3500); // disparait 3.5 secondes après
+    return () => clearTimeout(t);
+  }, [matchBanner]);
 
 
   const runMatchAction = async (actionType, cardToActOn) => {
@@ -198,8 +215,17 @@ export default function DiscoverScreen({ navigation }) {
 
   const animateOut = (toValue, actionType) => {
     if (isActionRunning.current || !current) return;
-    isActionRunning.current = true;
 
+    if (actionType === 'like' && current.isRecycled) {
+      Alert.alert(
+        "Action impossible",
+        "Vous avez déjà ignoré ce profil. Like impossible sur un profil recyclé.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    isActionRunning.current = true;
     const cardToActOn = current;
 
     Animated.timing(pos, {
@@ -238,7 +264,7 @@ export default function DiscoverScreen({ navigation }) {
     if (last?.actionType === 'like' || last?.actionType === 'superlike') {
       try {
         await matchService.dislike(last.userId);
-      } catch (_) {}
+      } catch (_) { }
     }
   };
 
@@ -281,7 +307,7 @@ export default function DiscoverScreen({ navigation }) {
       },
       onPanResponderRelease: (_, g) => {
         if (isActionRunning.current) return;
-        
+
         const shouldSuperLike = g.dy < -SWIPE_THRESHOLD || (g.dy < -60 && g.vy < -SWIPE_VELOCITY);
         const shouldLike = g.dx > SWIPE_THRESHOLD || (g.dx > 60 && g.vx > SWIPE_VELOCITY);
         const shouldDislike = g.dx < -SWIPE_THRESHOLD || (g.dx < -60 && g.vx < -SWIPE_VELOCITY);
@@ -404,45 +430,83 @@ export default function DiscoverScreen({ navigation }) {
       )}
 
       <View style={styles.cardContainer}>
-        {nextCard && (
-          <DiscoveryCard item={nextCard} isNext navigation={navigation} isDark={isDark} theme={theme} />
-        )}
+        {current ? (
+          <>
+            {nextCard && (
+              <DiscoveryCard item={nextCard} isNext navigation={navigation} isDark={isDark} theme={theme} />
+            )}
 
-        <Animated.View
-          {...panResponder.panHandlers}
-          style={[styles.card, styles.activeCard, { transform: [{ translateX: pos.x }, { translateY: pos.y }, { rotate }] }]}
-        >
-          <DiscoveryCard item={current} navigation={navigation} isDark={isDark} theme={theme} />
-          
-          <Animated.View style={[styles.labelWrap, styles.nopeLabelWrap, { opacity: nopeOpacity }]}>
-            <Text style={styles.nopeLabel}>NOPE</Text>
-          </Animated.View>
-          <Animated.View style={[styles.labelWrap, styles.likeLabelWrap, { opacity: likeOpacity }]}>
-            <Text style={styles.likeLabel}>LIKE</Text>
-          </Animated.View>
-          <Animated.View style={[styles.labelWrap, styles.superLabelWrap, { opacity: superLikeOpacity }]}>
-            <Text style={styles.superLabel}>SUPER</Text>
-          </Animated.View>
-        </Animated.View>
+            <Animated.View
+              {...panResponder.panHandlers}
+              style={[styles.card, styles.activeCard, { transform: [{ translateX: pos.x }, { translateY: pos.y }, { rotate }] }]}
+            >
+              <DiscoveryCard item={current} navigation={navigation} isDark={isDark} theme={theme} />
+
+              <Animated.View style={[styles.labelWrap, styles.nopeLabelWrap, { opacity: nopeOpacity }]}>
+                <Text style={styles.nopeLabel}>NOPE</Text>
+              </Animated.View>
+              <Animated.View style={[styles.labelWrap, styles.likeLabelWrap, { opacity: likeOpacity }]}>
+                <Text style={styles.likeLabel}>LIKE</Text>
+              </Animated.View>
+              <Animated.View style={[styles.labelWrap, styles.superLabelWrap, { opacity: superLikeOpacity }]}>
+                <Text style={styles.superLabel}>SUPER</Text>
+              </Animated.View>
+            </Animated.View>
+          </>
+        ) : (
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons name="cards-outline" size={80} color={isDark ? '#334155' : '#e2e8f0'} />
+            <Text style={[styles.emptyTitle, { color: isDark ? '#f1f5f9' : '#1e293b' }]}>Deck terminé !</Text>
+            <Text style={styles.emptySubtitle}>
+              Vous avez exploré tous les nouveaux profils. Voulez-vous revoir ceux que vous avez ignorés ?
+            </Text>
+            <Pressable
+              style={[styles.refreshBtn, { backgroundColor: '#f1c40f' }]}
+              onPress={() => fetchCards(true)}
+            >
+              <Ionicons name="refresh" size={24} color="#fff" />
+              <Text style={styles.refreshBtnText}>RECYCLER LES PROFILS</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
-      <View style={[styles.actionRow, { paddingBottom: insets.bottom + 10 }]}>
+      <View style={[styles.actionRow, { paddingBottom: insets.bottom + 160 }]}>
         <View style={styles.actionButtonsRow}>
-          <Pressable style={[styles.btnSmall, styles.shadow]} onPress={handleRewind}>
-            <Ionicons name="refresh" size={24} color="#F5B748" />
-          </Pressable>
-          <Pressable style={[styles.btnLarge, styles.shadow]} onPress={handleDislike}>
-            <Ionicons name="close" size={36} color="#FF4458" />
-          </Pressable>
-          <Pressable style={[styles.btnMedium, styles.shadow]} onPress={handleSuperLike}>
-            <Ionicons name="star" size={24} color="#2DB1FF" />
-          </Pressable>
-          <Pressable style={[styles.btnLarge, styles.shadow]} onPress={handleLike}>
-            <MaterialCommunityIcons name="heart" size={36} color="#17E08F" style={{ marginTop: 2 }} />
-          </Pressable>
-          <Pressable style={[styles.btnSmall, styles.shadow]} onPress={handleBoost}>
-            <Ionicons name="flash" size={24} color={boosting ? '#a855f7' : '#9436EC'} />
-          </Pressable>
+          <View style={styles.btnColumn}>
+            <Pressable style={[styles.btnSmall, styles.shadow]} onPress={handleRewind}>
+              <Ionicons name="refresh" size={24} color="#F5B748" />
+            </Pressable>
+            <Text style={styles.btnLabel}>Retour</Text>
+          </View>
+
+          <View style={styles.btnColumn}>
+            <Pressable style={[styles.btnLarge, styles.shadow]} onPress={handleDislike}>
+              <Ionicons name="close" size={36} color="#FF4458" />
+            </Pressable>
+            <Text style={styles.btnLabel}>Suivant</Text>
+          </View>
+
+          <View style={styles.btnColumn}>
+            <Pressable style={[styles.btnMedium, styles.shadow]} onPress={handleSuperLike}>
+              <Ionicons name="star" size={24} color="#2DB1FF" />
+            </Pressable>
+            <Text style={styles.btnLabel}>Super</Text>
+          </View>
+
+          <View style={styles.btnColumn}>
+            <Pressable style={[styles.btnLarge, styles.shadow]} onPress={handleLike}>
+              <MaterialCommunityIcons name="heart" size={36} color="#17E08F" style={{ marginTop: 2 }} />
+            </Pressable>
+            <Text style={styles.btnLabel}>Liker</Text>
+          </View>
+
+          <View style={styles.btnColumn}>
+            <Pressable style={[styles.btnSmall, styles.shadow]} onPress={handleBoost}>
+              <Ionicons name="flash" size={24} color={boosting ? '#a855f7' : '#9436EC'} />
+            </Pressable>
+            <Text style={styles.btnLabel}>Boost</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -530,16 +594,15 @@ const styles = StyleSheet.create({
 
   cardContainer: { 
     flex: 1, 
-    paddingHorizontal: 16, 
-    paddingTop: 10, 
-    paddingBottom: 10 
+    marginHorizontal: 12,
+    marginTop: 5,
+    marginBottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   card: {
-    position: 'absolute',
-    top: 0,
-    left: 12,
-    right: 12,
-    bottom: 0,
+    width: '100%',
+    aspectRatio: 1.0,
     borderRadius: 35,
     overflow: 'hidden',
     elevation: 8,
@@ -547,9 +610,17 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 15,
+    backgroundColor: '#1e293b',
   },
-  nextCard: { zIndex: 1, transform: [{ scale: 0.94 }, { translateY: 10 }] },
-  activeCard: { zIndex: 10 },
+  nextCard: { 
+    position: 'absolute',
+    zIndex: 1, 
+    transform: [{ scale: 0.92 }, { translateY: 15 }] 
+  },
+  activeCard: { 
+    position: 'absolute',
+    zIndex: 10 
+  },
   image: { width: '100%', height: '100%' },
   gradient: {
     position: 'absolute',
@@ -569,11 +640,11 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     marginBottom: 8,
   },
-  nameRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
-    flex: 1 
+    flex: 1
   },
   name: {
     color: '#fff',
@@ -612,12 +683,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
   },
-  locationText: { 
-    color: '#fff', 
-    fontSize: 12, 
-    fontWeight: '800', 
-    textTransform: 'uppercase', 
-    letterSpacing: 1 
+  locationText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1
   },
   bioText: {
     color: 'rgba(255,255,255,0.85)',
@@ -665,10 +736,10 @@ const styles = StyleSheet.create({
   likeLabel: { color: '#10b981', fontSize: 44, fontWeight: '900', letterSpacing: 3 },
   superLabel: { color: '#3b82f6', fontSize: 40, fontWeight: '900', letterSpacing: 3 },
 
-  actionRow: { 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    paddingTop: 10 
+  actionRow: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 10
   },
   tip: {
     color: 'rgba(255,255,255,0.4)',
@@ -677,48 +748,59 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1.5,
   },
-  actionButtonsRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-evenly', 
-    alignItems: 'center', 
+  btnColumn: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  btnLabel: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginTop: 4,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     width: '100%',
     paddingHorizontal: 10
   },
-  btnSmall: { 
-    width: 48, 
-    height: 48, 
-    borderRadius: 24, 
-    backgroundColor: '#334155', 
-    alignItems: 'center', 
+  btnSmall: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#334155',
+    alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)' 
+    borderColor: 'rgba(255,255,255,0.1)'
   },
-  btnMedium: { 
-    width: 58, 
-    height: 58, 
-    borderRadius: 29, 
-    backgroundColor: '#334155', 
-    alignItems: 'center', 
+  btnMedium: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#334155',
+    alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)' 
+    borderColor: 'rgba(255,255,255,0.1)'
   },
-  btnLarge: { 
-    width: 74, 
-    height: 74, 
-    borderRadius: 37, 
-    backgroundColor: '#334155', 
-    alignItems: 'center', 
+  btnLarge: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    backgroundColor: '#334155',
+    alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)' 
+    borderColor: 'rgba(255,255,255,0.1)'
   },
-  shadow: { 
-    elevation: 10, 
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 6 }, 
-    shadowOpacity: 0.4, 
-    shadowRadius: 10 
+  shadow: {
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10
   }
 });

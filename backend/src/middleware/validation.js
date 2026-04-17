@@ -28,7 +28,7 @@ export const signupValidation = [
 
 export const loginValidation = [
   body('email').isEmail().normalizeEmail(),
-  body('password').trim().notEmpty().escape()
+  body('password').trim().notEmpty()
 ];
 
 export const forgotPasswordValidation = [
@@ -46,7 +46,7 @@ export const verifyResetCodeValidation = [
 ];
 
 export const changePasswordValidation = [
-  body('oldPassword').trim().notEmpty().escape(),
+  body('oldPassword').trim().notEmpty(),
   body('newPassword').isLength({ min: 6 }).trim()
 ];
 

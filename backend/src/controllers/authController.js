@@ -33,6 +33,12 @@ const getBaseFrontendUrl = (req) => {
     }
   }
 
+  if (!origin && req.get('host')) {
+     const protocol = req.protocol || 'http';
+     const host = req.get('host').split(':')[0];
+     return `${protocol}://${host}:5173`;
+  }
+
   return envFrontend || origin || 'http://localhost:5173';
 };
 
@@ -42,16 +48,17 @@ export const sendSignupCode = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: 'Email requis' });
+    const lowercaseEmail = email.toLowerCase();
 
     // Check if user already exists
-    const exists = await User.findOne({ email });
+    const exists = await User.findOne({ email: lowercaseEmail });
     if (exists) return res.status(400).json({ message: 'Cet email est deja utilise' });
 
     const code = generateSixDigitCode();
-    setCached(`signup_code_${email}`, code, 10 * 60 * 1000); // 10 minutes
+    setCached(`signup_code_${lowercaseEmail}`, code, 10 * 60 * 1000); // 10 minutes
 
     try {
-      await sendSignupCodeEmail(email, code);
+      await sendSignupCodeEmail(lowercaseEmail, code);
     } catch (emailErr) {
       console.warn('Signup code email error:', emailErr.message);
     }
@@ -101,12 +108,13 @@ export const signup = async (req, res) => {
       return res.status(400).json({ message: 'Utilisateur deja existant' });
     }
 
-    const isVerified = getCached(`signup_verified_${email}`) === 'true';
+    const lowercaseEmail = email.toLowerCase();
+    const isVerified = getCached(`signup_verified_${lowercaseEmail}`) === 'true';
 
     const token = isVerified ? undefined : generateToken();
     const user = await User.create({
       username,
-      email,
+      email: lowercaseEmail,
       password,
       firstName,
       lastName,
@@ -152,7 +160,7 @@ export const signup = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
 
     if (!user) {
       return res.status(401).json({ message: 'Email ou mot de passe incorrect' });

@@ -23,11 +23,17 @@ export default function Discover() {
   
   const navigate = useNavigate();
 
-  const fetchCards = useCallback(async () => {
+  const fetchCards = useCallback(async (isRecycling = false) => {
     setLoading(true);
     try {
-      const { data } = await client.get('/users/suggestions');
+      const { data } = await client.get(`/users/suggestions${isRecycling ? '?recycle=true' : ''}`);
       const uniqueCards = Array.from(new Map((data || []).map((u) => [u._id, u])).values());
+      
+      if (uniqueCards.length === 0 && !isRecycling) {
+        // Tentative automatique de recyclage si aucun nouveau profil
+        return fetchCards(true);
+      }
+
       setCards(uniqueCards);
       setCurrentIndex(0);
       setHistory([]);
@@ -45,12 +51,20 @@ export default function Discover() {
   const handleAction = useCallback(async (type) => {
     if (currentIndex >= cards.length || direction) return;
     
-    const currentCard = cards[currentIndex];
-    const targetId = currentCard._id;
-    
+    const activeCard = cards[currentIndex];
+    const targetId = activeCard._id;
+
+    // Protection recyclage : Interdire le like si le profil est recyclé
+    if (type === 'like' && activeCard.isRecycled) {
+      toast.error("Vous avez déjà ignoré ce profil. Like impossible sur un profil recyclé.", { 
+        icon: '🚫',
+        duration: 4000 
+      });
+      return;
+    }
+
     // Sauvegarder dans l'historique pour le Undo
-    setHistory(prev => [...prev, { card: currentCard, index: currentIndex, type }]);
-    
+    setHistory(prev => [...prev, { card: activeCard, index: currentIndex, type }]);
     setDirection(type === 'like' ? 'right' : 'left');
 
     try {
@@ -64,10 +78,10 @@ export default function Discover() {
         }
         if (data.isMutual) {
           setMatchData({
-            user: currentCard,
+            user: activeCard,
             matchId: data.match._id
           });
-          setTimeout(() => setShowMatchModal(true), 500); // Délai pour laisser finir l'animation de swipe
+          setTimeout(() => setShowMatchModal(true), 500);
         }
       } else {
         await client.post(`/matches/dislike/${targetId}`);
@@ -81,6 +95,9 @@ export default function Discover() {
       setCurrentIndex(prev => prev + 1);
     }, 300);
   }, [currentIndex, cards, direction]);
+
+  const handleRefresh = () => fetchCards(true);
+
 
   const handleUndo = useCallback(() => {
     if (history.length === 0) {
@@ -157,7 +174,7 @@ export default function Discover() {
       )}
       
       {/* Main Swipe Interface */}
-      <div className="relative flex-1 max-h-[700px] w-full perspective-2000 px-4 md:px-0">
+      <div className="relative aspect-square w-full max-h-[420px] mx-auto perspective-2000 px-2 md:px-0 z-10">
         {currentCard ? (
           <div 
             className={`absolute inset-0 bg-slate-900 rounded-[50px] shadow-[0_30px_100px_rgba(0,0,0,0.5)] overflow-hidden border border-white/10 transition-all duration-500 ease-out transform-gpu
@@ -178,28 +195,34 @@ export default function Discover() {
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
               
               {/* Profile Info Overlay - Glassmorphism style */}
-              <div className="absolute bottom-0 p-10 text-white w-full">
-                <div className="backdrop-blur-3xl bg-white/5 border border-white/10 rounded-[35px] p-8 shadow-2xl relative overflow-hidden group/info">
+              <div className="absolute bottom-0 p-5 w-full text-white">
+                <div className="backdrop-blur-md bg-black/5 border border-white/5 rounded-[25px] p-5 shadow-2xl relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-pink-500 to-rose-500"></div>
                   
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                      <h2 className="text-4xl font-black tracking-tight drop-shadow-lg">{currentCard.firstName}, {currentCard.age}</h2>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-2xl font-black tracking-tight drop-shadow-md">{currentCard.firstName}, {currentCard.age}</h2>
+                      {currentCard.isRecycled && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-yellow-500/20 rounded-full border border-yellow-500/30">
+                          <FiRefreshCw className="w-2.5 h-2.5 text-yellow-500 animate-spin-slow" />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-yellow-400">Recyclé</span>
+                        </div>
+                      )}
                       {currentCard.isOnline && (
-                        <div className="flex items-center gap-2 px-3 py-1 bg-green-500/20 rounded-full border border-green-500/30">
-                          <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-green-400">Online</span>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-500/20 rounded-full border border-green-500/30">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
+                          <span className="text-[9px] font-black uppercase tracking-widest text-green-400">Online</span>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 text-sm font-black text-white/60 mb-6 bg-white/5 w-fit px-4 py-2 rounded-2xl border border-white/5">
-                    <FiMapPin className="w-4 h-4 text-pink-500" /> 
+                  <div className="flex items-center gap-2 text-xs font-black text-white/60 mb-3 bg-white/5 w-fit px-3 py-1.5 rounded-xl border border-white/5">
+                    <FiMapPin className="w-3.5 h-3.5 text-pink-500" /> 
                     <span className="uppercase tracking-[0.1em]">{currentCard.location?.city || 'Ville inconnue'}</span>
                   </div>
 
-                  <p className="text-lg font-medium mb-8 text-white/80 leading-relaxed italic line-clamp-2">
+                  <p className="text-base font-medium mb-3 text-white/80 leading-snug italic line-clamp-2">
                     "{currentCard.bio || 'Cet utilisateur n\'a pas encore de bio.'}"
                   </p>
                   
@@ -221,9 +244,9 @@ export default function Discover() {
                <FiRefreshCw className="w-14 h-14 text-pink-500 animate-spin-slow opacity-50" />
              </div>
              <h2 className="text-4xl font-black text-white mb-4 tracking-tighter">Deck terminé !</h2>
-             <p className="text-white/40 font-bold mb-12 max-w-sm mx-auto leading-relaxed text-lg italic">Vous avez exploré tous les profils de votre zone. Revenez un peu plus tard pour de nouvelles rencontres.</p>
-             <button onClick={fetchCards} className="px-12 py-5 bg-gradient-to-r from-pink-600 to-rose-600 text-white rounded-[25px] font-black uppercase tracking-[0.2em] shadow-[0_20px_40px_rgba(236,72,153,0.3)] hover:scale-105 active:scale-95 transition-all duration-300">
-               Actualiser
+             <p className="text-white/40 font-bold mb-12 max-w-sm mx-auto leading-relaxed text-lg italic">Vous avez exploré tous les nouveaux profils. Voulez-vous revoir ceux que vous avez ignorés ?</p>
+             <button onClick={handleRefresh} className="px-12 py-5 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-[25px] font-black uppercase tracking-[0.2em] shadow-[0_20px_40px_rgba(217,119,6,0.3)] hover:scale-105 active:scale-95 transition-all duration-300">
+               Recycler les profils
              </button>
           </div>
         )}
@@ -237,7 +260,7 @@ export default function Discover() {
         )}
       </div>
 
-      <div className="flex items-center justify-center gap-4 mt-10">
+      <div className="flex items-center justify-center gap-4 mt-4 z-20 relative">
         <button 
           onClick={handleUndo}
           className="w-12 h-12 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-xl text-[#f1c40f] hover:scale-110 active:scale-90 transition-all disabled:opacity-50 hover:bg-[#f1c40f] hover:text-white hover:shadow-[#f1c40f]/30"
@@ -264,8 +287,12 @@ export default function Discover() {
 
         <button 
           onClick={() => handleAction('like')}
-          className="w-16 h-16 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-2xl text-[#2ecc71] hover:scale-110 active:scale-95 transition-all disabled:opacity-50 hover:bg-[#2ecc71] hover:text-white hover:shadow-[#2ecc71]/30"
-          title="J'aime"
+          className={`w-16 h-16 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-2xl transition-all disabled:opacity-50 
+            ${currentCard?.isRecycled 
+              ? 'text-slate-300 cursor-not-allowed grayscale' 
+              : 'text-[#2ecc71] hover:scale-110 active:scale-95 hover:bg-[#2ecc71] hover:text-white hover:shadow-[#2ecc71]/30'}`}
+          title={currentCard?.isRecycled ? "Like impossible (recyclé)" : "J'aime"}
+          disabled={currentCard?.isRecycled}
         >
           <FiHeart className="w-9 h-9 fill-current" />
         </button>
@@ -280,7 +307,7 @@ export default function Discover() {
       </div>
 
       {currentCard && (
-        <div className="mt-8 text-center flex items-center justify-center gap-6">
+        <div className="mt-4 pb-4 text-center flex items-center justify-center gap-6 z-20 relative">
            <button 
              onClick={() => setShowReportModal(true)} 
              className="w-10 h-10 bg-slate-800/60 backdrop-blur-md border border-slate-600/40 rounded-full flex items-center justify-center text-slate-300 hover:text-rose-400 hover:bg-rose-500/30 hover:border-rose-400/50 transition-all shadow-lg"

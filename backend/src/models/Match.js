@@ -24,6 +24,11 @@ const matchSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    type: {
+      type: String,
+      enum: ['like', 'dislike'],
+      default: 'like'
+    },
     matchedAt: Date
   },
   { timestamps: true }
