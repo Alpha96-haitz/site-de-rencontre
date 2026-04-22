@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View, TouchableOpacity, Switch, Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ export default function EditProfileScreen({ route, navigation }) {
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const scrollRef = useRef(null);
 
   const [form, setForm] = useState({
     firstName: user?.firstName || '',
@@ -77,6 +78,12 @@ export default function EditProfileScreen({ route, navigation }) {
     }
   };
 
+  const ensureInputVisible = (y = 260) => {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y, animated: true });
+    }, 80);
+  };
+
   const payload = useMemo(() => ({
     ...form,
     age: form.age ? Number(form.age) : undefined,
@@ -131,7 +138,7 @@ export default function EditProfileScreen({ route, navigation }) {
       await refreshUser();
       Alert.alert('Succès', 'Photo mise à jour');
     } catch(err) {
-      Alert.alert('Erreur', 'Echec de l\'upload');
+      Alert.alert('Erreur', err?.response?.data?.message || 'Echec de l\'upload');
     } finally {
       setPhotoLoading(false);
     }
@@ -230,17 +237,17 @@ export default function EditProfileScreen({ route, navigation }) {
         </ScrollView>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {activeTab === 'general' && (
           <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Text style={[styles.cardTitle, { color: theme.text, borderBottomColor: theme.border }]}>Informations publiques</Text>
-            <AppInput label="Prénom" icon="person" placeholder="Votre prénom" value={form.firstName} onChangeText={(v) => setField('firstName', v)} />
-            <AppInput label="Nom" icon="person" placeholder="Votre nom" value={form.lastName} onChangeText={(v) => setField('lastName', v)} />
-            <AppInput label="Nom d'utilisateur" icon="at" placeholder="Nom d'utilisateur" value={form.username} onChangeText={(v) => setField('username', v)} />
-            <AppInput label="Âge" icon="calendar" placeholder="Votre âge" keyboardType="numeric" value={form.age} onChangeText={(v) => setField('age', v)} />
-            <AppInput label="Ville" icon="location" placeholder="Où habitez-vous ?" value={form.location.city} onChangeText={(v) => setField('city', v)} />
-            <AppInput label="Bio" icon="document-text" placeholder="Parlez un peu de vous..." value={form.bio} onChangeText={(v) => setField('bio', v)} multiline numberOfLines={3} style={{ minHeight: 80, textAlignVertical: 'top' }} />
-            <AppInput label="Centres d'intérêt" icon="star" placeholder="ex: Sport, Cinéma..." value={form.interests} onChangeText={(v) => setField('interests', v)} />
+            <AppInput label="Prénom" icon="person" placeholder="Votre prénom" value={form.firstName} onChangeText={(v) => setField('firstName', v)} onFocus={() => ensureInputVisible(150)} />
+            <AppInput label="Nom" icon="person" placeholder="Votre nom" value={form.lastName} onChangeText={(v) => setField('lastName', v)} onFocus={() => ensureInputVisible(220)} />
+            <AppInput label="Nom d'utilisateur" icon="at" placeholder="Nom d'utilisateur" value={form.username} onChangeText={(v) => setField('username', v)} onFocus={() => ensureInputVisible(280)} />
+            <AppInput label="Âge" icon="calendar" placeholder="Votre âge" keyboardType="numeric" value={form.age} onChangeText={(v) => setField('age', v)} onFocus={() => ensureInputVisible(340)} />
+            <AppInput label="Ville" icon="location" placeholder="Où habitez-vous ?" value={form.location.city} onChangeText={(v) => setField('city', v)} onFocus={() => ensureInputVisible(400)} />
+            <AppInput label="Bio" icon="document-text" placeholder="Parlez un peu de vous..." value={form.bio} onChangeText={(v) => setField('bio', v)} multiline numberOfLines={3} style={{ minHeight: 80, textAlignVertical: 'top' }} onFocus={() => ensureInputVisible(460)} />
+            <AppInput label="Centres d'intérêt" icon="star" placeholder="ex: Sport, Cinéma..." value={form.interests} onChangeText={(v) => setField('interests', v)} onFocus={() => ensureInputVisible(540)} />
             
             <SelectionGroup 
               label="Genre"
@@ -309,7 +316,8 @@ export default function EditProfileScreen({ route, navigation }) {
               placeholder="••••••••" 
               secureTextEntry 
               value={passwordForm.oldPassword} 
-              onChangeText={(v) => setPasswordForm(p => ({...p, oldPassword: v}))} 
+              onChangeText={(v) => setPasswordForm(p => ({...p, oldPassword: v}))}
+              onFocus={() => ensureInputVisible(240)}
             />
             <AppInput 
               label="Nouveau mot de passe" 
@@ -317,7 +325,8 @@ export default function EditProfileScreen({ route, navigation }) {
               placeholder="••••••••" 
               secureTextEntry 
               value={passwordForm.newPassword} 
-              onChangeText={(v) => setPasswordForm(p => ({...p, newPassword: v}))} 
+              onChangeText={(v) => setPasswordForm(p => ({...p, newPassword: v}))}
+              onFocus={() => ensureInputVisible(320)}
             />
             <AppInput 
               label="Confirmer le nouveau" 
@@ -325,7 +334,8 @@ export default function EditProfileScreen({ route, navigation }) {
               placeholder="••••••••" 
               secureTextEntry 
               value={passwordForm.confirmPassword} 
-              onChangeText={(v) => setPasswordForm(p => ({...p, confirmPassword: v}))} 
+              onChangeText={(v) => setPasswordForm(p => ({...p, confirmPassword: v}))}
+              onFocus={() => ensureInputVisible(400)}
             />
             <AppButton 
               title="Modifier le mot de passe" 

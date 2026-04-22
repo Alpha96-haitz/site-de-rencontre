@@ -4,7 +4,7 @@ import { FiUsers, FiHeart, FiSettings, FiImage, FiUserPlus, FiCheck, FiUser } fr
 import toast from 'react-hot-toast';
 import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { getSocket } from '../socket/client';
+import { connectSocket } from '../socket/client';
 import PostForm from '../components/PostForm';
 import PostItem from '../components/PostItem';
 import debounce from 'lodash.debounce';
@@ -74,7 +74,7 @@ export default function Home() {
   }, [loading, isFetchingMore, hasMore, fetchTimeline]);
 
   useEffect(() => {
-    const socket = getSocket();
+    const socket = connectSocket({ priority: 'low' });
     if (!socket) return;
 
     const handleOnline = ({ userId }) => {

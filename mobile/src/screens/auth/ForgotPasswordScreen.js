@@ -14,7 +14,14 @@ export default function ForgotPasswordScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const scrollRef = useRef(null);
   const codeInputs = useRef([]);
+
+  const ensureInputVisible = (y = 190) => {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y, animated: true });
+    }, 80);
+  };
 
   const handleSendCode = async () => {
     if (!email.trim()) return Alert.alert('Attention', 'Veuillez entrer votre email.');
@@ -75,7 +82,7 @@ export default function ForgotPasswordScreen({ navigation }) {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </Pressable>
@@ -107,6 +114,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                 onChangeText={setEmail}
                 autoCapitalize="none"
                 keyboardType="email-address"
+                onFocus={() => ensureInputVisible(170)}
               />
             </View>
             <AppButton title="Envoyer le code" onPress={handleSendCode} loading={loading} />
@@ -127,6 +135,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                   keyboardType="number-pad"
                   maxLength={1}
                   placeholderTextColor="#475569"
+                  onFocus={() => ensureInputVisible(220)}
                 />
               ))}
             </View>
@@ -148,6 +157,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
+                onFocus={() => ensureInputVisible(170)}
               />
             </View>
             <View style={styles.inputWrapper}>
@@ -159,6 +169,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                 secureTextEntry
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
+                onFocus={() => ensureInputVisible(250)}
               />
             </View>
             <AppButton title="Mettre à jour" onPress={handleResetPassword} loading={loading} />

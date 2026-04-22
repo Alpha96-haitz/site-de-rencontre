@@ -149,6 +149,10 @@ export const uploadCover = async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'Fichier requis' });
     
     const result = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("Cloudinary upload timeout (60s)"));
+      }, 60000);
+
       const b64 = Buffer.from(req.file.buffer).toString('base64');
       const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
       cloudinary.uploader.upload(dataURI, {
@@ -159,6 +163,7 @@ export const uploadCover = async (req, res) => {
           { width: 1600, crop: 'limit' }
         ]
       }, (uploadErr, uploadRes) => {
+        clearTimeout(timeout);
         if (uploadErr) return reject(uploadErr);
         resolve(uploadRes);
       });
@@ -168,7 +173,12 @@ export const uploadCover = async (req, res) => {
     clearCacheByPrefix('profile:');
     res.json(user);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("Cover Upload Error Details:", err);
+    res.status(500).json({
+      message: "Erreur serveur lors de l'upload de la couverture",
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 };
 

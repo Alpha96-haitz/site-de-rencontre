@@ -63,6 +63,7 @@ function PostCard({
   const myId = currentUserId ? String(currentUserId) : '';
   const isMine = authorId && String(authorId) === myId;
   const canDelete = isMine || userRole === 'root' || userRole === 'admin';
+  const canEdit = isMine || userRole === 'root';
   const canFollow = Boolean(authorId) && !isMine;
 
   const images = useMemo(() => resolvePostImages(post), [post]);
@@ -78,9 +79,50 @@ function PostCard({
   const [followBusy, setFollowBusy] = useState(false);
   const [showPostMenu, setShowPostMenu] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editText, setEditText] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
 
   const handleEdit = () => {
     Alert.alert('Info', 'La modification de publication sera bientôt disponible !');
+  };
+
+
+  const openEdit = () => {
+    setEditText(String(post?.desc || ''));
+    setEditOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    const nextDesc = editText.trim();
+    if (editBusy) return;
+    if (!post?._id) return;
+
+    if (String(nextDesc) === String(post?.desc || '')) {
+      setEditOpen(false);
+      return;
+    }
+
+    setEditBusy(true);
+    const previousPost = post;
+    const optimisticPost = { ...post, desc: nextDesc };
+    setLocalPost(optimisticPost);
+    onPostChanged?.(optimisticPost);
+
+    try {
+      const updated = await postService.update(post._id, { desc: nextDesc });
+      if (updated?._id) {
+        setLocalPost(updated);
+        onPostChanged?.(updated);
+      }
+      setEditOpen(false);
+    } catch (err) {
+      setLocalPost(previousPost);
+      onPostChanged?.(previousPost);
+      Alert.alert('Erreur', err?.response?.data?.message || 'Modification impossible.');
+    } finally {
+      setEditBusy(false);
+    }
   };
 
   const handleLike = async () => {
@@ -316,27 +358,69 @@ function PostCard({
       <Modal visible={showPostMenu} transparent animationType="fade">
         <Pressable style={styles.menuOverlay} onPress={() => setShowPostMenu(false)}>
           <View style={[styles.postMenuBox, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: isDark ? 1 : 0 }]}>
-            {isMine && (
-              <Pressable style={styles.menuItem} onPress={() => { setShowPostMenu(false); handleEdit(); }}>
+            {canEdit && (
+              <Pressable style={styles.menuItem} onPress={() => { setShowPostMenu(false); openEdit(); }}>
                 <Ionicons name="pencil-outline" size={20} color={theme.text} />
                 <Text style={[styles.menuItemText, { color: theme.text }]}>Modifier</Text>
               </Pressable>
             )}
             {canDelete && (
               <>
-                {isMine && <View style={[styles.menuDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} />}
+                {canEdit && <View style={[styles.menuDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} />}
                 <Pressable style={styles.menuItem} onPress={() => { setShowPostMenu(false); handleDelete(); }}>
                   <Ionicons name="trash-outline" size={20} color={colors.danger} />
                   <Text style={[styles.menuItemText, { color: colors.danger }]}>Supprimer</Text>
                 </Pressable>
               </>
             )}
-          </View>
-        </Pressable>
-      </Modal>
-    </View>
-  );
-}
+	          </View>
+	        </Pressable>
+	      </Modal>
+
+        {/* Edit Post Modal */}
+        <Modal visible={editOpen} transparent animationType="fade" onRequestClose={() => setEditOpen(false)}>
+          <Pressable style={styles.menuOverlay} onPress={() => !editBusy && setEditOpen(false)}>
+            <Pressable
+              style={[styles.editBox, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: isDark ? 1 : 0 }]}
+              onPress={() => {}}
+            >
+              <View style={styles.editHeader}>
+                <Text style={[styles.editTitle, { color: theme.text }]}>Modifier la publication</Text>
+                <Pressable onPress={() => !editBusy && setEditOpen(false)} style={styles.editCloseBtn}>
+                  <Ionicons name="close" size={22} color={theme.textMuted} />
+                </Pressable>
+              </View>
+              <TextInput
+                value={editText}
+                onChangeText={setEditText}
+                placeholder="Modifiez votre texte..."
+                placeholderTextColor={theme.textGhost}
+                multiline
+                editable={!editBusy}
+                style={[styles.editInput, { color: theme.text, backgroundColor: theme.inputBg, borderColor: theme.border }]}
+              />
+              <View style={styles.editActions}>
+                <Pressable
+                  onPress={() => setEditOpen(false)}
+                  disabled={editBusy}
+                  style={[styles.editBtn, { backgroundColor: theme.border }, editBusy && { opacity: 0.6 }]}
+                >
+                  <Text style={[styles.editBtnText, { color: theme.text }]}>Annuler</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleEditSave}
+                  disabled={editBusy}
+                  style={[styles.editBtn, { backgroundColor: theme.primary }, editBusy && { opacity: 0.6 }]}
+                >
+                  <Text style={[styles.editBtnText, { color: '#fff' }]}>{editBusy ? '...' : 'Enregistrer'}</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+	    </View>
+	  );
+	}
 
 export default memo(PostCard);
 
@@ -421,6 +505,14 @@ const styles = StyleSheet.create({
   menuItem: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 12 },
   menuItemText: { fontSize: 15, fontWeight: '600', color: colors.text },
   menuDivider: { height: 1, backgroundColor: 'rgba(0,0,0,0.05)', marginVertical: 4 },
+  editBox: { width: '92%', maxWidth: 520, borderRadius: 16, padding: 14 },
+  editHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  editTitle: { fontSize: 16, fontWeight: '800' },
+  editCloseBtn: { padding: 6, borderRadius: 16 },
+  editInput: { minHeight: 110, borderRadius: 14, padding: 12, borderWidth: 1, textAlignVertical: 'top' },
+  editActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 12 },
+  editBtn: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12 },
+  editBtnText: { fontWeight: '800' },
   fullImageOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
   fullImage: { width: '100%', height: '100%' },
   closeImageBtn: { position: 'absolute', right: 20, zIndex: 100 }

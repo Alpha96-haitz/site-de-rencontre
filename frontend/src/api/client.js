@@ -19,8 +19,11 @@ const normalizeApiUrl = (value) => {
   }
 };
 
-const API_URL = import.meta.env.VITE_API_URL ||
-  (import.meta.env.PROD ? PROD_API_FALLBACK : '/api');
+const explicitApiUrl = import.meta.env.VITE_API_URL;
+const normalizedExplicitApiUrl =
+  explicitApiUrl && explicitApiUrl.startsWith('http') ? normalizeApiUrl(explicitApiUrl) : explicitApiUrl;
+
+const API_URL = normalizedExplicitApiUrl || (import.meta.env.PROD ? PROD_API_FALLBACK : '/api');
 
 const client = axios.create({
   baseURL: API_URL,

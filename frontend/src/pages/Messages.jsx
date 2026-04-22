@@ -3,7 +3,7 @@ import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { FiSend, FiChevronLeft, FiCheckCircle, FiMessageCircle, FiSearch, FiTrash2 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
-import { getSocket } from '../socket/client';
+import { connectSocket } from '../socket/client';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -115,7 +115,7 @@ export default function Messages() {
   const messagesEndRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const socket = getSocket();
+  const socket = useMemo(() => connectSocket({ priority: 'high' }), []);
 
   const scrollToBottom = useCallback((instant = false) => {
     messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' });

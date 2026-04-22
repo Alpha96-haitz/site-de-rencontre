@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Alert, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
@@ -22,6 +22,7 @@ export default function SignupScreen({ navigation }) {
   const [photoAsset, setPhotoAsset] = useState(null);
   const [showDateModal, setShowDateModal] = useState(false);
   const [dateDraft, setDateDraft] = useState({ year: 2000, month: 1, day: 1 });
+  const scrollRef = useRef(null);
   const [form, setForm] = useState({
     username: '',
     email: '',
@@ -49,6 +50,12 @@ export default function SignupScreen({ navigation }) {
     const currentYear = new Date().getFullYear();
     return Array.from({ length: currentYear - 1939 }, (_, i) => currentYear - i);
   }, []);
+
+  const ensureInputVisible = (y = 220) => {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y, animated: true });
+    }, 80);
+  };
 
   const pickPhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -250,8 +257,13 @@ export default function SignupScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+      style={styles.container}
+    >
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -287,6 +299,7 @@ export default function SignupScreen({ navigation }) {
                 autoCapitalize="none"
                 value={form.username}
                 onChangeText={(v) => setField('username', v)}
+                onFocus={() => ensureInputVisible(170)}
               />
               <AppInput
                 placeholder="Email"
@@ -295,6 +308,7 @@ export default function SignupScreen({ navigation }) {
                 inputMode="email"
                 value={form.email}
                 onChangeText={(v) => setField('email', v)}
+                onFocus={() => ensureInputVisible(250)}
               />
               <AppButton title="Suivant" onPress={nextStep} />
             </View>
@@ -307,6 +321,7 @@ export default function SignupScreen({ navigation }) {
                 secureTextEntry
                 value={form.password}
                 onChangeText={(v) => setField('password', v)}
+                onFocus={() => ensureInputVisible(170)}
               />
               <AppInput
                 placeholder="Date de naissance (YYYY-MM-DD)"
@@ -315,6 +330,7 @@ export default function SignupScreen({ navigation }) {
                 inputMode="numeric"
                 maxLength={10}
                 onChangeText={setBirthDateField}
+                onFocus={() => ensureInputVisible(250)}
               />
               <AppButton title="Choisir une date" variant="secondary" onPress={openDateModal} style={styles.dateButton} />
               <Text style={styles.helperText}>Format accepte: YYYY-MM-DD (exemple: 1998-04-15)</Text>
@@ -327,8 +343,8 @@ export default function SignupScreen({ navigation }) {
 
           {step === 3 && (
             <View style={styles.card}>
-              <AppInput placeholder="Prenom" value={form.firstName} onChangeText={(v) => setLetterField('firstName', v)} />
-              <AppInput placeholder="Nom" value={form.lastName} onChangeText={(v) => setLetterField('lastName', v)} />
+              <AppInput placeholder="Prenom" value={form.firstName} onChangeText={(v) => setLetterField('firstName', v)} onFocus={() => ensureInputVisible(170)} />
+              <AppInput placeholder="Nom" value={form.lastName} onChangeText={(v) => setLetterField('lastName', v)} onFocus={() => ensureInputVisible(250)} />
               <View style={styles.row}>
                 <AppButton title="Retour" variant="secondary" onPress={prevStep} style={styles.flex} />
                 <AppButton title="Suivant" onPress={nextStep} style={styles.flex} />
@@ -338,7 +354,7 @@ export default function SignupScreen({ navigation }) {
 
           {step === 4 && (
             <View style={styles.card}>
-              <AppInput placeholder="Ville" value={form.city} onChangeText={(v) => setLetterField('city', v)} />
+              <AppInput placeholder="Ville" value={form.city} onChangeText={(v) => setLetterField('city', v)} onFocus={() => ensureInputVisible(200)} />
               <View>
                 <Text style={styles.label}>Genre</Text>
                 <View style={styles.genderRow}>

@@ -7,6 +7,7 @@ export const postService = {
   create: (formData) => api.post('/posts', formData, {
     headers: { 'Content-Type': 'multipart/form-type' }
   }).then((r) => r.data),
+  update: (postId, payload) => api.put(`/posts/${postId}`, payload).then((r) => r.data),
   delete: (postId) => api.delete(`/posts/${postId}`).then((r) => r.data),
   getUserPosts: (userId) => api.get(`/posts/profile/${userId}`).then((r) => r.data),
   getById: (postId) => api.get(`/posts/${postId}`).then((r) => r.data)

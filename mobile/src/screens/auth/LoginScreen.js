@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View, Image, ScrollView, Modal } from 'react-native';
 import AppInput from '../../components/AppInput';
 import AppButton from '../../components/AppButton';
@@ -13,6 +13,13 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const scrollRef = useRef(null);
+
+  const ensureInputVisible = (y = 140) => {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y, animated: true });
+    }, 80);
+  };
 
   const handleLogin = async () => {
     try {
@@ -26,8 +33,17 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.container, { backgroundColor: theme.bg }]}>
-      <ScrollView contentContainerStyle={styles.scrollGrow} showsVerticalScrollIndicator={false}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+      style={[styles.container, { backgroundColor: theme.bg }]}
+    >
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.scrollGrow}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.content}>
           <View style={styles.header}>
             <Image source={require('../../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
@@ -43,6 +59,7 @@ export default function LoginScreen({ navigation }) {
               keyboardType="email-address"
               value={email}
               onChangeText={setEmail}
+              onFocus={() => ensureInputVisible(120)}
             />
             <View style={styles.relativeBlock}>
               <AppInput
@@ -51,6 +68,7 @@ export default function LoginScreen({ navigation }) {
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
+                onFocus={() => ensureInputVisible(220)}
               />
               <Pressable onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgot}>
                 <Text style={[styles.forgotText, { color: theme.primary }]}>Oublié ?</Text>

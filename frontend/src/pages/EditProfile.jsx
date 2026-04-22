@@ -146,11 +146,11 @@ export default function EditProfile() {
     const fd = new FormData();
     fd.append('photo', file);
     try {
-      await client.post('/users/cover', fd);
+      await client.post('/users/cover', fd, { timeout: 60000 });
       await refreshUser();
       toast.success('Photo de couverture mise à jour');
     } catch (err) {
-      toast.error('Erreur lors de l\'upload de la couverture');
+      toast.error(err.response?.data?.message || 'Erreur lors de l\'upload de la couverture');
     } finally {
       setCoverLoading(false);
     }

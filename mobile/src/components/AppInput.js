@@ -6,7 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 export default function AppInput(props) {
   const [isFocused, setIsFocused] = useState(false);
   const { theme } = useTheme();
-  const { icon, label, ...inputProps } = props;
+  const { icon, label, onFocus, onBlur, ...inputProps } = props;
 
   return (
     <View style={styles.wrap}>
@@ -31,8 +31,14 @@ export default function AppInput(props) {
             !icon && { paddingLeft: 16 },
             props.style
           ]}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onFocus={(event) => {
+            setIsFocused(true);
+            onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setIsFocused(false);
+            onBlur?.(event);
+          }}
           {...inputProps}
         />
       </View>

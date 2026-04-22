@@ -18,28 +18,54 @@ const jwtCookieOptions = {
   secure: process.env.NODE_ENV === 'production'
 };
 
+const normalizeBaseUrl = (value) => {
+  if (!value || typeof value !== 'string') return '';
+  return value.trim().replace(/\/+$/, '');
+};
+
+const isPrivateOrDevHost = (url) => {
+  if (!url || typeof url !== 'string') return true;
+  const lower = url.toLowerCase();
+  if (lower.includes('localhost') || lower.includes('127.0.0.1') || lower.includes('0.0.0.0')) return true;
+  if (lower.includes(':5173')) return true;
+  if (/^https?:\/\/192\.168\.\d+\.\d+(?::\d+)?(\/|$)/.test(lower)) return true;
+  if (/^https?:\/\/10\.\d+\.\d+\.\d+(?::\d+)?(\/|$)/.test(lower)) return true;
+  if (/^https?:\/\/172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+(?::\d+)?(\/|$)/.test(lower)) return true;
+  return false;
+};
+
+const originFromReferer = (req) => {
+  const ref = req.get('referer');
+  if (!ref) return '';
+  try {
+    const u = new URL(ref);
+    return `${u.protocol}//${u.host}`;
+  } catch (_) {
+    return '';
+  }
+};
+
 const getBaseFrontendUrl = (req) => {
-  // En production, on essaie d'abord de récupérer l'origine de la requête
-  // pour éviter que le lien d'email soit bloqué sur localhost.
-  const origin = req.get('origin');
-  const envFrontend = process.env.FRONTEND_URL?.split(',')?.[0]?.trim();
+  const origin = normalizeBaseUrl(req.get('origin'));
+  const refererOrigin = normalizeBaseUrl(originFromReferer(req));
+  const envFrontend = normalizeBaseUrl(process.env.FRONTEND_URL?.split(',')?.[0]);
+  const publicWebUrl = normalizeBaseUrl(process.env.PUBLIC_WEB_URL || process.env.WEB_PUBLIC_URL);
 
   if (process.env.NODE_ENV === 'production') {
-    if (origin && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
-      return origin;
-    }
-    if (envFrontend && !envFrontend.includes('localhost') && !envFrontend.includes('127.0.0.1')) {
-      return envFrontend;
-    }
+    // Prefer explicit public URL; never send private LAN/dev links in emails.
+    if (publicWebUrl && !isPrivateOrDevHost(publicWebUrl)) return publicWebUrl;
+    if (envFrontend && !isPrivateOrDevHost(envFrontend) && envFrontend.startsWith('https://')) return envFrontend;
+    if (origin && !isPrivateOrDevHost(origin) && origin.startsWith('https://')) return origin;
+    if (refererOrigin && !isPrivateOrDevHost(refererOrigin) && refererOrigin.startsWith('https://')) return refererOrigin;
+
+    // Last resort fallbacks (still avoid forcing Vite dev origin).
+    if (envFrontend && !isPrivateOrDevHost(envFrontend)) return envFrontend;
+    if (publicWebUrl) return publicWebUrl;
+    return 'http://localhost:5173';
   }
 
-  if (!origin && req.get('host')) {
-     const protocol = req.protocol || 'http';
-     const host = req.get('host').split(':')[0];
-     return `${protocol}://${host}:5173`;
-  }
-
-  return envFrontend || origin || 'http://localhost:5173';
+  // Dev: use caller origin if present, otherwise configured frontend.
+  return origin || refererOrigin || envFrontend || publicWebUrl || 'http://localhost:5173';
 };
 
 const generateSixDigitCode = () => String(Math.floor(100000 + Math.random() * 900000));
@@ -243,7 +269,7 @@ export const resendVerification = async (req, res) => {
     if (user.emailVerified) return res.status(400).json({ message: 'Email deja verifie' });
 
     const token = generateToken();
-    user.emailVerificationToken = token;
+    user.emailVerificationToken = hashToken(token);
     user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
     await user.save();
 

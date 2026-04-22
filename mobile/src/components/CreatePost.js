@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Pressable, Text, StyleSheet, Image, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { DeviceEventEmitter, View, TextInput, Pressable, Text, StyleSheet, Image, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,6 +58,8 @@ export default function CreatePost({ onPostCreated }) {
       setDesc('');
       setImages([]);
       onPostCreated?.(newPost);
+      // Cross-screen instant update (e.g. Profile -> Feed) even if socket isn't connected yet.
+      DeviceEventEmitter.emit('post:created', newPost);
     } catch (err) {
       Alert.alert('Erreur', 'Erreur lors de la publication');
     } finally {

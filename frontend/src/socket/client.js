@@ -5,6 +5,7 @@ import { io } from 'socket.io-client';
 
 let socket = null;
 let networkWatchersBound = false;
+let visibilityWatcherBound = false;
 
 const PROD_SOCKET_FALLBACK = 'https://site-de-rencontre-backend.onrender.com';
 
@@ -72,14 +73,12 @@ const bindNetworkWatchers = () => {
   });
 
   window.addEventListener('online', () => {
-    if (socket && !socket.connected) {
-      socket.connect();
-    }
+    const token = localStorage.getItem('token');
+    if (token) connectSocket({ token, priority: 'high' });
   });
 };
 
-export const getSocket = () => {
-  const token = localStorage.getItem('token');
+const ensureSocket = (token) => {
   if (!token) return null;
   if (!isOnline()) return null;
 
@@ -88,22 +87,67 @@ export const getSocket = () => {
   if (!socket) {
     const socketUrl = getSocketBaseUrl();
 
-    // Prioriser 'polling' pour assurer une connexion sur Vercel/proxies
-    // et laisser socket.io tenter l'upgrade websocket ensuite.
+    // Important perf: don't auto-connect on app boot. Pages that need realtime should call connectSocket().
+    // In production, try websocket first (less HTTP chatter than polling), fall back to polling if needed.
     socket = io(socketUrl, {
       auth: { token },
       path: '/socket.io',
-      transports: ['polling', 'websocket'],
+      transports: import.meta.env.PROD ? ['websocket', 'polling'] : ['polling', 'websocket'],
       withCredentials: true,
       reconnection: true,
-      reconnectionAttempts: 8,
-      reconnectionDelay: 1200,
-      reconnectionDelayMax: 5000,
-      timeout: 15000,
-      autoConnect: true
+      reconnectionAttempts: 5,
+      reconnectionDelay: 900,
+      reconnectionDelayMax: 6000,
+      timeout: 12000,
+      autoConnect: false,
+      rememberUpgrade: true
     });
+
+    // Stop reconnect storms when the tab is in background.
+    if (!visibilityWatcherBound && typeof document !== 'undefined') {
+      visibilityWatcherBound = true;
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden' && socket?.connected) {
+          socket.disconnect();
+        }
+        if (document.visibilityState === 'visible') {
+          const t = localStorage.getItem('token');
+          if (t) connectSocket({ token: t, priority: 'low' });
+        }
+      });
+    }
+  } else {
+    // Token can change after login/logout; keep it fresh.
+    socket.auth = { token };
   }
+
   return socket;
+};
+
+export const getSocket = () => socket;
+
+export const connectSocket = ({ token, priority = 'low' } = {}) => {
+  const resolvedToken = token || localStorage.getItem('token');
+  const s = ensureSocket(resolvedToken);
+  if (!s) return null;
+
+  const doConnect = () => {
+    if (!s.connected) s.connect();
+  };
+
+  if (priority === 'high') {
+    doConnect();
+    return s;
+  }
+
+  // Defer low-priority connects to avoid slowing initial page load.
+  if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(() => doConnect(), { timeout: 2000 });
+  } else {
+    setTimeout(() => doConnect(), 600);
+  }
+
+  return s;
 };
 
 export const disconnectSocket = () => {

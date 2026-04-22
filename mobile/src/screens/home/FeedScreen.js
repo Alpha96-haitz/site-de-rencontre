@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View, Text } from 'react-native';
+import { DeviceEventEmitter, FlatList, RefreshControl, StyleSheet, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PostCard from '../../components/PostCard';
@@ -90,6 +90,11 @@ export default function FeedScreen({ navigation }) {
       return [newPost, ...prev];
     });
   };
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('post:created', handlePostCreated);
+    return () => sub.remove();
+  }, [handlePostCreated]);
 
   const handlePostChanged = useCallback((updatedPost) => {
     setPosts((prev) => prev.map(p => p._id === updatedPost._id ? updatedPost : p));

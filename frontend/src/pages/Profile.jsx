@@ -8,7 +8,7 @@ import PostForm from '../components/PostForm';
 import ReportModal from '../components/ReportModal';
 import { FiEdit2, FiUserPlus, FiCheck, FiHeart, FiMessageCircle, FiMapPin, FiCamera, FiMoreHorizontal, FiPlus, FiBriefcase, FiHome, FiClock, FiGrid, FiUsers, FiImage, FiStar, FiMail, FiFlag, FiShield, FiTrash2 } from 'react-icons/fi';
 import MatchModal from '../components/MatchModal';
-import { getSocket } from '../socket/client';
+import { connectSocket } from '../socket/client';
 
 export default function Profile() {
   const { username } = useParams();
@@ -115,7 +115,7 @@ export default function Profile() {
   };
 
   useEffect(() => {
-    const socket = getSocket();
+    const socket = connectSocket({ priority: 'low' });
     if (!socket) return;
 
     const handleLikeUpdated = ({ postId, likes }) => {

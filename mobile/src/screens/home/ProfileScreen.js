@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback, memo } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef, memo } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator, Alert, Dimensions, FlatList } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -120,6 +120,7 @@ export default function ProfileScreen({ navigation, route }) {
   const { theme, isDark } = useTheme();
   const { socket } = useSocket();
   const insets = useSafeAreaInsets();
+  const listRef = useRef(null);
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -196,7 +197,12 @@ export default function ProfileScreen({ navigation, route }) {
   }, [socket]);
 
   const handlePostCreated = (newPost) => {
-    setPosts(prev => [newPost, ...prev]);
+    if (!newPost?._id) return;
+    setPosts((prev) => {
+      if (prev.some((p) => String(p._id) === String(newPost._id))) return prev;
+      return [newPost, ...prev];
+    });
+    setTimeout(() => listRef.current?.scrollToOffset?.({ offset: 0, animated: true }), 80);
   };
 
   const handlePostChanged = (updatedPost) => {
@@ -321,38 +327,46 @@ export default function ProfileScreen({ navigation, route }) {
     );
   }
   
-  return (
-    <>
-      <FlatList
-        data={activeTab === 'Publications' ? posts : []}
-        keyExtractor={item => item._id}
-        renderItem={({ item }) => (
-          <PostCard 
-            post={item} 
-            currentUserId={user?._id} 
-            onPostChanged={handlePostChanged} 
-            onPostDeleted={handlePostDeleted} 
-          />
-        )}
-        ListHeaderComponent={
-          <ProfileHeader 
-            profile={profile} 
-            isMe={isMe} 
-            theme={theme} 
-            insets={insets} 
-            onCameraPress={handleCameraPress} 
-            navigation={navigation}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            isDark={isDark}
-            logout={logout}
-            refreshUser={refreshUser}
-          />
-        }
-        ListFooterComponent={
-          <>
-            {activeTab === 'À propos' && (
-              <View style={{ padding: 20, backgroundColor: theme.surface }}>
+	  return (
+	    <>
+	      <FlatList
+          ref={listRef}
+	        data={activeTab === 'Publications' ? posts : []}
+	        keyExtractor={item => item._id}
+	        renderItem={({ item }) => (
+	          <PostCard 
+	            post={item} 
+	            currentUserId={user?._id} 
+	            onPostChanged={handlePostChanged} 
+	            onPostDeleted={handlePostDeleted} 
+	          />
+	        )}
+	        ListHeaderComponent={
+            <>
+	            <ProfileHeader 
+	              profile={profile} 
+	              isMe={isMe} 
+	              theme={theme} 
+	              insets={insets} 
+	              onCameraPress={handleCameraPress} 
+	              navigation={navigation}
+	              activeTab={activeTab}
+	              setActiveTab={setActiveTab}
+	              isDark={isDark}
+	              logout={logout}
+	              refreshUser={refreshUser}
+	            />
+              {isMe && activeTab === 'Publications' && (
+                <View style={styles.createPostWrap}>
+                  <CreatePost onPostCreated={handlePostCreated} />
+                </View>
+              )}
+            </>
+	        }
+	        ListFooterComponent={
+	          <>
+	            {activeTab === 'À propos' && (
+	              <View style={{ padding: 20, backgroundColor: theme.surface }}>
                 <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800' }}>À propos</Text>
                 <Text style={{ color: theme.text, marginTop: 10 }}>{profile?.bio || 'Aucune bio.'}</Text>
               </View>
@@ -743,4 +757,3 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   }
 });
-

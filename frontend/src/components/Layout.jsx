@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import client from '../api/client';
-import { getSocket } from '../socket/client';
+import { connectSocket } from '../socket/client';
 import debounce from 'lodash.debounce';
 import logo from '../assets/logo.png';
 
@@ -49,7 +49,7 @@ export default function Layout() {
   }, [user?._id]);
   // Écouter les mises à jour de messages non lus via Socket
   useEffect(() => {
-    const socket = getSocket();
+    const socket = connectSocket({ priority: 'low' });
     if (!socket) return;
 
     socket.on('notification:unread-update', (data) => {

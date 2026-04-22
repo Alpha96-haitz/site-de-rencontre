@@ -17,6 +17,7 @@
     "android": {
       "package": "com.mbarry309.haitzrencontre",
       "googleServicesFile": "./google-services.json",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       }
