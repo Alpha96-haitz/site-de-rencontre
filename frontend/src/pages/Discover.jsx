@@ -13,6 +13,7 @@ export default function Discover() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [direction, setDirection] = useState(null); // 'left' or 'right'
+  const [likedUserIds, setLikedUserIds] = useState(() => new Set());
   
   // États pour le Match Modal (Style Tinder)
   const [showMatchModal, setShowMatchModal] = useState(false);
@@ -37,6 +38,7 @@ export default function Discover() {
       setCards(uniqueCards);
       setCurrentIndex(0);
       setHistory([]);
+      setLikedUserIds(new Set());
     } catch (err) {
       toast.error("Erreur chargement suggestions");
     } finally {
@@ -54,6 +56,12 @@ export default function Discover() {
     const activeCard = cards[currentIndex];
     const targetId = activeCard._id;
 
+    if (type === 'like' && likedUserIds.has(targetId)) {
+      toast('Vous avez deja like cet utilisateur.', { icon: 'i' });
+      setCurrentIndex(prev => prev + 1);
+      return;
+    }
+
     // Sauvegarder dans l'historique pour le Undo
     setHistory(prev => [...prev, { card: activeCard, index: currentIndex, type }]);
     setDirection(type === 'like' ? 'right' : 'left');
@@ -62,11 +70,21 @@ export default function Discover() {
       if (type === 'like') {
         const { data } = await client.post(`/matches/like/${targetId}`);
         if (data.alreadyLiked) {
+          setLikedUserIds(prev => {
+            const next = new Set(prev);
+            next.add(targetId);
+            return next;
+          });
           toast(data.message || "Vous avez déjà liké cet utilisateur", { icon: 'ℹ️' });
           setDirection(null);
           setCurrentIndex(prev => prev + 1);
           return;
         }
+        setLikedUserIds(prev => {
+          const next = new Set(prev);
+          next.add(targetId);
+          return next;
+        });
         if (data.isMutual) {
           setMatchData({
             user: activeCard,
@@ -85,7 +103,7 @@ export default function Discover() {
       setDirection(null);
       setCurrentIndex(prev => prev + 1);
     }, 300);
-  }, [currentIndex, cards, direction]);
+  }, [currentIndex, cards, direction, likedUserIds]);
 
   const handleRefresh = () => fetchCards(true);
 

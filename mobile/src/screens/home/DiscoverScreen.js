@@ -90,6 +90,7 @@ export default function DiscoverScreen({ navigation }) {
   const [history, setHistory] = useState([]);
   const [feedback, setFeedback] = useState(null);
   const [matchBanner, setMatchBanner] = useState(null);
+  const [likedUserIds, setLikedUserIds] = useState(() => new Set());
   const insets = useSafeAreaInsets();
 
   const pos = useRef(new Animated.ValueXY()).current;
@@ -142,6 +143,7 @@ export default function DiscoverScreen({ navigation }) {
       setCards(data || []);
       setIndex(0);
       setHistory([]);
+      setLikedUserIds(new Set());
     } finally {
       setLoading(false);
     }
@@ -173,11 +175,24 @@ export default function DiscoverScreen({ navigation }) {
       if (actionType === 'dislike') response = await matchService.dislike(cardToActOn._id);
 
       if (response?.alreadyLiked) {
+        setLikedUserIds((prev) => {
+          const next = new Set(prev);
+          next.add(cardToActOn._id);
+          return next;
+        });
         setFeedback({
           type: 'info',
-          text: "Vous avez déjà like ce utilisateur"
+          text: 'Vous avez deja like cet utilisateur'
         });
         return;
+      }
+
+      if (actionType === 'like' || actionType === 'superlike') {
+        setLikedUserIds((prev) => {
+          const next = new Set(prev);
+          next.add(cardToActOn._id);
+          return next;
+        });
       }
 
       if (response?.isMutual) {
@@ -232,7 +247,17 @@ export default function DiscoverScreen({ navigation }) {
     });
   };
 
-  const handleLike = () => animateOut({ x: width + 100, y: 0 }, 'like');
+  const handleLike = () => {
+    if (current?._id && likedUserIds.has(current._id)) {
+      setFeedback({
+        type: 'info',
+        text: 'Vous avez deja like cet utilisateur'
+      });
+      setIndex((prev) => prev + 1);
+      return;
+    }
+    animateOut({ x: width + 100, y: 0 }, 'like');
+  };
   const handleDislike = () => animateOut({ x: -width - 100, y: 0 }, 'dislike');
   const handleSuperLike = () => animateOut({ x: 0, y: -height - 100 }, 'superlike');
 
@@ -253,6 +278,11 @@ export default function DiscoverScreen({ navigation }) {
     setIndex((prev) => Math.max(prev - 1, 0));
 
     if (last?.actionType === 'like' || last?.actionType === 'superlike') {
+      setLikedUserIds((prev) => {
+        const next = new Set(prev);
+        next.delete(last.userId);
+        return next;
+      });
       try {
         await matchService.dislike(last.userId);
       } catch (_) { }
@@ -795,3 +825,4 @@ const styles = StyleSheet.create({
     shadowRadius: 10
   }
 });
+

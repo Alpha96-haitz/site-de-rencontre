@@ -19,7 +19,11 @@ router.put('/profile', profileValidation, handleValidation, userController.updat
 router.post('/photos', upload.single('photo'), userController.uploadPhoto);
 router.post('/cover', upload.single('photo'), userController.uploadCover);
 router.put('/photos/:publicId/primary', userController.setPrimaryPhoto);
+router.put('/photos/*/primary', userController.setPrimaryPhoto);
+router.put(/^\/photos\/(.+)\/primary$/, userController.setPrimaryPhoto);
 router.delete('/photos/:publicId', userController.deletePhoto);
+router.delete('/photos/*', userController.deletePhoto);
+router.delete(/^\/photos\/(.+)$/, userController.deletePhoto);
 
 router.put('/:id/follow', userController.followUser);
 router.put('/:id/unfollow', userController.unfollowUser);

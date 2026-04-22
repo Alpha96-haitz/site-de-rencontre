@@ -43,12 +43,13 @@ const getBaseFrontendUrl = (req) => {
 };
 
 const generateSixDigitCode = () => String(Math.floor(100000 + Math.random() * 900000));
+const normalizeEmailInput = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
 
 export const sendSignupCode = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: 'Email requis' });
-    const lowercaseEmail = email.toLowerCase();
+    const lowercaseEmail = normalizeEmailInput(email);
 
     // Check if user already exists
     const exists = await User.findOne({ email: lowercaseEmail });
@@ -79,14 +80,15 @@ export const verifySignupCode = async (req, res) => {
   try {
     const { email, code } = req.body;
     if (!email || !code) return res.status(400).json({ message: 'Email et code requis' });
+    const normalizedEmail = normalizeEmailInput(email);
 
-    const cachedCode = getCached(`signup_code_${email}`);
+    const cachedCode = getCached(`signup_code_${normalizedEmail}`);
     if (!cachedCode || cachedCode !== String(code)) {
       return res.status(400).json({ message: 'Code invalide ou expire' });
     }
 
     // Temporarily record that this email is verified for signup (expires in 15 min)
-    setCached(`signup_verified_${email}`, 'true', 15 * 60 * 1000);
+    setCached(`signup_verified_${normalizedEmail}`, 'true', 15 * 60 * 1000);
 
     res.json({ message: 'Email verifie avec succes' });
   } catch (err) {
@@ -97,8 +99,9 @@ export const verifySignupCode = async (req, res) => {
 export const signup = async (req, res) => {
   try {
     const { username, email, password, firstName, lastName, birthDate, gender, location } = req.body;
+    const normalizedEmail = normalizeEmailInput(email);
 
-    const orConditions = [{ email }];
+    const orConditions = [{ email: normalizedEmail }];
     if (username) orConditions.push({ username });
     const exists = await User.findOne({ $or: orConditions });
 
@@ -108,7 +111,7 @@ export const signup = async (req, res) => {
       return res.status(400).json({ message: 'Utilisateur deja existant' });
     }
 
-    const lowercaseEmail = email.toLowerCase();
+    const lowercaseEmail = normalizedEmail;
     const isVerified = getCached(`signup_verified_${lowercaseEmail}`) === 'true';
 
     const token = isVerified ? undefined : generateToken();
@@ -126,14 +129,14 @@ export const signup = async (req, res) => {
       emailVerificationExpires: isVerified ? undefined : Date.now() + 24 * 60 * 60 * 1000
     });
 
-    deleteCached(`signup_code_${email}`);
-    deleteCached(`signup_verified_${email}`);
+    deleteCached(`signup_code_${lowercaseEmail}`);
+    deleteCached(`signup_verified_${lowercaseEmail}`);
 
     const baseUrl = getBaseFrontendUrl(req);
     if (!isVerified) {
       try {
-        await sendVerificationEmail(email, token, baseUrl);
-        console.log(`Verification email sent to ${email} with baseUrl: ${baseUrl}`);
+        await sendVerificationEmail(lowercaseEmail, token, baseUrl);
+        console.log(`Verification email sent to ${lowercaseEmail} with baseUrl: ${baseUrl}`);
       } catch (emailErr) {
         console.error('Error sending verification email:', emailErr);
       }
@@ -160,7 +163,8 @@ export const signup = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    const normalizedEmail = normalizeEmailInput(email);
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
 
     if (!user) {
       return res.status(401).json({ message: 'Email ou mot de passe incorrect' });

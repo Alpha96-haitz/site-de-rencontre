@@ -23,7 +23,7 @@ export default function Signup() {
   const [preview, setPreview] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { signup } = useAuth();
+  const { signup, refreshUser } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -66,10 +66,17 @@ export default function Signup() {
         const formData = new FormData();
         formData.append('photo', photo);
         try {
-          await client.post('/users/photos', formData);
+          await client.post('/users/photos', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 60000
+          });
+          await refreshUser();
         } catch (photoErr) {
           console.error("Erreur upload photo:", photoErr);
+          toast.error(photoErr?.response?.data?.message || "Photo non importee, mais le compte est cree.");
         }
+      } else {
+        await refreshUser();
       }
       
       toast.success('Bienvenue sur HAITZ-RENCONTRE !');
@@ -268,4 +275,3 @@ export default function Signup() {
     </div>
   );
 }
-

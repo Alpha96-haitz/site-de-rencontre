@@ -6,11 +6,19 @@ import multer from 'multer';
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  const allowed = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/heic',
+    'image/heif'
+  ];
+
   if (allowed.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Format non supporté. Utilisez JPEG, PNG, WebP ou GIF.'), false);
+    cb(new Error('Format non supporte. Utilisez JPEG, PNG, WebP, GIF, HEIC ou HEIF.'), false);
   }
 };
 

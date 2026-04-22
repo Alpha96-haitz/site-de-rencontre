@@ -37,7 +37,9 @@ const ProfileHeader = memo(({ profile, isMe, theme, insets, onCameraPress, navig
   return (
     <View style={{ backgroundColor: theme.bg }}>
       <View style={styles.coverContainer}>
-        <Image source={cover} style={styles.cover} contentFit="cover" transition={300} />
+        <Pressable style={styles.coverTapArea} onPress={() => onCameraPress('cover')}>
+          <Image source={cover} style={styles.cover} contentFit="cover" transition={300} />
+        </Pressable>
         <Pressable style={[styles.backBtn, { top: insets.top + 5 }]} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </Pressable>
@@ -50,10 +52,14 @@ const ProfileHeader = memo(({ profile, isMe, theme, insets, onCameraPress, navig
 
       <View style={[styles.profileHeader, { backgroundColor: theme.surface }]}>
         <View style={[styles.avatarContainer, { borderColor: theme.surface, backgroundColor: theme.bg }]}>
-          <Image source={avatar} style={styles.avatar} transition={300} />
-          <Pressable style={styles.editAvatarBtn} onPress={() => onCameraPress('avatar')}>
-            <Ionicons name="camera" size={20} color={theme.text} />
+          <Pressable style={styles.avatarTapArea} onPress={() => onCameraPress('avatar')}>
+            <Image source={avatar} style={styles.avatar} transition={300} />
           </Pressable>
+          {isMe && (
+            <Pressable style={[styles.editAvatarBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => onCameraPress('avatar')}>
+              <Ionicons name="camera" size={20} color={theme.text} />
+            </Pressable>
+          )}
           {profile?.isOnline && !isMe && <View style={styles.onlineBadge} />}
         </View>
 
@@ -220,7 +226,20 @@ export default function ProfileScreen({ navigation, route }) {
   );
   
   const cover = profile?.coverPicture || 'https://placehold.co/1200x500';
-  const isMe = targetId === (user?.username || user?._id);
+  const isMe = useMemo(() => {
+    const meId = String(user?._id || '');
+    const meUsername = String(user?.username || '');
+    const tId = String(targetId || '');
+    const pId = String(profile?._id || '');
+    const pUsername = String(profile?.username || '');
+
+    if (!meId && !meUsername) return false;
+    return (
+      (tId && (tId === meId || tId === meUsername)) ||
+      (pId && pId === meId) ||
+      (pUsername && pUsername === meUsername)
+    );
+  }, [user?._id, user?.username, targetId, profile?._id, profile?.username]);
 
   const pickImage = async (kind) => {
     if (!isMe) return;
@@ -389,6 +408,10 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cover: { width: '100%', height: '100%' },
+  coverTapArea: {
+    width: '100%',
+    height: '100%'
+  },
   backBtn: {
     position: 'absolute',
     left: 16,
@@ -404,9 +427,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 12,
     right: 12,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    width: 40,
+    height: 40,
     borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)'
   },
   
   profileHeader: {
@@ -455,6 +483,12 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 85,
   },
+  avatarTapArea: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 85,
+    overflow: 'hidden'
+  },
   editAvatarBtn: {
     position: 'absolute',
     bottom: 4,
@@ -465,6 +499,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3
   },
   onlineBadge: {
     position: 'absolute',

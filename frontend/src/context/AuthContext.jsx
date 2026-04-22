@@ -70,7 +70,8 @@ export const AuthProvider = ({ children }) => {
   }, [fetchUser]);
 
   const login = useCallback(async (email, password) => {
-    const { data } = await client.post('/auth/login', { email, password });
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const { data } = await client.post('/auth/login', { email: normalizedEmail, password });
     localStorage.setItem('token', data.token);
     setUser(data.user);
     setIsEmailVerified(Boolean(data.user?.emailVerified));
@@ -80,8 +81,19 @@ export const AuthProvider = ({ children }) => {
   const signup = useCallback(async (formData) => {
     const { data } = await client.post('/auth/signup', formData);
     localStorage.setItem('token', data.token);
-    setUser(data.user);
-    const verified = Boolean(data.user?.emailVerified);
+
+    let nextUser = data.user;
+    try {
+      // Recharge le profil complet juste apres inscription
+      // pour avoir les champs reels (photos, username, role, etc.)
+      const meRes = await client.get('/auth/me');
+      if (meRes?.data) nextUser = meRes.data;
+    } catch {
+      // Fallback: on conserve les donnees minimales de /auth/signup
+    }
+
+    setUser(nextUser);
+    const verified = Boolean(nextUser?.emailVerified);
     setIsEmailVerified(verified);
     return { ...data, needsVerification: !verified };
   }, []);
@@ -129,4 +141,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-

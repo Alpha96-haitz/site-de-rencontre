@@ -21,7 +21,12 @@ export default function Login() {
       toast.success('Bon retour parmi nous !');
       navigate('/home');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Identifiants invalides');
+      const isNetworkError = !err?.response;
+      if (isNetworkError) {
+        toast.error(err?.message || 'Connexion reseau instable. Reessayez dans quelques secondes.');
+      } else {
+        toast.error(err.response?.data?.message || 'Identifiants invalides');
+      }
     } finally {
       setLoading(false);
     }

@@ -6,6 +6,16 @@ import Match from '../models/Match.js';
 import cloudinary from '../config/cloudinary.js';
 import { getCached, setCached, clearCacheByPrefix } from '../utils/simpleCache.js';
 
+const resolvePublicIdFromReq = (req) => {
+  const raw = req.params?.publicId || req.params?.['0'] || '';
+  if (!raw) return '';
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+};
+
 // Obtenir le profil public d'un utilisateur
 export const getProfile = async (req, res) => {
   try {
@@ -165,7 +175,8 @@ export const uploadCover = async (req, res) => {
 // Supprimer photo
 export const deletePhoto = async (req, res) => {
   try {
-    const { publicId } = req.params;
+    const publicId = resolvePublicIdFromReq(req);
+    if (!publicId) return res.status(400).json({ message: 'publicId invalide' });
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'Utilisateur non trouvÃ©' });
 
@@ -187,7 +198,8 @@ export const deletePhoto = async (req, res) => {
 // Definir une photo comme photo de profil
 export const setPrimaryPhoto = async (req, res) => {
   try {
-    const { publicId } = req.params;
+    const publicId = resolvePublicIdFromReq(req);
+    if (!publicId) return res.status(400).json({ message: 'publicId invalide' });
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'Utilisateur non trouvÃ©' });
 
@@ -335,6 +347,37 @@ export const getSuggestions = async (req, res) => {
         });
         users = [...users, ...taggedRecycled];
       }
+    }
+
+    // Fallback recycle robuste:
+    // Si aucun profil n'est disponible (ex: tout le monde deja like/dislike),
+    // on renvoie un nouveau lot global pour eviter un deck vide permanent.
+    if (recycle && users.length === 0) {
+      const fallbackQuery = {
+        _id: { $ne: currentUser },
+        isBanned: false
+      };
+
+      if (!preferences.includes('all')) {
+        fallbackQuery.gender = { $in: preferences };
+      }
+
+      const fallbackUsers = await User.find(fallbackQuery)
+        .select('firstName lastName birthDate gender bio photos googlePhoto interests username location')
+        .limit(limit)
+        .lean();
+
+      users = fallbackUsers.map((u) => {
+        let age = null;
+        if (u.birthDate) {
+          const today = new Date();
+          const birth = new Date(u.birthDate);
+          age = today.getFullYear() - birth.getFullYear();
+          const m = today.getMonth() - birth.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+        }
+        return { ...u, age, isRecycled: true };
+      });
     }
     
     res.json(users);

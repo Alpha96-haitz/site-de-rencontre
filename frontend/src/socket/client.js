@@ -4,6 +4,7 @@
 import { io } from 'socket.io-client';
 
 let socket = null;
+let networkWatchersBound = false;
 
 const PROD_SOCKET_FALLBACK = 'https://site-de-rencontre-backend.onrender.com';
 
@@ -58,9 +59,32 @@ const getSocketBaseUrl = () => {
     : window.location.origin;
 };
 
+const isOnline = () => (typeof navigator === 'undefined' ? true : navigator.onLine);
+
+const bindNetworkWatchers = () => {
+  if (networkWatchersBound || typeof window === 'undefined') return;
+  networkWatchersBound = true;
+
+  window.addEventListener('offline', () => {
+    if (socket && socket.connected) {
+      socket.disconnect();
+    }
+  });
+
+  window.addEventListener('online', () => {
+    if (socket && !socket.connected) {
+      socket.connect();
+    }
+  });
+};
+
 export const getSocket = () => {
   const token = localStorage.getItem('token');
   if (!token) return null;
+  if (!isOnline()) return null;
+
+  bindNetworkWatchers();
+
   if (!socket) {
     const socketUrl = getSocketBaseUrl();
 

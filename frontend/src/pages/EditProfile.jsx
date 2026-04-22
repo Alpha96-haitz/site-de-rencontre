@@ -159,7 +159,7 @@ export default function EditProfile() {
   const handleDeletePhoto = async (publicId) => {
     if (!window.confirm("Supprimer cette photo ?")) return;
     try {
-      await client.delete(`/users/photos/${publicId}`);
+      await client.delete(`/users/photos/${encodeURIComponent(publicId)}`);
       await refreshUser();
       toast.success('Photo supprimée');
     } catch (err) {
@@ -170,7 +170,7 @@ export default function EditProfile() {
   const handleSetPrimaryPhoto = async (publicId) => {
     setPrimaryLoadingId(publicId);
     try {
-      await client.put(`/users/photos/${publicId}/primary`);
+      await client.put(`/users/photos/${encodeURIComponent(publicId)}/primary`);
       await refreshUser();
       toast.success('Photo de profil mise ?? jour');
     } catch (err) {

@@ -10,7 +10,7 @@ export const userService = {
   updateProfile: (payload) => api.put('/users/profile', payload).then((r) => r.data),
   uploadPhoto: (formData) => api.post('/users/photos', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data),
   uploadCover: (formData) => api.post('/users/cover', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data),
-  setPrimaryPhoto: (publicId) => api.put(`/users/photos/${publicId}/primary`).then((r) => r.data),
-  deletePhoto: (publicId) => api.delete(`/users/photos/${publicId}`).then((r) => r.data),
+  setPrimaryPhoto: (publicId) => api.put(`/users/photos/${encodeURIComponent(publicId)}/primary`).then((r) => r.data),
+  deletePhoto: (publicId) => api.delete(`/users/photos/${encodeURIComponent(publicId)}`).then((r) => r.data),
   deleteUser: (id) => api.delete(`/admin/users/${id}`).then((r) => r.data)
 };
