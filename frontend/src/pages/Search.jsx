@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { FiSearch, FiUserPlus, FiUserCheck, FiFilter, FiMapPin, FiFlag } from 'react-icons/fi';
 import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -31,7 +31,7 @@ export default function Search() {
       const { data } = await client.get(`/users/search?${params.toString()}`);
       setResults(data);
     } catch (err) {
-      console.error(err);
+      if (import.meta.env.DEV) console.error(err);
       toast.error("Erreur lors de la recherche");
     } finally {
       setLoading(false);
@@ -65,13 +65,13 @@ export default function Search() {
     try {
       if (isFollowing) {
         await client.put(`/users/${targetId}/unfollow`);
-        toast.success("Désabonné");
+        toast.success("DÃ©sabonnÃ©");
       } else {
         await client.put(`/users/${targetId}/follow`);
-        toast.success("Abonné !");
+        toast.success("AbonnÃ© !");
       }
       await refreshUser();
-      // Mettre à jour l'état local pour un feedback immédiat
+      // Mettre Ã  jour l'Ã©tat local pour un feedback immÃ©diat
       setResults(prev => prev.map(u => {
         if (u._id === targetId) {
           const newFollowers = isFollowing 
@@ -131,7 +131,7 @@ export default function Search() {
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Âge Min</label>
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Ã‚ge Min</label>
             <input 
               type="number" 
               name="ageMin"
@@ -142,7 +142,7 @@ export default function Search() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Âge Max</label>
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Ã‚ge Max</label>
             <input 
               type="number" 
               name="ageMax"
@@ -153,7 +153,7 @@ export default function Search() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Intérêts</label>
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">IntÃ©rÃªts</label>
             <input 
               type="text" 
               name="interests"
@@ -180,7 +180,7 @@ export default function Search() {
                   <img src={resPhoto} alt={res.firstName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   <div className="absolute bottom-3 left-3 text-white">
-                    <p className="text-xs font-black uppercase tracking-widest flex items-center gap-1"><FiMapPin className="w-3 h-3"/> {res.location?.city || 'Près de vous'}</p>
+                    <p className="text-xs font-black uppercase tracking-widest flex items-center gap-1"><FiMapPin className="w-3 h-3"/> {res.location?.city || 'PrÃ¨s de vous'}</p>
                   </div>
                 </Link>
                 <div className="p-5">
@@ -220,7 +220,7 @@ export default function Search() {
            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100">
              <FiSearch className="w-10 h-10 text-slate-200" />
            </div>
-           <h3 className="text-xl font-bold text-slate-800 mb-2">Aucun résultat</h3>
+           <h3 className="text-xl font-bold text-slate-800 mb-2">Aucun rÃ©sultat</h3>
            <p className="text-slate-500 max-w-xs mx-auto">Essayez d'ajuster vos filtres ou de modifier votre recherche.</p>
         </div>
       )}
@@ -236,3 +236,4 @@ export default function Search() {
     </div>
   );
 }
+

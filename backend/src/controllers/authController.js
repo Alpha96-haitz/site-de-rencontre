@@ -1,10 +1,10 @@
-import jwt from 'jsonwebtoken';
+﻿import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-import { 
-  sendVerificationEmail, 
-  sendPasswordResetCodeEmail, 
+import {
+  sendVerificationEmail,
+  sendPasswordResetCodeEmail,
   sendSignupCodeEmail,
-  isSmtpConfigured 
+  isSmtpConfigured
 } from '../utils/email.js';
 import { generateToken, hashToken } from '../utils/tokenUtils.js';
 import { setCached, getCached, deleteCached } from '../utils/simpleCache.js';
@@ -93,7 +93,6 @@ export const sendSignupCode = async (req, res) => {
     const response = { message: 'Code envoye avec succes' };
     if (process.env.NODE_ENV !== 'production' && !isSmtpConfigured()) {
       response.devCode = code;
-      console.log('[DEV] Signup code for', email, ':', code);
     }
 
     res.json(response);
@@ -162,9 +161,13 @@ export const signup = async (req, res) => {
     if (!isVerified) {
       try {
         await sendVerificationEmail(lowercaseEmail, token, baseUrl);
-        console.log(`Verification email sent to ${lowercaseEmail} with baseUrl: ${baseUrl}`);
       } catch (emailErr) {
         console.error('Error sending verification email:', emailErr);
+        await User.findByIdAndDelete(user._id).catch(() => {});
+        deleteCached(`profile:${user._id}`);
+        return res.status(500).json({
+          message: "Impossible d'envoyer l'email de verification. Verifie la configuration SMTP sur le serveur."
+        });
       }
     }
 
@@ -227,23 +230,29 @@ export const logout = async (req, res) => {
 
 export const verifyEmail = async (req, res) => {
   try {
-    const { token } = req.query;
+    const { token, email } = req.query;
     if (!token) {
       console.warn('VerifyEmail: Token missing in request');
       return res.status(400).json({ message: 'Token manquant' });
     }
 
     const hashedToken = hashToken(token);
-    console.log('Verifying email with token signature:', hashedToken.substring(0, 8) + '...');
-
     const user = await User.findOne({
       emailVerificationToken: hashedToken,
       emailVerificationExpires: { $gt: Date.now() }
     });
 
     if (!user) {
+      if (email) {
+        const normalizedEmail = normalizeEmailInput(email);
+        const alreadyVerifiedUser = await User.findOne({ email: normalizedEmail, emailVerified: true }).select('_id email');
+        if (alreadyVerifiedUser) {
+          return res.json({ message: 'Email deja verifie' });
+        }
+      }
+
       console.warn('VerifyEmail: Invalid or expired token');
-      return res.status(400).json({ message: 'Lien invalide ou expiré' });
+      return res.status(400).json({ message: 'Lien invalide ou expire' });
     }
 
     user.emailVerified = true;
@@ -251,14 +260,13 @@ export const verifyEmail = async (req, res) => {
     user.emailVerificationExpires = undefined;
     await user.save({ validateBeforeSave: false });
 
-    // Nettoyer le cache pour éviter que le profil affiche encore "non vérifié"
+    // Nettoyer le cache pour eviter que le profil affiche encore "non verifie"
     deleteCached(`profile:${user._id}`);
 
-    console.log(`Email verified successfully for user: ${user.email}`);
-    res.json({ message: 'Email vérifié avec succès' });
+    res.json({ message: 'Email verifie avec succes' });
   } catch (error) {
     console.error('VerifyEmail Error:', error);
-    res.status(500).json({ message: 'Erreur lors de la vérification' });
+    res.status(500).json({ message: 'Erreur lors de la verification' });
   }
 };
 
@@ -267,6 +275,15 @@ export const resendVerification = async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'Utilisateur non trouve' });
     if (user.emailVerified) return res.status(400).json({ message: 'Email deja verifie' });
+
+    const cooldownKey = `verification_resend_wait_${String(user.email).toLowerCase()}`;
+    const cooldownUntil = Number(getCached(cooldownKey) || 0);
+    if (cooldownUntil && cooldownUntil > Date.now()) {
+      const remaining = Math.max(1, Math.ceil((cooldownUntil - Date.now()) / 1000));
+      return res.status(429).json({
+        message: `Veuillez patienter ${remaining}s avant de renvoyer un autre email.`
+      });
+    }
 
     const token = generateToken();
     user.emailVerificationToken = hashToken(token);
@@ -279,6 +296,8 @@ export const resendVerification = async (req, res) => {
     } catch (emailErr) {
       console.warn('Verification email not resent:', emailErr.message);
     }
+
+    setCached(cooldownKey, '1', 60 * 1000);
 
     res.json({ message: 'E-mail de verification renvoye' });
   } catch (err) {
@@ -410,3 +429,4 @@ export const changePassword = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+

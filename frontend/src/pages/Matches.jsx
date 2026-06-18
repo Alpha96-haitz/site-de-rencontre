@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiHeart, FiMessageCircle, FiUser, FiInfo, FiStar, FiChevronRight, FiFlag } from 'react-icons/fi';
 import client from '../api/client';
@@ -22,7 +22,7 @@ export default function Matches() {
         setMatches(mRes.data);
         setLikes(lRes.data);
       } catch (err) {
-        console.error(err);
+        if (import.meta.env.DEV) console.error(err);
       } finally {
         setLoading(false);
       }
@@ -50,7 +50,7 @@ export default function Matches() {
       {/* Tinder Style Tabs */}
       <div className="flex flex-col gap-6 mb-8">
         <div className="flex items-center justify-between">
-           <h1 className="text-3xl font-black text-slate-800 tracking-tighter">Votre activité</h1>
+           <h1 className="text-3xl font-black text-slate-800 tracking-tighter">Votre activitÃ©</h1>
            <FiStar className="text-amber-400 w-6 h-6" />
         </div>
 
@@ -83,9 +83,9 @@ export default function Matches() {
               <FiHeart className="w-10 h-10 text-pink-300 animate-pulse" />
            </div>
            <h2 className="text-xl font-black text-slate-800 mb-2">Pas encore de nouveau {tab === 'matches' ? 'match' : 'like'}</h2>
-           <p className="text-slate-400 text-sm max-w-xs font-medium">Continuez à découvrir d'autres profils pour augmenter vos chances de faire de belles rencontres.</p>
+           <p className="text-slate-400 text-sm max-w-xs font-medium">Continuez Ã  dÃ©couvrir d'autres profils pour augmenter vos chances de faire de belles rencontres.</p>
            <Link to="/home/discover" className="mt-8 bg-gradient-to-r from-pink-600 to-rose-600 text-white px-8 py-3 rounded-full font-black text-sm uppercase tracking-widest shadow-xl shadow-pink-100 hover:scale-105 active:scale-95 transition-all">
-             Découvrir des profils
+             DÃ©couvrir des profils
            </Link>
         </div>
       ) : (
@@ -175,3 +175,4 @@ export default function Matches() {
     </div>
   );
 }
+

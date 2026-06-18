@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { FiBell, FiCamera, FiTrash2, FiLock, FiUserX, FiSave, FiArrowLeft, FiMapPin, FiUser, FiImage, FiBriefcase, FiInfo, FiShield, FiChevronRight, FiPlus, FiMoon, FiSun } from 'react-icons/fi';
@@ -110,12 +110,12 @@ export default function EditProfile() {
 
       await client.put('/users/profile', payload);
       await refreshUser();
-      toast.success('Profil mis à jour');
+      toast.success('Profil mis Ã  jour');
     } catch (err) {
-      console.error("Update error:", err);
+      if (import.meta.env.DEV) console.error("Update error:", err);
       const errorMsg = err.response?.data?.errors?.[0]?.msg || 
                       err.response?.data?.message || 
-                      'Erreur lors de la mise à jour';
+                      'Erreur lors de la mise Ã  jour';
       toast.error(errorMsg);
     } finally {
       setLoading(false);
@@ -131,7 +131,7 @@ export default function EditProfile() {
     try {
       await client.post('/users/photos', fd, { timeout: 60000 });
       await refreshUser();
-      toast.success('Photo ajoutée');
+      toast.success('Photo ajoutÃ©e');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erreur lors de l\'upload');
     } finally {
@@ -148,7 +148,7 @@ export default function EditProfile() {
     try {
       await client.post('/users/cover', fd, { timeout: 60000 });
       await refreshUser();
-      toast.success('Photo de couverture mise à jour');
+      toast.success('Photo de couverture mise Ã  jour');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erreur lors de l\'upload de la couverture');
     } finally {
@@ -161,7 +161,7 @@ export default function EditProfile() {
     try {
       await client.delete(`/users/photos/${encodeURIComponent(publicId)}`);
       await refreshUser();
-      toast.success('Photo supprimée');
+      toast.success('Photo supprimÃ©e');
     } catch (err) {
       toast.error('Erreur lors de la suppression');
     }
@@ -191,7 +191,7 @@ export default function EditProfile() {
         oldPassword: passwordForm.oldPassword,
         newPassword: passwordForm.newPassword
       });
-      toast.success("Mot de passe modifié");
+      toast.success("Mot de passe modifiÃ©");
       setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err) {
       toast.error(err.response?.data?.message || "Erreur");
@@ -208,21 +208,21 @@ export default function EditProfile() {
         notificationPreferences: notificationSettings
       });
       await refreshUser();
-      toast.success('Préférences sauvegardées');
+      toast.success('PrÃ©fÃ©rences sauvegardÃ©es');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Impossible de sauvegarder les paramètres');
+      toast.error(err.response?.data?.message || 'Impossible de sauvegarder les paramÃ¨tres');
     } finally {
       setSettingsLoading(false);
     }
   };
 
   const handleDeleteAccount = async () => {
-    if (!window.confirm("Cette action est irréversible et supprimera toutes vos données.")) return;
+    if (!window.confirm("Cette action est irrÃ©versible et supprimera toutes vos donnÃ©es.")) return;
     const confirmText = window.prompt("Tapez 'SUPPRIMER' pour confirmer");
     if (confirmText !== 'SUPPRIMER') return;
     try {
       await client.delete('/users/delete-account');
-      toast.success("Compte supprimé.");
+      toast.success("Compte supprimÃ©.");
       logout();
       navigate('/');
     } catch (err) {
@@ -239,7 +239,7 @@ export default function EditProfile() {
                 <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full transition-all">
                     <FiArrowLeft className="w-5 h-5 text-slate-600" />
                 </button>
-                <h1 className="text-xl font-black text-slate-900 tracking-tight">Paramètres</h1>
+                <h1 className="text-xl font-black text-slate-900 tracking-tight">ParamÃ¨tres</h1>
             </div>
             <div className="flex items-center gap-2">
                 <img src={user?.photos?.[0]?.url || user?.googlePhoto || 'https://placehold.co/100'} alt="" className="w-8 h-8 rounded-full border border-slate-200" />
@@ -257,14 +257,14 @@ export default function EditProfile() {
                    <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center text-pink-600"><FiUser className="text-xl" /></div>
                    <div>
                       <p className="font-black text-slate-900 leading-tight">Votre Compte</p>
-                      <p className="text-[12px] text-slate-500 font-bold uppercase tracking-widest">Gérer vos infos</p>
+                      <p className="text-[12px] text-slate-500 font-bold uppercase tracking-widest">GÃ©rer vos infos</p>
                    </div>
                 </div>
                 <nav className="p-2">
                     {[
                         { id: 'general', label: 'Profil et informations', icon: FiUser },
                         { id: 'photos', label: 'Photos et couverture', icon: FiImage },
-                        { id: 'security', label: 'Mot de passe et sécurité', icon: FiLock },
+                        { id: 'security', label: 'Mot de passe et sÃ©curitÃ©', icon: FiLock },
                         { id: 'notifications', label: 'Notifications', icon: FiBell },
                     ].map(tab => (
                         <button 
@@ -301,7 +301,7 @@ export default function EditProfile() {
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Prénom</label>
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">PrÃ©nom</label>
                                     <input name="firstName" value={form.firstName} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all outline-none font-bold text-slate-800" />
                                 </div>
                                 <div className="space-y-2">
@@ -336,8 +336,8 @@ export default function EditProfile() {
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Bio (Ma présentation)</label>
-                                <textarea name="bio" value={form.bio} onChange={handleChange} rows={4} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all outline-none font-bold text-slate-800 resize-none" placeholder="Décrivez-vous..." />
+                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Bio (Ma prÃ©sentation)</label>
+                                <textarea name="bio" value={form.bio} onChange={handleChange} rows={4} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all outline-none font-bold text-slate-800 resize-none" placeholder="DÃ©crivez-vous..." />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Ville</label>
@@ -347,7 +347,7 @@ export default function EditProfile() {
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Intérêts (séparés par des virgules)</label>
+                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">IntÃ©rÃªts (sÃ©parÃ©s par des virgules)</label>
                                 <input name="interests" value={form.interests} onChange={handleChange} placeholder="Sport, Musique, Cuisine..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all outline-none font-bold text-slate-800" />
                             </div>
                             <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 py-4 bg-pink-600 text-white rounded-xl font-black hover:bg-pink-700 transition-all shadow-lg shadow-pink-100 active:scale-95 disabled:opacity-50">
@@ -435,7 +435,7 @@ export default function EditProfile() {
                                         value={passwordForm.oldPassword} 
                                         onChange={handlePasswordChangeInput} 
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all outline-none font-bold text-slate-800" 
-                                        placeholder="••••••••"
+                                        placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                                         required
                                     />
                                 </div>
@@ -447,7 +447,7 @@ export default function EditProfile() {
                                         value={passwordForm.newPassword} 
                                         onChange={handlePasswordChangeInput} 
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all outline-none font-bold text-slate-800" 
-                                        placeholder="••••••••"
+                                        placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                                         required
                                     />
                                 </div>
@@ -459,13 +459,13 @@ export default function EditProfile() {
                                         value={passwordForm.confirmPassword} 
                                         onChange={handlePasswordChangeInput} 
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all outline-none font-bold text-slate-800"
-                                        placeholder="••••••••"
+                                        placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                                         required
                                     />
                                 </div>
                             </div>
                             <button type="submit" disabled={loading} className="px-8 py-3 bg-slate-900 text-white rounded-xl font-black hover:bg-slate-800 transition-all shadow-lg active:scale-95 disabled:opacity-50">
-                                {loading ? 'Mise à jour...' : 'Mettre à jour le mot de passe'}
+                                {loading ? 'Mise Ã  jour...' : 'Mettre Ã  jour le mot de passe'}
                             </button>
                         </form>
                     </div>
@@ -473,11 +473,11 @@ export default function EditProfile() {
                     {/* Privacy and Security Settings */}
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                         <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-                            <FiShield className="text-blue-500" /> Confidentialité et sécurité
+                            <FiShield className="text-blue-500" /> ConfidentialitÃ© et sÃ©curitÃ©
                         </h2>
                         <div className="space-y-5">
                             <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50 shadow-inner">
-                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">Visibilité de mon profil</label>
+                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">VisibilitÃ© de mon profil</label>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                   {['public', 'matches', 'private'].map((v) => (
                                     <button
@@ -485,21 +485,21 @@ export default function EditProfile() {
                                       onClick={() => setPrivacySettings(p => ({ ...p, profileVisibility: v }))}
                                       className={`p-3 rounded-xl border-2 font-black transition-all text-sm ${privacySettings.profileVisibility === v ? 'bg-pink-600 border-pink-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-pink-200'}`}
                                     >
-                                      {v === 'public' ? 'Public' : v === 'matches' ? 'Matchs' : 'Privé'}
+                                      {v === 'public' ? 'Public' : v === 'matches' ? 'Matchs' : 'PrivÃ©'}
                                     </button>
                                   ))}
                                 </div>
                                 <p className="text-[12px] text-slate-400 font-bold mt-2 ml-1 italic">
                                   {privacySettings.profileVisibility === 'public' && "Tout le monde peut voir votre profil."}
                                   {privacySettings.profileVisibility === 'matches' && "Seuls les membres avec qui vous avez un match voient votre profil."}
-                                  {privacySettings.profileVisibility === 'private' && "Votre profil n'apparaît pas dans la découverte."}
+                                  {privacySettings.profileVisibility === 'private' && "Votre profil n'apparaÃ®t pas dans la dÃ©couverte."}
                                 </p>
                             </div>
 
                             <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
                                 <div>
                                     <p className="font-black text-slate-900">Statut en ligne</p>
-                                    <p className="text-sm font-bold text-slate-400">Afficher si je suis actuellement connecté</p>
+                                    <p className="text-sm font-bold text-slate-400">Afficher si je suis actuellement connectÃ©</p>
                                 </div>
                                 <button
                                   onClick={() => setPrivacySettings((prev) => ({ ...prev, showOnlineStatus: !prev.showOnlineStatus }))}
@@ -510,7 +510,7 @@ export default function EditProfile() {
                             </div>
 
                             <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50 shadow-inner">
-                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">Conversations autorisées</label>
+                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">Conversations autorisÃ©es</label>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                   {['everyone', 'matches', 'no-one'].map((v) => (
                                     <button
@@ -518,7 +518,7 @@ export default function EditProfile() {
                                       onClick={() => setPrivacySettings(p => ({ ...p, allowMessagesFrom: v }))}
                                       className={`p-3 rounded-xl border-2 font-black transition-all text-sm ${privacySettings.allowMessagesFrom === v ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-200'}`}
                                     >
-                                      {v === 'everyone' ? 'Public' : v === 'matches' ? 'Matchs' : 'Fermé'}
+                                      {v === 'everyone' ? 'Public' : v === 'matches' ? 'Matchs' : 'FermÃ©'}
                                     </button>
                                   ))}
                                 </div>
@@ -532,7 +532,7 @@ export default function EditProfile() {
                             <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
                                 <div>
                                     <p className="font-black text-slate-900">Mode Sombre</p>
-                                    <p className="text-sm font-bold text-slate-400">Activer l'interface à thème sombre</p>
+                                    <p className="text-sm font-bold text-slate-400">Activer l'interface Ã  thÃ¨me sombre</p>
                                 </div>
                                 <button
                                   onClick={() => setTheme(isDark ? 'light' : 'dark')}
@@ -547,7 +547,7 @@ export default function EditProfile() {
                                 disabled={settingsLoading}
                                 className="w-full py-4 bg-pink-600 text-white rounded-xl font-black hover:bg-pink-700 transition-all shadow-xl shadow-pink-100 flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                                <FiSave /> {settingsLoading ? 'Sauvegarde...' : 'Sauvegarder les préférences de sécurité'}
+                                <FiSave /> {settingsLoading ? 'Sauvegarde...' : 'Sauvegarder les prÃ©fÃ©rences de sÃ©curitÃ©'}
                             </button>
                         </div>
                     </div>
@@ -560,12 +560,12 @@ export default function EditProfile() {
                         <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
                             <FiBell className="text-pink-500" /> Notifications
                         </h2>
-                        <p className="text-sm text-slate-500 mb-6">Gérez vos préférences de notification pour les messages, les matchs et les mises à jour.</p>
+                        <p className="text-sm text-slate-500 mb-6">GÃ©rez vos prÃ©fÃ©rences de notification pour les messages, les matchs et les mises Ã  jour.</p>
                         <div className="space-y-4">
                             {[
-                                { key: 'email', label: 'Recevoir les notifications par email', description: 'Nouvelle activité, messages et alertes.' },
-                                { key: 'push', label: 'Recevoir les notifications push', description: 'Alertes instantanées sur votre appareil.' },
-                                { key: 'marketing', label: 'Offres et recommandations', description: 'Promotions et nouveautés personnalisées.' }
+                                { key: 'email', label: 'Recevoir les notifications par email', description: 'Nouvelle activitÃ©, messages et alertes.' },
+                                { key: 'push', label: 'Recevoir les notifications push', description: 'Alertes instantanÃ©es sur votre appareil.' },
+                                { key: 'marketing', label: 'Offres et recommandations', description: 'Promotions et nouveautÃ©s personnalisÃ©es.' }
                             ].map(item => (
                                 <div key={item.key} className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-slate-200 bg-slate-50">
                                     <div>
@@ -579,7 +579,7 @@ export default function EditProfile() {
                                         }))}
                                         className={`px-4 py-2 rounded-full font-bold transition-colors ${notificationSettings[item.key] ? 'bg-pink-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
                                     >
-                                        {notificationSettings[item.key] ? 'Activé' : 'Désactivé'}
+                                        {notificationSettings[item.key] ? 'ActivÃ©' : 'DÃ©sactivÃ©'}
                                     </button>
                                 </div>
                             ))}
@@ -594,3 +594,4 @@ export default function EditProfile() {
     </div>
   );
 }
+

@@ -1,40 +1,66 @@
 /**
- * Configuration MongoDB - Connexion à la base de données
- * Utilise mongodb-memory-server si USE_MEMORY_DB=true (MongoDB non installé)
+ * Configuration MongoDB - Connexion a la base de donnees
+ * En developpement, le backend peut retomber sur mongodb-memory-server
+ * si l'instance distante est indisponible.
  */
 import mongoose from 'mongoose';
 import dns from 'node:dns/promises';
 
-const connectDB = async () => {
-  let uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/dating-app';
+let memoryServerPromise = null;
 
-  // Fix Windows: Node.js bug querySrv ECONNREFUSED - forcer Google/Cloudflare DNS
+const isDev = process.env.NODE_ENV !== 'production';
+
+const shouldUseMemoryDb = () =>
+  process.env.USE_MEMORY_DB === 'true' || process.env.MONGODB_URI_FALLBACK === 'memory';
+
+const getMemoryServerUri = async () => {
+  if (!memoryServerPromise) {
+    memoryServerPromise = (async () => {
+      const { MongoMemoryServer } = await import('mongodb-memory-server');
+      const mongod = await MongoMemoryServer.create();
+      return mongod;
+    })();
+  }
+
+  const mongod = await memoryServerPromise;
+  return mongod.getUri();
+};
+
+const connectWithUri = async (uri) => {
   if (uri.startsWith('mongodb+srv://') && process.platform === 'win32') {
     try {
       await dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
     } catch (_) {}
   }
 
-  if (process.env.USE_MEMORY_DB === 'true' && process.env.NODE_ENV !== 'production') {
-    try {
-      const { MongoMemoryServer } = await import('mongodb-memory-server');
-      console.log('Démarrage de MongoDB en mémoire (téléchargement possible au 1er lancement)...');
-      const mongod = await MongoMemoryServer.create();
-      uri = mongod.getUri();
-      console.log('MongoDB en mémoire prêt');
-    } catch (err) {
-      console.error('Impossible de démarrer MongoDB en mémoire:', err.message);
-      if (err.stack) console.error(err.stack);
-      throw err;
-    }
-  }
+  const conn = await mongoose.connect(uri);
+  return conn;
+};
+
+const connectDB = async () => {
+  const primaryUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/dating-app';
 
   try {
-    const conn = await mongoose.connect(uri);
-    console.log(`MongoDB connecté: ${conn.connection.host}`);
+    return await connectWithUri(primaryUri);
   } catch (error) {
     console.error('Erreur connexion MongoDB:', error.message);
-    throw error;
+
+    if (!isDev) {
+      throw error;
+    }
+
+    try {
+      const fallbackUri = await getMemoryServerUri();
+      return await connectWithUri(fallbackUri);
+    } catch (fallbackError) {
+      console.error('Fallback MongoDB memoire impossible:', fallbackError.message);
+
+      if (shouldUseMemoryDb()) {
+        throw fallbackError;
+      }
+
+      throw error;
+    }
   }
 };
 

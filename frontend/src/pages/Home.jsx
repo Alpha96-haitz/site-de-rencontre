@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { FiUsers, FiHeart, FiSettings, FiImage, FiUserPlus, FiCheck, FiUser } from 'react-icons/fi';
 import toast from 'react-hot-toast';
@@ -32,7 +32,7 @@ export default function Home() {
       
       setPosts((prev) => shouldAppend ? [...prev, ...data] : data);
     } catch (err) {
-      toast.error('Erreur lors du chargement du fil d\'actualité');
+      toast.error('Erreur lors du chargement du fil d\'actualitÃ©');
     } finally {
       setLoading(false);
       setIsFetchingMore(false);
@@ -45,7 +45,7 @@ export default function Home() {
       const { data } = await client.get(`/users/suggestions?limit=${limit}`);
       setSuggestions(data);
     } catch (err) {
-      console.error("Erreur suggestions:", err);
+      if (import.meta.env.DEV) console.error("Erreur suggestions:", err);
     } finally {
       setLoadingSuggestions(false);
     }
@@ -139,7 +139,7 @@ export default function Home() {
   const handleFollow = useCallback(async (suggestedId) => {
     try {
       await client.put(`/users/${suggestedId}/follow`);
-      toast.success("Abonné !");
+      toast.success("AbonnÃ© !");
       refreshUser().catch(() => {});
       setSuggestions((prev) => prev.filter((s) => s._id !== suggestedId));
     } catch (err) {
@@ -177,7 +177,7 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-4 text-center border-t border-b border-slate-100 py-4 mb-4">
             <div>
               <div className="text-lg font-bold text-slate-800">{user?.followers?.length || 0}</div>
-              <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">Abonnés</div>
+              <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">AbonnÃ©s</div>
             </div>
             <div>
               <div className="text-lg font-bold text-slate-800">{user?.following?.length || 0}</div>
@@ -193,13 +193,13 @@ export default function Home() {
               <FiHeart className="w-5 h-5 text-rose-500" /> Mes Matchs
             </Link>
             <div className="pt-2 mt-2 border-t border-slate-50">
-              <div className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Communauté</div>
+              <div className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">CommunautÃ©</div>
               <Link to={`/home/profile/${user?.username}?tab=following`} className="flex items-center justify-between px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors font-medium group">
                 <span className="flex items-center gap-3"><FiUserPlus className="w-5 h-5" /> Abonnements</span>
                 <span className="bg-slate-100 px-2 py-0.5 rounded-md text-[10px] group-hover:bg-white">{user?.following?.length || 0}</span>
               </Link>
               <Link to={`/home/profile/${user?.username}?tab=followers`} className="flex items-center justify-between px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors font-medium group">
-                <span className="flex items-center gap-3"><FiUsers className="w-5 h-5" /> Abonnés</span>
+                <span className="flex items-center gap-3"><FiUsers className="w-5 h-5" /> AbonnÃ©s</span>
                 <span className="bg-slate-100 px-2 py-0.5 rounded-md text-[10px] group-hover:bg-white">{user?.followers?.length || 0}</span>
               </Link>
             </div>
@@ -209,8 +209,8 @@ export default function Home() {
                   <FiSettings className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Paramètres du compte</p>
-                  <p className="text-xs text-slate-500">Choisissez une option et ouvrez les paramètres.</p>
+                  <p className="text-sm font-bold text-slate-900">ParamÃ¨tres du compte</p>
+                  <p className="text-xs text-slate-500">Choisissez une option et ouvrez les paramÃ¨tres.</p>
                 </div>
               </div>
               <div className="space-y-2">
@@ -227,7 +227,7 @@ export default function Home() {
                       Modifier le profil
                     </Link>
                     <Link to="/home/profile/edit?tab=security" className="block rounded-2xl px-3 py-3 bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors">
-                      Confidentialité et sécurité
+                      ConfidentialitÃ© et sÃ©curitÃ©
                     </Link>
                     <Link to="/home/profile/edit?tab=notifications" className="block rounded-2xl px-3 py-3 bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors">
                       Notifications
@@ -265,7 +265,7 @@ export default function Home() {
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-8 text-center text-slate-500">
             <FiImage className="w-12 h-12 mx-auto text-slate-300 mb-3" />
             <h3 className="text-lg font-semibold text-slate-700 mb-1">Aucune publication</h3>
-            <p>Abonnez-vous à d'autres utilisateurs ou publiez quelque chose pour commencer !</p>
+            <p>Abonnez-vous Ã  d'autres utilisateurs ou publiez quelque chose pour commencer !</p>
           </div>
         ) : (
           <div className="space-y-0">
@@ -330,7 +330,7 @@ export default function Home() {
           
           <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-2xl p-4 mt-8 border border-pink-100 shadow-inner">
             <h4 className="font-bold text-pink-800 text-sm mb-1">Passer au Premium ?</h4>
-            <p className="text-[11px] text-pink-600/80 mb-3 leading-relaxed">Multipliez vos rencontres et boostez votre visibilité sur HAITZ.</p>
+            <p className="text-[11px] text-pink-600/80 mb-3 leading-relaxed">Multipliez vos rencontres et boostez votre visibilitÃ© sur HAITZ.</p>
             <button className="w-full py-2 bg-white text-pink-600 rounded-xl text-xs font-bold hover:shadow-lg transition-shadow border border-pink-200">
               En savoir plus
             </button>
@@ -341,3 +341,4 @@ export default function Home() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { FiSend, FiChevronLeft, FiCheckCircle, FiMessageCircle, FiSearch, FiTrash2 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
@@ -33,7 +33,7 @@ const formatDateLabel = (dateStr) => {
   return dateStr;
 };
 
-// --- SOUS-COMPOSANTS MÉMOÏSÉS ---
+// --- SOUS-COMPOSANTS MÃ‰MOÃSÃ‰S ---
 
 const MessageItem = memo(({ msg, isMe, isFirstInGroup, currentUserId }) => {
   return (
@@ -130,7 +130,7 @@ export default function Messages() {
     if (userId && /^[a-fA-F0-9]{24}$/.test(userId)) {
       client.get(`/messages/user/${userId}`).then(({ data }) => {
         if (data._id) navigate(`/home/messages/${data._id}`, { replace: true });
-      }).catch(() => toast.error("Erreur d'accès à la conversation"));
+      }).catch(() => toast.error("Erreur d'accÃ¨s Ã  la conversation"));
     }
   }, [location.search, navigate]);
 
@@ -139,7 +139,7 @@ export default function Messages() {
       const { data } = await client.get('/messages/conversations');
       setConversations(data);
     } catch (err) {
-      console.error('Conv error:', err);
+      if (import.meta.env.DEV) console.error('Conv error:', err);
     }
   }, []);
 
@@ -150,7 +150,7 @@ export default function Messages() {
       setMessages(data);
       setTimeout(() => scrollToBottom(), 50);
     } catch (err) {
-      console.error('Sync error:', err);
+      if (import.meta.env.DEV) console.error('Sync error:', err);
     }
   }, [matchId, scrollToBottom]);
 
@@ -358,7 +358,7 @@ export default function Messages() {
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                  placeholder="Écrivez votre message..."
+                  placeholder="Ã‰crivez votre message..."
                   className="w-full bg-slate-100/70 border border-transparent rounded-[24px] px-6 py-3.5 text-[15px] focus:bg-white focus:border-pink-200 focus:ring-4 focus:ring-pink-50 transition-all outline-none font-medium resize-none min-h-[52px] max-h-[150px] custom-scrollbar"
                 />
               </div>
@@ -379,7 +379,7 @@ export default function Messages() {
               <div className="absolute top-1/4 right-1/4 w-4 h-4 bg-pink-400 rounded-full"></div>
            </div>
            <h3 className="text-xl font-black text-slate-800 mb-2">Vos conversations</h3>
-           <p className="text-slate-400 font-bold uppercase tracking-widest text-[11px]">Sélectionnez une discussion pour commencer à discuter</p>
+           <p className="text-slate-400 font-bold uppercase tracking-widest text-[11px]">SÃ©lectionnez une discussion pour commencer Ã  discuter</p>
         </div>
       )}
 
@@ -391,3 +391,4 @@ export default function Messages() {
     </div>
   );
 }
+

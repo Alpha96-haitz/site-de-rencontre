@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
 import { FiHome, FiCompass, FiMessageCircle, FiHeart, FiUser, FiSearch, FiBell, FiLogOut, FiSettings, FiX, FiShield, FiUserPlus, FiUserCheck, FiMoon, FiSun } from 'react-icons/fi';
 import toast from 'react-hot-toast';
@@ -25,7 +25,7 @@ export default function Layout() {
     navigate('/login');
   };
 
-  // Récupérer le nombre de notifications et messages non lus
+  // RÃ©cupÃ©rer le nombre de notifications et messages non lus
   // Recuperer le nombre de notifications et messages non lus
   useEffect(() => {
     if (!user?._id) return;
@@ -47,7 +47,7 @@ export default function Layout() {
     const interval = setInterval(fetchUnread, 300000); // 5 mins fallback
     return () => clearInterval(interval);
   }, [user?._id]);
-  // Écouter les mises à jour de messages non lus via Socket
+  // Ã‰couter les mises Ã  jour de messages non lus via Socket
   useEffect(() => {
     const socket = connectSocket({ priority: 'low' });
     if (!socket) return;
@@ -111,7 +111,7 @@ export default function Layout() {
         const { data } = await client.get(`/users/search?q=${query}&limit=5`);
         setSearchResults(data);
       } catch (err) {
-        console.error("Search error:", err);
+        if (import.meta.env.DEV) console.error("Search error:", err);
       } finally {
         setIsSearching(false);
       }
@@ -131,7 +131,7 @@ export default function Layout() {
 
   const nav = useMemo(() => [
     { to: '/home', icon: FiHome, label: 'Accueil' },
-    { to: '/home/discover', icon: FiCompass, label: 'Découvrir' },
+    { to: '/home/discover', icon: FiCompass, label: 'DÃ©couvrir' },
     { to: '/home/search', icon: FiSearch, label: 'Recherche' },
     { to: '/home/matches', icon: FiHeart, label: 'Matchs' },
     { to: '/home/messages', icon: FiMessageCircle, label: 'Messages', badge: unreadMessagesCount },
@@ -188,7 +188,7 @@ export default function Layout() {
             {searchTerm.trim() && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="p-3 border-b border-slate-50 bg-slate-50/50">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Résultats de recherche</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">RÃ©sultats de recherche</span>
                 </div>
                 {searchResults.length > 0 ? (
                   <div className="max-h-80 overflow-y-auto">
@@ -217,10 +217,10 @@ export default function Layout() {
                                 try {
                                   if (isFollowing) {
                                     await client.put(`/users/${result._id}/unfollow`);
-                                    toast.success("Désabonné");
+                                    toast.success("DÃ©sabonnÃ©");
                                   } else {
                                     await client.put(`/users/${result._id}/follow`);
-                                    toast.success("Abonné !");
+                                    toast.success("AbonnÃ© !");
                                   }
                                   await refreshUser();
                                 } catch (err) {
@@ -237,7 +237,7 @@ export default function Layout() {
                     })}
                   </div>
                 ) : !isSearching && (
-                  <div className="p-8 text-center text-slate-400 italic text-sm">Aucun utilisateur trouvé pour "{searchTerm}"</div>
+                  <div className="p-8 text-center text-slate-400 italic text-sm">Aucun utilisateur trouvÃ© pour "{searchTerm}"</div>
                 )}
                 {isSearching && <div className="p-6 flex justify-center"><div className="w-5 h-5 border-2 border-pink-200 border-t-pink-500 rounded-full animate-spin"></div></div>}
               </div>
@@ -292,7 +292,7 @@ export default function Layout() {
                         </Link>
                       )}
                       <Link onClick={() => setShowDropdown(false)} to="/home/profile/edit" className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 rounded-xl text-slate-700 font-bold transition-all">
-                        <FiSettings className="w-4 h-4 text-slate-400" /> Paramètres
+                        <FiSettings className="w-4 h-4 text-slate-400" /> ParamÃ¨tres
                       </Link>
                       <button
                         onClick={() => {
@@ -307,7 +307,7 @@ export default function Layout() {
                     </div>
                     <div className="border-t border-slate-100 mx-2 mt-2 pt-2 pb-2">
                       <button onClick={() => { setShowDropdown(false); handleLogout(); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-rose-50 rounded-xl text-rose-600 font-black transition-all">
-                        <FiLogOut className="w-4 h-4" /> Déconnexion
+                        <FiLogOut className="w-4 h-4" /> DÃ©connexion
                       </button>
                     </div>
                   </div>
@@ -351,3 +351,4 @@ export default function Layout() {
     </div>
   );
 }
+

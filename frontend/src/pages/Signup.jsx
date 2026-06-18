@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,8 +40,8 @@ export default function Signup() {
     if (step === 1) {
       if (!form.username || !form.email || !form.password) return toast.error('Veuillez remplir tous les champs');
       if (/\s/.test(form.username)) return toast.error("Le nom d'utilisateur ne doit pas contenir d'espaces");
-      if (form.username.length < 3) return toast.error('Le nom d\'utilisateur doit faire au moins 3 caractères');
-      if (form.password.length < 6) return toast.error('Le mot de passe doit faire au moins 6 caractères');
+      if (form.username.length < 3) return toast.error('Le nom d\'utilisateur doit faire au moins 3 caractÃ¨res');
+      if (form.password.length < 6) return toast.error('Le mot de passe doit faire au moins 6 caractÃ¨res');
     }
     if (step === 2) {
       if (!form.firstName || !form.lastName || !form.birthDate || !form.city || !form.gender) return toast.error('Veuillez remplir toutes les informations');
@@ -72,7 +72,7 @@ export default function Signup() {
           });
           await refreshUser();
         } catch (photoErr) {
-          console.error("Erreur upload photo:", photoErr);
+          if (import.meta.env.DEV) console.error("Erreur upload photo:", photoErr);
           toast.error(photoErr?.response?.data?.message || "Photo non importee, mais le compte est cree.");
         }
       } else {
@@ -80,7 +80,13 @@ export default function Signup() {
       }
       
       toast.success('Bienvenue sur HAITZ-RENCONTRE !');
-      // On laisse le middleware/AuthContext gérer la redirection ou on le fait ici
+      if (form.email) {
+        localStorage.setItem(
+          `haitz_verify_resend_cooldown:${form.email.trim().toLowerCase()}`,
+          String(Date.now() + 60 * 1000)
+        );
+      }
+      // On laisse le middleware/AuthContext gÃ©rer la redirection ou on le fait ici
       if (res.needsVerification) {
         navigate('/verify-email-required');
       } else {
@@ -133,15 +139,15 @@ export default function Signup() {
             <img src={logo} alt="HAITZ" className="h-20 object-contain mx-auto mb-6 drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]" />
             <h1 className="text-3xl font-black text-white tracking-tight mb-2">
               {step === 1 && "Commencez l'aventure"}
-              {step === 2 && "Qui êtes-vous ?"}
+              {step === 2 && "Qui Ãªtes-vous ?"}
               {step === 3 && "Montrez-vous"}
-              {step === 4 && "Prêt à partir ?"}
+              {step === 4 && "PrÃªt Ã  partir ?"}
             </h1>
             <p className="text-slate-400 text-sm">
-              {step === 1 && "Créez votre compte pour rencontrer des gens."}
+              {step === 1 && "CrÃ©ez votre compte pour rencontrer des gens."}
               {step === 2 && "Dites-nous en plus sur vous."}
               {step === 3 && "Une photo rend votre profil 7x plus attirant."}
-              {step === 4 && "Vérifiez vos informations avant de confirmer."}
+              {step === 4 && "VÃ©rifiez vos informations avant de confirmer."}
             </p>
           </div>
 
@@ -182,7 +188,7 @@ export default function Signup() {
               {step === 2 && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <input name="firstName" placeholder="Prénom" value={form.firstName} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-white px-5 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all placeholder:text-slate-600" />
+                    <input name="firstName" placeholder="PrÃ©nom" value={form.firstName} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-white px-5 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all placeholder:text-slate-600" />
                     <input name="lastName" placeholder="Nom" value={form.lastName} onChange={handleChange} className="w-full bg-white/5 border border-white/10 text-white px-5 py-4 rounded-2xl focus:border-pink-500 outline-none transition-all placeholder:text-slate-600" />
                   </div>
                   <div className="group relative">
@@ -200,7 +206,7 @@ export default function Signup() {
                         <option value="female" className="bg-slate-900">Femme</option>
                         <option value="other" className="bg-slate-900">Autre</option>
                       </select>
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">▼</div>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">â–¼</div>
                   </div>
                   <button onClick={nextStep} className="w-full py-4 mt-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl font-bold text-lg shadow-[0_10px_30px_rgba(244,63,94,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">Continuer <FiArrowRight /></button>
                 </div>
@@ -213,7 +219,7 @@ export default function Signup() {
                     <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/20 to-rose-500/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
                     <div className="relative w-48 h-48 rounded-full border-2 border-white/10 bg-white/5 flex items-center justify-center overflow-hidden ring-4 ring-white/5 ring-offset-4 ring-offset-black transition-all">
                       {preview ? 
-                        <img src={preview} alt="Aperçu" className="w-full h-full object-cover scale-105 hover:scale-110 transition-transform duration-700" /> : 
+                        <img src={preview} alt="AperÃ§u" className="w-full h-full object-cover scale-105 hover:scale-110 transition-transform duration-700" /> : 
                         <FiCamera className="w-16 h-16 text-slate-700 group-hover:text-pink-500 transition-colors duration-500" />
                       }
                       <label className="absolute inset-0 cursor-pointer">
@@ -226,7 +232,7 @@ export default function Signup() {
                       </motion.div>
                     )}
                   </div>
-                  <p className="text-slate-400 max-w-[250px] mx-auto">Téléchargez une photo de vous pour rendre votre profil plus attirant !</p>
+                  <p className="text-slate-400 max-w-[250px] mx-auto">TÃ©lÃ©chargez une photo de vous pour rendre votre profil plus attirant !</p>
                   <button onClick={nextStep} disabled={!preview} className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl font-bold shadow-[0_10px_30px_rgba(244,63,94,0.3)] disabled:opacity-30 disabled:grayscale transition-all flex items-center justify-center gap-2">Presque fini <FiArrowRight /></button>
                 </div>
               )}
@@ -269,9 +275,10 @@ export default function Signup() {
         </div>
         
         <p className="mt-10 text-center text-slate-500 text-sm font-medium">
-          Déjà membre ? <Link to="/login" className="text-pink-500 font-bold hover:text-pink-400 transition-colors decoration-2 underline-offset-4 hover:underline">Se connecter</Link>
+          DÃ©jÃ  membre ? <Link to="/login" className="text-pink-500 font-bold hover:text-pink-400 transition-colors decoration-2 underline-offset-4 hover:underline">Se connecter</Link>
         </p>
       </motion.div>
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useCallback } from 'react';
+﻿import { memo, useState, useEffect, useCallback } from 'react';
 import { FiHeart, FiMessageCircle, FiTrash2, FiMoreHorizontal, FiEdit2 } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -68,14 +68,14 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
       ? (post.likes || []).filter(id => id !== user._id)
       : [...(post.likes || []), user._id];
 
-    // Mise à jour optimiste
+    // Mise Ã  jour optimiste
     setPost(prev => ({ ...prev, likes: nextLikes }));
 
     try {
       await client.put(`/posts/${post._id}/like`);
     } catch (err) {
-      console.error(err);
-      // Retour en arrière si erreur
+      if (import.meta.env.DEV) console.error(err);
+      // Retour en arriÃ¨re si erreur
       setPost(previousPost);
       toast.error("Impossible de liker pour le moment");
     }
@@ -90,7 +90,7 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
       setPost(prev => ({ ...prev, comments: [...prev.comments, data.comment] }));
       setCommentText('');
     } catch (err) {
-      console.error(err);
+      if (import.meta.env.DEV) console.error(err);
     } finally {
       setLoadingComment(false);
     }
@@ -100,7 +100,7 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
     if (!window.confirm("Supprimer cette publication ?")) return;
     try {
       await client.delete(`/posts/${post._id}`);
-      toast.success("Publication supprimée");
+      toast.success("Publication supprimÃ©e");
       if (onDelete) onDelete(post._id);
     } catch (err) {
       toast.error("Erreur lors de la suppression");
@@ -175,7 +175,7 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
               {author?.firstName} {author?.lastName}
             </Link>
             <p className="text-[11px] font-medium text-slate-400 flex items-center gap-1 uppercase tracking-wider">
-              {post.createdAt ? formatDistanceToNow(new Date(post.createdAt), { addSuffix: true, locale: fr }) : "À l'instant"}
+              {post.createdAt ? formatDistanceToNow(new Date(post.createdAt), { addSuffix: true, locale: fr }) : "Ã€ l'instant"}
             </p>
           </div>
         </div>
@@ -275,7 +275,7 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
               type="text"
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Écrire un commentaire..."
+              placeholder="Ã‰crire un commentaire..."
               className="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200 transition-all"
             />
             <button 
@@ -306,14 +306,14 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
                       </Link>
                       <p className="text-slate-600 leading-relaxed mt-1">{c.text}</p>
                       <span className="text-[10px] text-slate-400 mt-1 block uppercase font-bold tracking-tighter">
-                        {c.createdAt ? formatDistanceToNow(new Date(c.createdAt), { addSuffix: true, locale: fr }) : "À l'instant"}
+                        {c.createdAt ? formatDistanceToNow(new Date(c.createdAt), { addSuffix: true, locale: fr }) : "Ã€ l'instant"}
                       </span>
                     </div>
                   </div>
                 );
               })
             ) : (
-              <p className="text-center text-xs text-slate-400 py-2">Soyez le premier à commenter !</p>
+              <p className="text-center text-xs text-slate-400 py-2">Soyez le premier Ã  commenter !</p>
             )}
           </div>
         </div>
@@ -375,7 +375,7 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
                 onClick={closeImageModal}
                 className="absolute -top-12 right-0 text-white hover:text-pink-400 transition-colors text-2xl font-bold z-60"
               >
-                ✕
+                âœ•
               </button>
               <img
                 src={post.image}
@@ -392,4 +392,5 @@ function PostItem({ post: initialPost, onDelete, onUpdate, showFollowAction = fa
 }
 
 export default memo(PostItem);
+
 

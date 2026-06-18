@@ -3,7 +3,7 @@
  */
 import nodemailer from 'nodemailer';
 
-const hasSmtpConfig = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
+const hasSmtpConfig = !!(process.env.SMTP_USER && process.env.SMTP_PASS && process.env.SMTP_HOST);
 
 export const isSmtpConfigured = () => hasSmtpConfig;
 
@@ -11,7 +11,8 @@ const transporter = hasSmtpConfig
   ? nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT, 10) || 587,
-      secure: false,
+      secure: String(process.env.SMTP_PORT || '587') === '465',
+      requireTLS: String(process.env.SMTP_PORT || '587') !== '465',
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
@@ -65,9 +66,11 @@ const wrapTemplate = (content, title) => `
 `;
 
 export const sendVerificationEmail = async (email, token, baseUrl) => {
-  if (!transporter) return;
+  if (!transporter) {
+    throw new Error('SMTP non configure: impossible d envoyer l email de verification');
+  }
 
-  const url = `${baseUrl}/verify-email?token=${token}`;
+  const url = `${baseUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
   const content = `
     <h2>Bienvenue sur HAITZ !</h2>
     <p>Nous sommes ravis de vous compter parmi nous. Pour activer votre compte et commencer l'expérience, veuillez confirmer votre adresse e-mail en cliquant sur le bouton ci-dessous :</p>
@@ -87,7 +90,9 @@ export const sendVerificationEmail = async (email, token, baseUrl) => {
 };
 
 export const sendPasswordResetEmail = async (email, token, baseUrl) => {
-  if (!transporter) return;
+  if (!transporter) {
+    throw new Error('SMTP non configure: impossible d envoyer l email de reinitialisation');
+  }
 
   const url = `${baseUrl}/reset-password?token=${token}`;
   const content = `
@@ -110,7 +115,9 @@ export const sendPasswordResetEmail = async (email, token, baseUrl) => {
 };
 
 export const sendPasswordResetCodeEmail = async (email, code) => {
-  if (!transporter) return;
+  if (!transporter) {
+    throw new Error('SMTP non configure: impossible d envoyer le code de reinitialisation');
+  }
 
   const content = `
     <h2>Récupération de compte</h2>
@@ -130,7 +137,9 @@ export const sendPasswordResetCodeEmail = async (email, code) => {
 };
 
 export const sendSignupCodeEmail = async (email, code) => {
-  if (!transporter) return;
+  if (!transporter) {
+    throw new Error('SMTP non configure: impossible d envoyer le code de validation');
+  }
 
   const content = `
     <h2>Validez votre inscription</h2>

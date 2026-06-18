@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/kill-port.js && node --watch src/server.js",
+    "dev": "node scripts/dev-server.js",
     "start": "node src/server.js",
     "make-root": "node scripts/makeRootUser.js",
     "make-admin": "node scripts/makeAdminUser.js"

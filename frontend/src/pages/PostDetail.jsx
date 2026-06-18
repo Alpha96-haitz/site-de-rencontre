@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiChevronLeft, FiAlertCircle } from 'react-icons/fi';
 import client from '../api/client';
@@ -20,7 +20,7 @@ export default function PostDetail() {
         const { data } = await client.get(`/posts/${postId}`);
         setPost(data);
       } catch (err) {
-        console.error('Erreur chargement post:', err);
+        if (import.meta.env.DEV) console.error('Erreur chargement post:', err);
         setError(true);
         toast.error("Impossible de charger la publication");
       } finally {
@@ -63,12 +63,12 @@ export default function PostDetail() {
             <FiAlertCircle className="text-2xl text-rose-500" />
           </div>
           <h2 className="text-lg font-bold text-slate-800 mb-2">Publication introuvable</h2>
-          <p className="text-slate-500 text-sm mb-6">Elle a peut-être été supprimée par son auteur.</p>
+          <p className="text-slate-500 text-sm mb-6">Elle a peut-Ãªtre Ã©tÃ© supprimÃ©e par son auteur.</p>
           <button 
             onClick={() => navigate('/home')}
             className="px-6 py-2 bg-pink-600 text-white rounded-xl font-bold hover:bg-pink-700 transition-colors shadow-lg shadow-pink-100"
           >
-            Retour à l'accueil
+            Retour Ã  l'accueil
           </button>
         </div>
       ) : post && (
@@ -82,3 +82,4 @@ export default function PostDetail() {
     </div>
   );
 }
+

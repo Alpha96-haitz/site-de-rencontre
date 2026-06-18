@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiHeart, FiMessageCircle, FiUserPlus, FiCheckCircle, FiBell, FiMoreHorizontal, FiUserCheck, FiChevronLeft } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
@@ -25,7 +25,7 @@ export default function Notifications() {
 
   useEffect(() => {
     fetchNotifications();
-    // Marquer tout comme lu après un court délai
+    // Marquer tout comme lu aprÃ¨s un court dÃ©lai
     const timer = setTimeout(async () => {
       try {
         const { data } = await client.put('/notifications/mark-all-read');
@@ -47,10 +47,10 @@ export default function Notifications() {
     try {
       if (user?.following?.includes(targetId)) {
         await client.put(`/users/${targetId}/unfollow`);
-        toast.success("Désabonné");
+        toast.success("DÃ©sabonnÃ©");
       } else {
         await client.put(`/users/${targetId}/follow`);
-        toast.success("Abonné !");
+        toast.success("AbonnÃ© !");
       }
       refreshUser();
     } catch (err) {
@@ -72,7 +72,7 @@ export default function Notifications() {
         }));
       }
     } catch (err) {
-      console.error('Erreur marque notification lue', err);
+      if (import.meta.env.DEV) console.error('Erreur marque notification lue', err);
     } finally {
       const { type, post, match, sender } = notification;
       const postId = post?._id || post;
@@ -92,7 +92,7 @@ export default function Notifications() {
         }
       }
 
-      // Par défaut vers le profil de l'expéditeur (pour les follows, etc)
+      // Par dÃ©faut vers le profil de l'expÃ©diteur (pour les follows, etc)
       if (sender?.username) {
         navigate(`/home/profile/${sender.username}`);
       } else {
@@ -103,10 +103,10 @@ export default function Notifications() {
 
   const categorizeNotifications = () => {
     const categories = {
-      today: { title: 'Aujourd’hui', items: [] },
+      today: { title: 'Aujourdâ€™hui', items: [] },
       yesterday: { title: 'Hier', items: [] },
       thisWeek: { title: 'Cette semaine', items: [] },
-      earlier: { title: 'Plus tôt', items: [] }
+      earlier: { title: 'Plus tÃ´t', items: [] }
     };
 
     notifications.forEach(n => {
@@ -136,7 +136,7 @@ export default function Notifications() {
             <button onClick={() => navigate(-1)} className="md:hidden p-2 hover:bg-slate-50 rounded-full transition-all">
                <FiChevronLeft className="text-2xl text-slate-800" />
             </button>
-            <h1 className="text-[22px] font-black text-slate-900 tracking-tight">Activité</h1>
+            <h1 className="text-[22px] font-black text-slate-900 tracking-tight">ActivitÃ©</h1>
          </div>
          <button onClick={fetchNotifications} className="text-pink-600 font-bold text-sm px-2 py-1 rounded hover:bg-pink-50 transition-colors">Actualiser</button>
       </div>
@@ -147,8 +147,8 @@ export default function Notifications() {
              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 border border-slate-100">
                 <FiBell className="text-4xl text-slate-200" />
              </div>
-             <h3 className="text-xl font-black text-slate-800 mb-2">Aucune activité</h3>
-             <p className="text-slate-400 text-sm font-medium leading-relaxed">Les mentions J’aime, les commentaires et les nouveaux abonnés apparaîtront ici.</p>
+             <h3 className="text-xl font-black text-slate-800 mb-2">Aucune activitÃ©</h3>
+             <p className="text-slate-400 text-sm font-medium leading-relaxed">Les mentions Jâ€™aime, les commentaires et les nouveaux abonnÃ©s apparaÃ®tront ici.</p>
           </div>
         ) : (
           categories.map(cat => (
@@ -160,7 +160,7 @@ export default function Notifications() {
                      const isFollowing = user?.following?.includes(n.sender?._id);
                      const senderName = n.sender?.username || 'Utilisateur';
                      
-                     // Formatage amélioré du temps
+                     // Formatage amÃ©liorÃ© du temps
                      const now = new Date();
                      const notificationTime = new Date(n.createdAt);
                      const diffInMinutes = Math.floor((now - notificationTime) / (1000 * 60));
@@ -169,7 +169,7 @@ export default function Notifications() {
                      
                      let timeDisplay = '';
                      if (diffInMinutes < 1) {
-                        timeDisplay = 'À l\'instant';
+                        timeDisplay = 'Ã€ l\'instant';
                      } else if (diffInMinutes < 60) {
                         timeDisplay = `${diffInMinutes}m`;
                      } else if (diffInHours < 24) {
@@ -206,24 +206,24 @@ export default function Notifications() {
                                     </span>
                                  </div>
                                  
-                                 {/* Détails de la notification en bas */}
+                                 {/* DÃ©tails de la notification en bas */}
                                  <div className="text-[13px] text-slate-600 leading-[18px] mb-2">
                                     {n.content ? (
                                        <>
                                           {n.type === 'comment' && (
                                              <span>
-                                                a commenté: <span className="font-medium italic">"{n.content.length > 50 ? `${n.content.substring(0, 50)}...` : n.content}"</span>
+                                                a commentÃ©: <span className="font-medium italic">"{n.content.length > 50 ? `${n.content.substring(0, 50)}...` : n.content}"</span>
                                              </span>
                                           )}
-                                          {n.type === 'like' && "a aimé votre publication"}
-                                          {n.type === 'follow' && "a commencé à vous suivre"}
+                                          {n.type === 'like' && "a aimÃ© votre publication"}
+                                          {n.type === 'follow' && "a commencÃ© Ã  vous suivre"}
                                           {n.type === 'match' && "Un nouveau match ! Envoyez un message"}
                                        </>
                                     ) : (
                                        <>
-                                          {n.type === 'like' && "a aimé votre publication"}
-                                          {n.type === 'comment' && "a commenté votre publication"}
-                                          {n.type === 'follow' && "a commencé à vous suivre"}
+                                          {n.type === 'like' && "a aimÃ© votre publication"}
+                                          {n.type === 'comment' && "a commentÃ© votre publication"}
+                                          {n.type === 'follow' && "a commencÃ© Ã  vous suivre"}
                                           {n.type === 'match' && "Un nouveau match ! Envoyez un message"}
                                        </>
                                     )}
@@ -237,7 +237,7 @@ export default function Notifications() {
                                     onClick={(e) => handleFollowAction(n.sender?._id, e)}
                                     className={`px-4 py-1.5 rounded-lg text-[13px] font-black transition-all ${isFollowing ? 'bg-slate-100 text-slate-800 hover:bg-slate-200' : 'bg-pink-600 text-white hover:bg-pink-700 shadow-lg shadow-pink-100'}`}
                                  >
-                                    {isFollowing ? 'Abonné(e)' : 'S’abonner'}
+                                    {isFollowing ? 'AbonnÃ©(e)' : 'Sâ€™abonner'}
                                  </button>
                               ) : n.post ? (
                                  <div className="w-[44px] h-[44px] rounded-lg bg-slate-50 overflow-hidden border border-slate-100">
@@ -263,3 +263,4 @@ export default function Notifications() {
     </div>
   );
 }
+

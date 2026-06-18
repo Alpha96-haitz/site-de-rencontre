@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import { useState, useEffect, useCallback, useMemo } from 'react';
 import { FiX, FiHeart, FiStar, FiInfo, FiRefreshCw, FiMapPin, FiNavigation, FiRotateCcw, FiChevronLeft, FiChevronRight, FiZap, FiMessageCircle, FiFlag } from 'react-icons/fi';
 import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +15,7 @@ export default function Discover() {
   const [direction, setDirection] = useState(null); // 'left' or 'right'
   const [likedUserIds, setLikedUserIds] = useState(() => new Set());
   
-  // États pour le Match Modal (Style Tinder)
+  // Ã‰tats pour le Match Modal (Style Tinder)
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [matchData, setMatchData] = useState(null);
   
@@ -75,7 +75,7 @@ export default function Discover() {
             next.add(targetId);
             return next;
           });
-          toast(data.message || "Vous avez déjà liké cet utilisateur", { icon: 'ℹ️' });
+          toast(data.message || "Vous avez dÃ©jÃ  likÃ© cet utilisateur", { icon: 'â„¹ï¸' });
           setDirection(null);
           setCurrentIndex(prev => prev + 1);
           return;
@@ -96,7 +96,7 @@ export default function Discover() {
         await client.post(`/matches/dislike/${targetId}`);
       }
     } catch (err) {
-      console.error(err);
+      if (import.meta.env.DEV) console.error(err);
     }
 
     setTimeout(() => {
@@ -110,7 +110,7 @@ export default function Discover() {
 
   const handleUndo = useCallback(() => {
     if (history.length === 0) {
-      toast.error("Rien à annuler !");
+      toast.error("Rien Ã  annuler !");
       return;
     }
     const lastAction = history[history.length - 1];
@@ -169,7 +169,7 @@ export default function Discover() {
                 onClick={() => setShowMatchModal(false)}
                 className="w-full bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-full py-4 text-sm font-black uppercase tracking-widest transition-all"
               >
-                Continuer à découvrir
+                Continuer Ã  dÃ©couvrir
               </button>
            </div>
            
@@ -214,7 +214,7 @@ export default function Discover() {
                       {currentCard.isRecycled && (
                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-yellow-500/20 rounded-full border border-yellow-500/30">
                           <FiRefreshCw className="w-2.5 h-2.5 text-yellow-500 animate-spin-slow" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-yellow-400">Recyclé</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-yellow-400">RecyclÃ©</span>
                         </div>
                       )}
                       {currentCard.isOnline && (
@@ -252,8 +252,8 @@ export default function Discover() {
              <div className="w-32 h-32 bg-white/5 rounded-full flex items-center justify-center mb-10 shadow-[0_0_50px_rgba(236,72,153,0.1)] border border-white/10">
                <FiRefreshCw className="w-14 h-14 text-pink-500 animate-spin-slow opacity-50" />
              </div>
-             <h2 className="text-4xl font-black text-white mb-4 tracking-tighter">Deck terminé !</h2>
-             <p className="text-white/40 font-bold mb-12 max-w-sm mx-auto leading-relaxed text-lg italic">Vous avez exploré tous les nouveaux profils. Voulez-vous revoir ceux que vous avez ignorés ?</p>
+             <h2 className="text-4xl font-black text-white mb-4 tracking-tighter">Deck terminÃ© !</h2>
+             <p className="text-white/40 font-bold mb-12 max-w-sm mx-auto leading-relaxed text-lg italic">Vous avez explorÃ© tous les nouveaux profils. Voulez-vous revoir ceux que vous avez ignorÃ©s ?</p>
              <button onClick={handleRefresh} className="px-12 py-5 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-[25px] font-black uppercase tracking-[0.2em] shadow-[0_20px_40px_rgba(217,119,6,0.3)] hover:scale-105 active:scale-95 transition-all duration-300">
                Recycler les profils
              </button>
@@ -273,7 +273,7 @@ export default function Discover() {
         <button 
           onClick={handleUndo}
           className="w-12 h-12 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-xl text-[#f1c40f] hover:scale-110 active:scale-90 transition-all disabled:opacity-50 hover:bg-[#f1c40f] hover:text-white hover:shadow-[#f1c40f]/30"
-          title="Annuler la dernière action"
+          title="Annuler la derniÃ¨re action"
         >
           <FiRotateCcw className="w-6 h-6 stroke-[3]" />
         </button>
@@ -281,13 +281,13 @@ export default function Discover() {
         <button 
           onClick={() => handleAction('dislike')}
           className="w-16 h-16 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-2xl text-[#f5515d] hover:scale-110 active:scale-95 transition-all disabled:opacity-50 hover:bg-[#f5515d] hover:text-white hover:shadow-[#f5515d]/30"
-          title="Pas intéressé"
+          title="Pas intÃ©ressÃ©"
         >
           <FiX className="w-9 h-9 stroke-[4]" />
         </button>
 
         <button 
-          onClick={() => toast("Fonctionnalité Super Like bientôt disponible !", { icon: '⭐' })}
+          onClick={() => toast("FonctionnalitÃ© Super Like bientÃ´t disponible !", { icon: 'â­' })}
           className="w-12 h-12 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-xl text-[#3498db] hover:scale-110 active:scale-90 transition-all hover:bg-[#3498db] hover:text-white hover:shadow-[#3498db]/30"
           title="Super Like (Premium)"
         >
@@ -303,9 +303,9 @@ export default function Discover() {
         </button>
 
         <button 
-          onClick={() => toast("Mode Boost bientôt disponible !", { icon: '⚡' })}
+          onClick={() => toast("Mode Boost bientÃ´t disponible !", { icon: 'âš¡' })}
           className="w-12 h-12 bg-white border border-slate-50 rounded-full flex items-center justify-center shadow-xl text-[#9b59b6] hover:scale-110 active:scale-90 transition-all hover:bg-[#9b59b6] hover:text-white hover:shadow-[#9b59b6]/30"
-          title="Boost de visibilité (Premium)"
+          title="Boost de visibilitÃ© (Premium)"
         >
           <FiZap className="w-6 h-6 fill-current" />
         </button>
@@ -321,9 +321,9 @@ export default function Discover() {
              <FiFlag className="w-5 h-5" />
            </button>
            <button 
-             onClick={() => toast("Navigation désactivée - Utilisez le swipe !", { icon: '🚫' })}
+             onClick={() => toast("Navigation dÃ©sactivÃ©e - Utilisez le swipe !", { icon: 'ðŸš«' })}
              className="w-10 h-10 bg-slate-800/40 backdrop-blur-md border border-slate-600/30 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-300 transition-all opacity-50 cursor-not-allowed"
-             title="Navigation désactivée"
+             title="Navigation dÃ©sactivÃ©e"
              disabled
            >
              <FiChevronLeft className="w-5 h-5" />
@@ -336,9 +336,9 @@ export default function Discover() {
              <FiInfo className="w-4 h-4" /> Profil
            </Link>
            <button 
-             onClick={() => toast("Navigation désactivée - Utilisez le swipe !", { icon: '🚫' })}
+             onClick={() => toast("Navigation dÃ©sactivÃ©e - Utilisez le swipe !", { icon: 'ðŸš«' })}
              className="w-10 h-10 bg-slate-800/40 backdrop-blur-md border border-slate-600/30 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-300 transition-all opacity-50 cursor-not-allowed"
-             title="Navigation désactivée"
+             title="Navigation dÃ©sactivÃ©e"
              disabled
            >
              <FiChevronRight className="w-5 h-5" />
@@ -376,3 +376,4 @@ export default function Discover() {
     </div>
   );
 }
+

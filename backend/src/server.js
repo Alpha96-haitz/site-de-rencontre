@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Serveur principal - Express + Socket.io (Restart: 2026-04-13)
  */
 import 'dotenv/config';
@@ -26,8 +26,7 @@ async function killPortIfNeeded(port) {
         const pid = parts[parts.length - 1];
         if (pid && pid !== myPid && /^\d+$/.test(pid)) {
           execSync(`taskkill /PID ${pid} /F`, { stdio: 'ignore' });
-          console.log(`Port ${port} libéré (PID ${pid})`);
-          await new Promise(r => setTimeout(r, 500)); // Laisser le port se libérer
+          await new Promise(r => setTimeout(r, 500)); // Laisser le port se libÃ©rer
         }
       }
     } else {
@@ -43,7 +42,9 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 const httpServer = createServer(app);
 
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+const allowedOrigins = [process.env.FRONTEND_URL, process.env.PUBLIC_WEB_URL]
+  .filter(Boolean)
+  .join(',')
   .split(',')
   .map(o => o.trim())
   .filter(Boolean);
@@ -89,7 +90,7 @@ initSocket(io);
 app.set('io', io);
 global.ioInstance = io;
 
-// Sécurité
+// SÃ©curitÃ©
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(compression());
 app.use(mongoSanitize({ replaceWith: '_' }));
@@ -100,6 +101,12 @@ app.use(cookieParser());
 app.use((req, res, next) => {
   res.setHeader('Content-Type', 'application/json; charset=UTF-8');
   next();
+});
+
+// Chrome / Edge DevTools probe this URL automatically on localhost.
+// Returning 204 avoids a noisy 404 in the console.
+app.get('/.well-known/appspecific/com.chrome.devtools.json', (req, res) => {
+  res.status(204).end();
 });
 
 const limiter = rateLimit({
@@ -121,7 +128,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 if (!process.env.JWT_SECRET) {
-  throw new Error('JWT_SECRET must être défini dans l environnement');
+  throw new Error('JWT_SECRET must Ãªtre dÃ©fini dans l environnement');
 }
 
 async function start() {
@@ -130,18 +137,21 @@ async function start() {
     await connectDB();
     httpServer.on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
-        console.error(`\n⚠️  Le port ${PORT} est déjà utilisé.`);
-        console.error('   Arrêtez l\'autre processus ou utilisez: npm run dev (libère le port automatiquement)\n');
+        console.error(`\nâš ï¸  Le port ${PORT} est dÃ©jÃ  utilisÃ©.`);
+        console.error('   ArrÃªtez l\'autre processus ou utilisez: npm run dev (libÃ¨re le port automatiquement)\n');
       }
       process.exit(1);
     });
     httpServer.listen(PORT, () => {
-      const url = process.env.RAILWAY_PUBLIC_DOMAIN || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
-      console.log(`✅ Serveur sur ${url}`);
+      if (process.env.NODE_ENV !== 'production') {
+        const url = process.env.RAILWAY_PUBLIC_DOMAIN || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+        console.log(`âœ… Serveur sur ${url}`);
+      }
     });
   } catch (err) {
-    console.error('Erreur démarrage:', err.message || err);
+    console.error('Erreur dÃ©marrage:', err.message || err);
     process.exit(1);
   }
 }
 start();
+
